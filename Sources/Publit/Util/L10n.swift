@@ -4,12 +4,23 @@ import Foundation
 /// Keys are the English text; translations live in Sources/Shared/Localizable.xcstrings.
 /// Placeholders follow the String Catalog convention: `%@` for text, `%lld` for whole numbers.
 enum L10n {
+    #if os(Android)
+    /// On Android the catalog ships with the Publit module, not the app's main bundle.
+    static var bundle: Bundle { .module }
+    /// The language the texts are shown in, for the spoken guidance ("de", "en", …).
+    static var languageCode: String {
+        Bundle.module.preferredLocalizations.first ?? Locale.current.language.languageCode?.identifier ?? "en"
+    }
+    #else
+    static var bundle: Bundle { .main }
+    #endif
+
     static func t(_ key: String) -> String {
-        NSLocalizedString(key, bundle: .main, comment: "")
+        NSLocalizedString(key, bundle: bundle, comment: "")
     }
 
     static func f(_ key: String, _ args: Any...) -> String {
-        let format = NSLocalizedString(key, bundle: .main, comment: "")
+        let format = NSLocalizedString(key, bundle: bundle, comment: "")
         #if canImport(Darwin)
         // Goes through NSString formatting so plural variations in the catalog apply.
         let cArgs: [CVarArg] = args.map { arg in

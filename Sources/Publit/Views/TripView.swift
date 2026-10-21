@@ -188,6 +188,18 @@ struct TripMap: View, Equatable {
         a.generation == b.generation && a.vehicle?.lat == b.vehicle?.lat && a.vehicle?.lon == b.vehicle?.lon
     }
 
+    #if os(Android)
+    var body: some View {
+        // MapLibre: the line, white stop dots ringed in the line colour, the vehicle as a filled dot.
+        var content = GoogleMapContent(lines: [.init(points: shape, color: color, width: 5)])
+        content.pins = stops.map { .init(coordinate: $0, kind: .dot(color: .white, border: color, size: 8, borderWidth: 2)) }
+        if let vehicle {
+            content.pins.append(.init(coordinate: vehicle, kind: .dot(color: color, border: textColor, size: 22, borderWidth: 3)))
+        }
+        return GoogleMapView(content: content, camera: .fit(shape.isEmpty ? stops : shape))
+            .accessibilityLabel(Text(L10n.t("Estimated vehicle position")))
+    }
+    #else
     var body: some View {
         Map(initialPosition: .automatic) {
             MapPolyline(coordinates: shape.map(\.clCoordinate))
@@ -212,6 +224,7 @@ struct TripMap: View, Equatable {
         }
         .publitMapStyle()
     }
+    #endif
 }
 
 struct StopTimeRow: View {

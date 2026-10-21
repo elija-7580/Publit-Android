@@ -53,6 +53,7 @@ struct TransitMapContent {
     var rentalsVersion = 0
 }
 
+#if !os(Android)
 /// MKMapView instead of SwiftUI's Map: hundreds of line pieces are drawn as one overlay per colour,
 /// pins are reused, and moving vehicles only change their coordinate (no SwiftUI diffing per second).
 struct TransitMapView: UIViewRepresentable {
@@ -781,3 +782,5 @@ final class RentalPinView: MKAnnotationView {
         accessibilityHint = L10n.t("Show rental details")
     }
 }
+
+#endif

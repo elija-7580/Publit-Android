@@ -170,4 +170,55 @@ object Droid {
     }
 
     @JvmStatic fun pendingNotificationIds(): String = DroidNotify.pending(context()).keys.joinToString("\n")
+
+    // MARK: Other apps
+
+    /** Opens a link (web, geo:, tel:, mailto:, another app's scheme); false when no app takes it. */
+    @JvmStatic fun openURL(url: String): Boolean {
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        return try { (activity() ?: context()).startActivity(intent); true } catch (e: Exception) { false }
+    }
+
+    /** The system share sheet for a text or link. */
+    @JvmStatic fun shareText(text: String, subject: String) {
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+            .putExtra(android.content.Intent.EXTRA_TEXT, text)
+        if (subject.isNotEmpty()) send.putExtra(android.content.Intent.EXTRA_SUBJECT, subject)
+        val chooser = android.content.Intent.createChooser(send, null).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        try { (activity() ?: context()).startActivity(chooser) } catch (e: Exception) {}
+    }
+
+    // MARK: Spoken guidance (GuideVoice)
+
+    private var tts: android.speech.tts.TextToSpeech? = null
+    private var ttsReady = false
+    private var pending: Pair<String, String>? = null
+
+    @JvmStatic fun speak(text: String, language: String) {
+        val engine = tts
+        if (engine == null) {
+            pending = Pair(text, language)
+            tts = android.speech.tts.TextToSpeech(context()) { status ->
+                ttsReady = status == android.speech.tts.TextToSpeech.SUCCESS
+                pending?.let { p -> pending = null; if (ttsReady) say(p.first, p.second) }
+            }
+            return
+        }
+        if (ttsReady) say(text, language) else pending = Pair(text, language)
+    }
+
+    private fun say(text: String, language: String) {
+        val engine = tts ?: return
+        if (language.isNotEmpty()) engine.setLanguage(java.util.Locale.forLanguageTag(language))
+        val attrs = android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH).build()
+        engine.setAudioAttributes(attrs)
+        engine.speak(text, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "publit-guide")
+    }
+
+    @JvmStatic fun stopSpeaking() { tts?.stop() }
+
+    @JvmStatic fun isSpeaking(): Boolean = tts?.isSpeaking == true
 }

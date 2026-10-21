@@ -785,7 +785,9 @@ struct GuideMap: View {
     }
 
     @ViewBuilder private var mapLayer: some View {
-        #if canImport(GoogleMaps)
+        #if os(Android)
+            GoogleMapView(content: googleContent, camera: googleCamera)
+        #elseif canImport(GoogleMaps)
         if MapProvider.usesGoogle(mapProvider) {
             GoogleMapView(content: googleContent, camera: googleCamera)
         } else {
@@ -796,6 +798,7 @@ struct GuideMap: View {
         #endif
     }
 
+#if !os(Android)
     private var appleMap: some View {
         let current = itinerary.legs[step.legIndex]
         return Map(position: $camera) {
@@ -852,6 +855,7 @@ struct GuideMap: View {
         .publitMapStyle()
         .mapControls { MapUserLocationButton(); MapCompass() }
     }
+#endif
 
     /// The same drawing as the Apple map, for Google's.
     private var googleContent: GoogleMapContent {
@@ -1412,6 +1416,11 @@ final class WalkDetour {
 
     func update(from: LatLon?, to: LatLon?) async {
         guard let from, let to else { return }
+        #if os(Android)
+        guard let found = await TransitousWalk.route(from: from, to: to), !Task.isCancelled else { return }
+        route = Route(to: to, points: [from] + found.points + [to], distance: found.distance,
+                      seconds: found.expectedTravelTime, steps: found.steps)
+        #else
         let request = MKDirections.Request()
         request.source = MKMapItem(placemark: MKPlacemark(coordinate: from.clCoordinate))
         request.destination = MKMapItem(placemark: MKPlacemark(coordinate: to.clCoordinate))
@@ -1423,5 +1432,6 @@ final class WalkDetour {
         route = Route(to: to, points: [from] + coords.map { LatLon(lat: $0.latitude, lon: $0.longitude) },
                       distance: found.distance, seconds: found.expectedTravelTime,
                       steps: found.steps.map(\.instructions).filter { !$0.isEmpty })
+        #endif
     }
 }

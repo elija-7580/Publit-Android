@@ -17,7 +17,12 @@ enum DirectionsApp: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
+        #if os(Android)
+        // Android: whichever maps app the phone uses for geo: links.
+        case .apple: return L10n.t("Map")
+        #else
         case .apple: return L10n.t("Apple Maps")
+        #endif
         case .google: return "Google Maps"
         case .citymapper: return "Citymapper"
         }
@@ -33,6 +38,12 @@ enum DirectionsApp: String, CaseIterable, Identifiable {
     /// Google and Citymapper links open their app when it is installed, otherwise the website.
     @MainActor
     func open(_ point: LatLon, name: String, mode: Mode, from: (point: LatLon, name: String)? = nil) {
+        #if os(Android)
+        if let url = url(point, name: name, mode: mode, from: from), Droid.bool("openURL", url.absoluteString) { return }
+        if self == .apple, let web = DirectionsApp.google.url(point, name: name, mode: mode, from: from) {
+            _ = Droid.bool("openURL", web.absoluteString)
+        }
+        #else
         switch self {
         case .apple:
             let item = MKMapItem(placemark: MKPlacemark(coordinate: point.clCoordinate))
@@ -55,6 +66,7 @@ enum DirectionsApp: String, CaseIterable, Identifiable {
         case .google, .citymapper:
             if let url = url(point, name: name, mode: mode, from: from) { UIApplication.shared.open(url) }
         }
+        #endif
     }
 
     /// How "Open in Maps" hands a street route over (router modes WALK, BIKE, CAR).
@@ -75,11 +87,17 @@ enum DirectionsApp: String, CaseIterable, Identifiable {
         let start = from.map { String(format: "%.6f,%.6f", $0.point.lat, $0.point.lon) }
         switch self {
         case .apple:
+            #if os(Android)
+            // geo: opens the phone's maps app at the place (directions are chosen there).
+            let label = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+            return URL(string: "geo:\(coord)?q=\(coord)(\(label))")
+            #else
             var c = URLComponents(string: "https://maps.apple.com/")!
             c.queryItems = mode == .show ? [URLQueryItem(name: "ll", value: coord), URLQueryItem(name: "q", value: name)]
                 : (start.map { [URLQueryItem(name: "saddr", value: $0)] } ?? [])
                     + [URLQueryItem(name: "daddr", value: coord), URLQueryItem(name: "dirflg", value: Self.appleFlag(mode))]
             return c.url
+            #endif
         case .google:
             if mode == .show {
                 var c = URLComponents(string: "https://www.google.com/maps/search/")!

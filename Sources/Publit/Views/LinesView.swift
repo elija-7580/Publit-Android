@@ -320,6 +320,14 @@ struct LineMap: View {
     let stops: [Place]
     let vehicles: [LineVehicles.Vehicle]
 
+    #if os(Android)
+    var body: some View {
+        var content = GoogleMapContent(lines: [.init(points: shape, color: line.lineStroke, width: 5)])
+        content.pins = stops.map { .init(coordinate: $0.coordinate, kind: .dot(color: .white, border: line.lineStroke, size: 8, borderWidth: 2)) }
+        content.pins += vehicles.map { .init(coordinate: $0.coordinate, kind: .marker(title: "\(line.lineName) · \($0.nextStop)", color: line.lineStroke)) }
+        return GoogleMapView(content: content, camera: .fit(shape.isEmpty ? stops.map(\.coordinate) : shape))
+    }
+    #else
     var body: some View {
         Map(initialPosition: .automatic) {
             UserAnnotation()
@@ -343,6 +351,7 @@ struct LineMap: View {
         .publitMapStyle()
         .mapControls { MapCompass() }
     }
+    #endif
 }
 
 /// A stop on the line's route: a dot on a vertical line in the line colour, the name and minutes from the start.

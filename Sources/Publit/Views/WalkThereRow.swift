@@ -54,11 +54,16 @@ actor WalkingTimes {
     func seconds(from a: LatLon, to b: LatLon) async -> TimeInterval? {
         let key = "\((a.lat * 1000).rounded())|\((a.lon * 1000).rounded())>\(b.lat)|\(b.lon)"
         if let hit = cache[key], Date().timeIntervalSince(hit.1) < 600 { return hit.0 }
+        #if os(Android)
+        // No Apple Maps on Android: the street network walk comes from Transitous.
+        guard let eta = await TransitousWalk.route(from: a, to: b) else { return nil }
+        #else
         let request = MKDirections.Request()
         request.source = MKMapItem(placemark: MKPlacemark(coordinate: a.clCoordinate))
         request.destination = MKMapItem(placemark: MKPlacemark(coordinate: b.clCoordinate))
         request.transportType = .walking
         guard let eta = try? await MKDirections(request: request).calculateETA() else { return nil }
+        #endif
         if cache.count > 200 { cache = [:] }
         cache[key] = (eta.expectedTravelTime, Date())
         return eta.expectedTravelTime

@@ -3,6 +3,7 @@ import MapKit
 #endif
 import SwiftUI
 
+#if !os(Android)
 /// The map look chosen in Settings → Map (the same keys as the station map's layers sheet),
 /// for the SwiftUI maps on routes, trips and lines.
 struct PublitMapStyle: ViewModifier {
@@ -36,3 +37,9 @@ struct PublitMapStyle: ViewModifier {
 extension View {
     func publitMapStyle() -> some View { modifier(PublitMapStyle()) }
 }
+#else
+extension View {
+    /// The Android maps read the look from the same settings themselves.
+    func publitMapStyle() -> some View { self }
+}
+#endif

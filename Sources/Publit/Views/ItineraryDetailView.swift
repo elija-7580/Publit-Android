@@ -19,7 +19,9 @@ struct CompareMapView: View, Equatable {
     @AppStorage(MapProvider.defaultsKey) var mapProvider = MapProvider.apple.rawValue
 
     var body: some View {
-        #if canImport(GoogleMaps)
+        #if os(Android)
+            GoogleMapView(content: googleContent, camera: .fit(ordered.flatMap { $0.legs.flatMap(\.legGeometry.mapPoints) }))
+        #elseif canImport(GoogleMaps)
         if MapProvider.usesGoogle(mapProvider) {
             GoogleMapView(content: googleContent, camera: .fit(ordered.flatMap { $0.legs.flatMap(\.legGeometry.mapPoints) }))
         } else {
@@ -41,6 +43,7 @@ struct CompareMapView: View, Equatable {
         })
     }
 
+#if !os(Android)
     private var appleMap: some View {
         Map(initialPosition: .automatic) {
             UserAnnotation()
@@ -55,6 +58,7 @@ struct CompareMapView: View, Equatable {
         }
         .publitMapStyle()
     }
+#endif
 }
 
 struct ItineraryDetailView: View {
@@ -367,7 +371,9 @@ struct RouteMap: View {
     }
 
     var body: some View {
-        #if canImport(GoogleMaps)
+        #if os(Android)
+            GoogleMapView(content: googleContent, camera: .fit(Self.framePoints(itinerary)))
+        #elseif canImport(GoogleMaps)
         if MapProvider.usesGoogle(mapProvider) {
             GoogleMapView(content: googleContent, camera: .fit(Self.framePoints(itinerary)))
         } else {
@@ -416,6 +422,7 @@ struct RouteMap: View {
         return content
     }
 
+#if !os(Android)
     private var appleMap: some View {
         let start: MapCameraPosition = Self.frame(itinerary).map { MapCameraPosition.rect($0) } ?? .automatic
         return Map(initialPosition: start, interactionModes: isPreview ? [] : .all) {
@@ -439,6 +446,7 @@ struct RouteMap: View {
         .mapControlVisibility(isPreview ? .hidden : .automatic)
         .mapControls { MapUserLocationButton(); MapCompass(); MapScaleView() }
     }
+#endif
 }
 
 /// The logo's marks on a map: a ring where the trip starts, the ink dot where it ends,
