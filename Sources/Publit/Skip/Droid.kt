@@ -34,6 +34,11 @@ object Droid {
     }
     @JvmStatic fun walletText(key: String): String = DroidNotify.res(context(), key, key)
 
+    // Reproducible screenshots use the existing demo fixtures, and only in debuggable builds.
+    @JvmStatic fun previewScenario(): String = if (
+        context().applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+    ) activity()?.intent?.getStringExtra("publit.preview") ?: "" else ""
+
     // MARK: Display
 
     @JvmStatic fun density(): Double = context().resources.displayMetrics.density.toDouble()

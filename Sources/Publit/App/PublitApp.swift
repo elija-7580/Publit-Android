@@ -23,7 +23,18 @@ let logger: Logger = Logger(subsystem: "app.publit", category: "Publit")
 
     @ViewBuilder
     private var appContent: some View {
+        #if DEBUG && os(Android)
+        let preview = Droid.string("previewScenario") ?? ""
+        if preview.hasPrefix("pass") {
+            PassSampleView(kind: preview)
+        } else if preview.hasPrefix("route") || preview.hasPrefix("live") {
+            DesignSampleView(kind: preview)
+        } else {
+            RootView()
+        }
+        #else
         RootView()
+        #endif
     }
 
     public var body: some View {
