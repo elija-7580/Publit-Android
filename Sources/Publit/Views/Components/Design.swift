@@ -35,7 +35,11 @@ struct InkButtonStyle: ButtonStyle {
 /// and its thumb disappeared against it.
 struct InkSwitchStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
+        #if os(Android)
+        configuration.label
+        #else
         Toggle(configuration).toggleStyle(.switch).tint(Color.live)
+        #endif
     }
 }
 

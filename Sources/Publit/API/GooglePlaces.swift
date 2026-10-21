@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Place search with Google (Places API, New), when it is chosen in Settings and a key is set.
 /// Suggestions come without coordinates; the place is looked up once it is picked, in the same

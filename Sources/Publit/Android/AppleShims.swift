@@ -39,7 +39,7 @@ final class CLLocation: @unchecked Sendable {
     let course: CLLocationDirection
     let timestamp: Date
 
-    init(latitude: CLLocationDegrees, longitude: CLLocationDegrees) {
+    convenience init(latitude: CLLocationDegrees, longitude: CLLocationDegrees) {
         self.init(coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude), altitude: 0,
                   horizontalAccuracy: 0, verticalAccuracy: -1, course: -1, speed: -1, timestamp: Date())
     }
