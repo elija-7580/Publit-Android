@@ -101,6 +101,7 @@ final class CrashReports: NSObject, MXMetricManagerSubscriber, @unchecked Sendab
     }
 }
 #elseif os(Android)
+import Foundation
 /// Crashes, hangs (ANRs) and low-memory ends that Android recorded for the app (ApplicationExitInfo,
 /// Android 11+), plus the call stack of the last Kotlin/Java exception, written into the diagnostics
 /// at the next launch, like MetricKit's reports on iOS. Memory warnings and heat as steps.
