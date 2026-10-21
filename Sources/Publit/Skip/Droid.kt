@@ -18,6 +18,9 @@ import android.os.Build
 import android.os.Looper
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Tram
 
 object Droid {
     const val LOCATION_REQUEST = 7580

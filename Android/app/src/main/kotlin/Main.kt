@@ -98,7 +98,7 @@ open class MainActivity: AppCompatActivity {
     private fun importFile(uri: android.net.Uri, type: String?) {
         try {
             var name = "import"
-            contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            contentResolver.query(uri, kotlin.arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
                 if (c.moveToFirst()) c.getString(0)?.let { name = it }
             }
             if (!name.contains('.')) {
