@@ -7,11 +7,38 @@ import UIKit
 #endif
 
 #if os(Android)
-/// Android: no Apple Wallet (Google Wallet needs a signed issuer account); the ticket stays in Publit.
+/// Export is opt-in: show the destination and ask before any ticket data leaves the device.
 struct AddToWalletButton: View {
     let pass: TicketPass
     var logo: UIImage? = nil
-    var body: some View { EmptyView() }
+    @State private var consent = false
+    @State private var working = false
+    @State private var error: String?
+    var body: some View {
+        Button { consent = true } label: {
+            Label(GoogleWallet.text("wallet_add"), systemImage: "wallet.pass")
+        }
+        .buttonStyle(InkButtonStyle())
+        .disabled(working)
+        .alert(GoogleWallet.text("wallet_add"), isPresented: $consent) {
+            Button(GoogleWallet.text("wallet_continue")) { Task { await export() } }
+            Button(L10n.t("Cancel"), role: .cancel) {}
+        } message: {
+            Text(GoogleWallet.text("wallet_consent"))
+        }
+        .alert(GoogleWallet.text("wallet_error"), isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(verbatim: error ?? "") }
+    }
+    private func export() async {
+        guard !working else { return }
+        working = true
+        defer { working = false }
+        do {
+            let url = try await GoogleWallet.export(pass)
+            Droid.call("openURL", url.absoluteString)
+        } catch { self.error = error.localizedDescription }
+    }
 }
 #else
 /// Apple's "Add to Apple Wallet" button. Builds and signs the pass only when tapped.

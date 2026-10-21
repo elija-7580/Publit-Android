@@ -1,0 +1,6 @@
+<resources>
+    <string name="wallet_add">Google Cüzdan’a ekle</string>
+    <string name="wallet_continue">Devam</string>
+    <string name="wallet_consent">Başlık, işletmeci, güzergâh, geçerlilik ve sabit bilet kodu yapılandırılmış imzalama hizmetine gönderilir. Google, kaydettiğinizde kopyayı alır. Orijinal bileti saklayın.</string>
+    <string name="wallet_error">Google Cüzdan şu anda kullanılamıyor. Daha sonra tekrar deneyin.</string>
+</resources>

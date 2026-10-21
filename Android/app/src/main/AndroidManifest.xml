@@ -46,6 +46,7 @@
         android:localeConfig="@xml/locales_config"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher">
+        <meta-data android:name="publit.walletSignerUrl" android:value="${PUBLIT_WALLET_SIGNER_URL}" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -1,0 +1,6 @@
+<resources>
+    <string name="wallet_add">Toevoegen aan Google Wallet</string>
+    <string name="wallet_continue">Doorgaan</string>
+    <string name="wallet_consent">Titel, vervoerder, route, geldigheid en statische ticketcode worden naar de ingestelde ondertekenservice gestuurd. Google ontvangt de kopie bij het opslaan. Bewaar het originele ticket.</string>
+    <string name="wallet_error">Google Wallet is nu niet beschikbaar. Probeer het later opnieuw.</string>
+</resources>

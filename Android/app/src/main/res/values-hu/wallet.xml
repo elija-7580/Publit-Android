@@ -1,0 +1,6 @@
+<resources>
+    <string name="wallet_add">Hozzáadás a Google Wallethez</string>
+    <string name="wallet_continue">Folytatás</string>
+    <string name="wallet_consent">A cím, szolgáltató, útvonal, érvényesség és statikus jegykód a beállított aláíró szolgáltatáshoz kerül. A Google mentéskor kapja meg a másolatot. Őrizze meg az eredeti jegyet.</string>
+    <string name="wallet_error">A Google Wallet most nem érhető el. Próbálja újra később.</string>
+</resources>

@@ -28,6 +28,12 @@ object Droid {
     @JvmStatic fun context(): Context = skip.foundation.ProcessInfo.processInfo.androidContext
     @JvmStatic fun activity(): androidx.activity.ComponentActivity? = skip.ui.UIApplication.shared.androidActivity
 
+    @JvmStatic fun walletSigner(): String {
+        val info = context().packageManager.getApplicationInfo(context().packageName, PackageManager.GET_META_DATA)
+        return info.metaData?.getString("publit.walletSignerUrl") ?: ""
+    }
+    @JvmStatic fun walletText(key: String): String = DroidNotify.res(context(), key, key)
+
     // MARK: Display
 
     @JvmStatic fun density(): Double = context().resources.displayMetrics.density.toDouble()

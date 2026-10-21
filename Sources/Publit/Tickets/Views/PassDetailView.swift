@@ -43,9 +43,15 @@ struct PassDetailView: View {
                         .buttonStyle(.soft)
                         .accessibilityIdentifier("showOriginal")
                     }
+                    #if os(Android)
+                    if GoogleWallet.available(pass) {
+                        AddToWalletButton(pass: pass, logo: PassLogoCache.image(pass, store: store))
+                    }
+                    #else
                     if WalletPassConfig.current != nil, pass.barcode?.walletReady == true {
                         AddToWalletButton(pass: pass, logo: PassLogoCache.image(pass, store: store))
                     }
+                    #endif
                 }
 
                 if let notes = pass.notes, !notes.isEmpty {
