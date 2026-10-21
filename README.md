@@ -7,9 +7,9 @@
 ![Swift](https://img.shields.io/badge/Swift-SwiftUI%20%E2%86%92%20Compose-orange)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](upstream/LICENSE)
 
-> **Status: feature-complete port, not tested on a device yet.** The whole app compiles for Android, debug and signed
-> release builds (APK + AAB) work, but nobody has run it on a phone or emulator so far. Expect crashes and layout bugs
-> on first launch.
+> **Status: Android port under active validation.** Earlier phone debug/release builds worked, but the latest
+> Wear OS/UI/Wallet additions are not yet fully build- or device-verified. Emulator UI QA and screenshots are in progress.
+> See [the saved handoff](docs/ANDROID_HANDOFF.md) for tested facts, remaining work and recovery steps.
 
 ## What this is
 
@@ -48,11 +48,16 @@ updates and nearly all views are the same Swift source as on iOS. Where Android 
 | AVSpeechSynthesizer | `TextToSpeech` |
 | Share extension | Share target in the activity (text, links, files) |
 
-### Not available on Android (yet)
+### Latest additions and remaining platform differences
 
-- Apple Wallet (hidden), Apple Watch app (no Wear OS app), lock screen widgets and the live-trip widget
-- Some SwiftUI details: custom pressed states of buttons, rolling-digit number transitions, text selection,
-  search scopes as a native bar (shown as a segmented control over the map instead)
+- A standalone [Wear OS app](Android/wear) implements nearby departures; latest build and watch testing are still pending.
+- Google Wallet export is optional and hidden by default. It needs your issuer account and deployed
+  [signing service](services/google-wallet-signer), and asks before sending ticket details. Binary ticket codes stay in Publit.
+- Native text selection and pressed feedback are implemented; latest app UI validation is pending.
+- Android 16 Live Update promotion is requested for ongoing live trips; the OS/user decides whether it is promoted.
+- The departures widget advertises lock-screen support only where the Android device/launcher supports widgets there.
+  There is no universal 1:1 replacement for Apple's lock-screen/live-trip widgets.
+- Rolling-digit number transitions remain unsupported. Search scopes are a segmented control over the map, not an iOS bar.
 
 ## Building
 
