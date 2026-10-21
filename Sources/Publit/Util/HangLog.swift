@@ -315,7 +315,7 @@ final class HangLog: @unchecked Sendable {
 
     static var device: String {
         #if os(Android)
-        return UIDevice.current.model
+        return Droid.string("deviceModel") ?? "Android"
         #else
         var info = utsname()
         uname(&info)

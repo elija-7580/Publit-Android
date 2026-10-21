@@ -417,7 +417,9 @@ struct StationMapView: View {
                             }
                     }
                         .presentationDetents([.medium, .large])
+                        #if !os(Android)
                         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                        #endif
                 }
                 .sheet(isPresented: $showLayers) {
                     MapLayersSheet(base: $storedBase, realistic3D: $realistic3D, pointsOfInterest: $pointsOfInterest, traffic: $traffic,

@@ -1,5 +1,8 @@
 #if os(Android)
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Android: "Find nearby" without Apple Maps. The places of one kind come from OpenStreetMap
 /// (Overpass API) for the visible area. Free-text search needs no second source here:

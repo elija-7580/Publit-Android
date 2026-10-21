@@ -95,10 +95,37 @@ struct StyledText: View {
 
 // MARK: Shapes
 
+// MARK: Shapes
+
+// Skip declares `strokeBorder(_:lineWidth:)` twice for insettable shapes (inlinable and bridged), so
+// a bare call is ambiguous. Members of the concrete shapes rank first and pick the bridged one.
+extension Circle {
+    func strokeBorder<S: ShapeStyle>(_ content: S, lineWidth: CGFloat = 1, antialiased: Bool = true) -> StrokeBorderShapeView<Circle, S, EmptyView> {
+        let view: StrokeBorderShapeView<Circle, S, EmptyView> = strokeBorder(content, style: StrokeStyle(lineWidth: lineWidth), antialiased: antialiased)
+        return view
+    }
+}
+
+extension RoundedRectangle {
+    func strokeBorder<S: ShapeStyle>(_ content: S, lineWidth: CGFloat = 1, antialiased: Bool = true) -> StrokeBorderShapeView<RoundedRectangle, S, EmptyView> {
+        let view: StrokeBorderShapeView<RoundedRectangle, S, EmptyView> = strokeBorder(content, style: StrokeStyle(lineWidth: lineWidth), antialiased: antialiased)
+        return view
+    }
+}
+
+extension Capsule {
+    func strokeBorder<S: ShapeStyle>(_ content: S, lineWidth: CGFloat = 1, antialiased: Bool = true) -> StrokeBorderShapeView<Capsule, S, EmptyView> {
+        let view: StrokeBorderShapeView<Capsule, S, EmptyView> = strokeBorder(content, style: StrokeStyle(lineWidth: lineWidth), antialiased: antialiased)
+        return view
+    }
+}
+
 // MARK: Accessibility
 
 extension View {
     /// TalkBack reaches the same actions through the long-press context menu.
+    /// Named actions take a string in Skip; the views here pass Text. The row's tap does the same.
+    func accessibilityAction(named name: Text, _ handler: @escaping () -> Void) -> some View { self }
     func accessibilityActions<Content: View>(@ViewBuilder _ content: () -> Content) -> some View { self }
     /// Compose Text has no selection outside a SelectionContainer; values stay plain text.
     func textSelection(_ selectability: TextSelectability) -> some View { self }
@@ -107,7 +134,7 @@ extension View {
 
     /// Content pinned to the top or bottom edge, over the view (Compose has no safe-area inset API here).
     func safeAreaInset<V: View>(edge: VerticalEdge, alignment: HorizontalAlignment = .center, spacing: CGFloat? = nil, @ViewBuilder content: () -> V) -> some View {
-        overlay(alignment: Alignment(horizontal: alignment, vertical: edge == .top ? .top : .bottom)) { content() }
+        overlay(alignment: edge == .top ? .top : .bottom) { content() }
     }
 }
 
