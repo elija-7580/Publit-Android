@@ -302,7 +302,7 @@ struct TransitMapView: View {
         return MapJSON.encode(items)
     }
 
-    static func lineWidth(_ mode: String) -> CGFloat {
+    static func lineWidth(_ mode: String) -> SwiftUI.CGFloat {
         switch ModeGroup.of(mode) {
         case .train, .suburban, .subway: return 5
         case .tram: return 4

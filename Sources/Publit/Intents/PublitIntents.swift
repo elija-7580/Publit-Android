@@ -19,6 +19,7 @@ enum IntentBridge {
     }
 }
 
+#if !os(Android)
 /// "Next departures at Marienplatz": spoken answer plus a small board.
 struct NextDeparturesIntent: AppIntent {
     static var title: LocalizedStringResource = "Next departures"
@@ -137,3 +138,20 @@ struct PublitShortcuts: AppShortcutsProvider {
         // "Show ticket" returns with the ticket feature (Features.tickets).
     }
 }
+#else
+/// Android: the iOS Siri shortcuts become launcher shortcuts (long-press the app icon):
+/// route home, route to work and the departures of the first saved stops.
+enum PublitShortcuts {
+    @MainActor static func updateAppShortcutParameters() {
+        var items: [[String: String]] = [
+            ["id": "home", "label": L10n.t("Route home"), "url": DeepLink.go(.home).url.absoluteString, "icon": "home"],
+            ["id": "work", "label": L10n.t("Route to work"), "url": DeepLink.go(.work).url.absoluteString, "icon": "work"],
+        ]
+        for stop in StopQuery.savedStops().prefix(2) {
+            items.append(["id": "stop-" + stop.stopId, "label": stop.name, "url": stop.deepLink.absoluteString, "icon": "stop"])
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: items), let json = String(data: data, encoding: .utf8) else { return }
+        Droid.call("setShortcuts", json)
+    }
+}
+#endif

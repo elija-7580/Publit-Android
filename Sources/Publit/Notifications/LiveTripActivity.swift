@@ -1,3 +1,4 @@
+#if !os(Android)
 import Foundation
 #if canImport(ActivityKit)
 import ActivityKit
@@ -138,3 +139,4 @@ enum LiveTripActivity {
         ActivityContent(state: state(for: trip, now: now), staleDate: trip.endTime.addingTimeInterval(afterArrival))
     }
 }
+#endif

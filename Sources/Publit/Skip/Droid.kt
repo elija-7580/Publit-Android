@@ -27,6 +27,8 @@ object Droid {
 
     // MARK: Display
 
+    @JvmStatic fun density(): Double = context().resources.displayMetrics.density.toDouble()
+
     @JvmStatic fun fontScale(): Double = context().resources.configuration.fontScale.toDouble()
 
     @JvmStatic fun isDark(): Boolean =
@@ -171,6 +173,9 @@ object Droid {
 
     @JvmStatic fun pendingNotificationIds(): String = DroidNotify.pending(context()).keys.joinToString("\n")
 
+    @JvmStatic fun liveShow(json: String) = DroidLive.show(context(), org.json.JSONObject(json))
+    @JvmStatic fun liveEnd(id: String) = DroidLive.end(context(), id)
+
     // MARK: Other apps
 
     /** Opens a link (web, geo:, tel:, mailto:, another app's scheme); false when no app takes it. */
@@ -221,4 +226,26 @@ object Droid {
     @JvmStatic fun stopSpeaking() { tts?.stop() }
 
     @JvmStatic fun isSpeaking(): Boolean = tts?.isSpeaking == true
+
+    // MARK: Launcher shortcuts (the iOS app's Siri shortcuts)
+
+    @JvmStatic fun setShortcuts(json: String) {
+        val ctx = context()
+        val list = org.json.JSONArray(json)
+        val shortcuts = (0 until list.length()).map { i ->
+            val o = list.getJSONObject(i)
+            val icon = when (o.optString("icon")) {
+                "home" -> androidx.compose.material.icons.Icons.Filled.Home
+                "work" -> androidx.compose.material.icons.Icons.Filled.Work
+                else -> androidx.compose.material.icons.Icons.Filled.Tram
+            }
+            androidx.core.content.pm.ShortcutInfoCompat.Builder(ctx, o.getString("id"))
+                .setShortLabel(o.getString("label"))
+                .setIcon(androidx.core.graphics.drawable.IconCompat.createWithBitmap(PublitIcons.bitmap(ctx, icon, 0xFF111111.toInt(), 0xFFFFFFFF.toInt(), 48)))
+                .setIntent(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(o.getString("url")))
+                    .setPackage(ctx.packageName))
+                .build()
+        }
+        try { androidx.core.content.pm.ShortcutManagerCompat.setDynamicShortcuts(ctx, shortcuts) } catch (e: Exception) {}
+    }
 }

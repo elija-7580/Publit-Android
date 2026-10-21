@@ -247,7 +247,11 @@ private struct Perforation: Shape {
 struct BarcodeView: View {
     let code: TicketPass.Barcode
     var source: BarcodeSource? = nil
+    #if os(Android)
+    var displayScale: CGFloat { AndroidEnvironment.displayScale }
+    #else
     @Environment(\.displayScale) var displayScale
+    #endif
     @State var rendered: BarcodeRenderer.Rendered?
     @State var failed = false
 

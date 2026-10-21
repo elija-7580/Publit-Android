@@ -64,7 +64,12 @@ struct CompareMapView: View, Equatable {
 struct ItineraryDetailView: View {
     @Environment(TripStore.self) var trips
     /// False once this screen is popped or dismissed (still true while a child screen is pushed).
+    #if os(Android)
+    /// Android has no isPresented: leaving the screen in any way counts as leaving it.
+    let isPresented = false
+    #else
     @Environment(\.isPresented) var isPresented
+    #endif
     let itinerary: Itinerary
     var fromName: String = ""
     var toName: String = ""
@@ -304,6 +309,7 @@ struct RouteSummary: View {
     }
 }
 
+#if !os(Android)
 /// Wraps its children onto new lines when they do not fit (long routes with many changes).
 struct FlowRow: Layout {
     var spacing: CGFloat = 4
@@ -348,6 +354,7 @@ struct FlowRow: Layout {
         return frames
     }
 }
+#endif
 
 extension StrokeStyle {
     /// Route lines on maps: always solid. Walks are told apart by colour (`Color.routeAhead`) and a

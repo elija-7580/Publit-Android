@@ -1,10 +1,16 @@
 import Foundation
+#if canImport(ActivityKit) || os(Android)
 #if canImport(ActivityKit)
 import ActivityKit
+#if canImport(ActivityKit)
+extension TripActivityAttributes: ActivityAttributes {}
+#endif
+#endif
 
 /// Live Activity for a saved trip: "Leave in 6 min", then the ride, on the lock screen and
 /// in the Dynamic Island. Shared by the app (starts/updates it) and the widget extension (draws it).
-struct TripActivityAttributes: ActivityAttributes {
+/// Android: the same content, shown by an ongoing notification (see Android/LiveTripActivityAndroid.swift).
+struct TripActivityAttributes {
     struct ContentState: Codable, Hashable {
         /// TripStatus.Phase raw value.
         var phase: String
@@ -33,4 +39,7 @@ struct TripActivityAttributes: ActivityAttributes {
     var tripURL: URL { URL(string: "publit://trip/\(tripId)")! }
     var ticketsURL: URL { URL(string: "publit://tickets/\(tripId)")! }
 }
+#if canImport(ActivityKit)
+extension TripActivityAttributes: ActivityAttributes {}
+#endif
 #endif

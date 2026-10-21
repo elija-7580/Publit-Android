@@ -25,5 +25,8 @@ enum AndroidEnvironment {
 
     /// The system is in dark mode (for colours that iOS resolves per trait).
     static var isDark: Bool { Droid.bool("isDark") }
+
+    /// Screen pixels per point (dp), like iOS's displayScale.
+    static var displayScale: SwiftUI.CGFloat { SwiftUI.CGFloat(Droid.double("density") ?? 2) }
 }
 #endif

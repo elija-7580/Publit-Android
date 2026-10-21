@@ -5,9 +5,8 @@ import Foundation
 
 /// A stop for Siri, Shortcuts and the departures widget. All data lives in the identifier,
 /// so the widget can restore it without access to the app's saved places.
-struct StopEntity: AppEntity {
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Stop"
-    static var defaultQuery = StopQuery()
+/// Android: no App Intents; the same value type for links and launcher shortcuts.
+struct StopEntity: Identifiable, Hashable, Sendable {
 
     let id: String
     let stopId: String
@@ -15,7 +14,6 @@ struct StopEntity: AppEntity {
     let lat: Double
     let lon: Double
 
-    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
 
     init(stopId: String, name: String, lat: Double, lon: Double) {
         self.stopId = stopId; self.name = name; self.lat = lat; self.lon = lon
@@ -32,7 +30,7 @@ struct StopEntity: AppEntity {
     var deepLink: URL { DeepLink.stop(id: stopId, name: name, lat: lat, lon: lon).url }
 }
 
-struct StopQuery: EntityStringQuery {
+struct StopQuery {
     func entities(for identifiers: [StopEntity.ID]) async throws -> [StopEntity] {
         identifiers.compactMap(StopEntity.init(id:))
     }
@@ -60,3 +58,13 @@ struct StopQuery: EntityStringQuery {
         }
     }
 }
+
+#if canImport(AppIntents) && !os(Android)
+extension StopEntity: AppEntity {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Stop"
+    static var defaultQuery = StopQuery()
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
+}
+
+extension StopQuery: EntityStringQuery {}
+#endif

@@ -118,6 +118,48 @@ object DroidNotify {
 }
 
 /** Fires the scheduled notification (and reschedules after boot). */
+/** The ongoing "live trip" notification (Android counterpart of the Live Activity). */
+object DroidLive {
+    fun show(ctx: Context, json: JSONObject) {
+        DroidNotify.channels(ctx)
+        if (!DroidNotify.allowed(ctx)) return
+        val id = json.getString("id")
+        val next = json.optDouble("next", 0.0).toLong()
+        val timeout = json.optDouble("timeout", 0.0).toLong()
+        val parts = mutableListOf<String>()
+        json.optString("line").takeIf { it.isNotEmpty() }?.let { parts.add(it) }
+        json.optString("platform").takeIf { it.isNotEmpty() }?.let { parts.add(it) }
+        json.optString("detail").takeIf { it.isNotEmpty() }?.let { parts.add(it) }
+        val body = parts.joinToString(" · ")
+        val big = listOfNotNull(body.ifEmpty { null }, json.optString("then").ifEmpty { null }).joinToString("\n")
+        val n = NotificationCompat.Builder(ctx, DroidNotify.CHANNEL_LIVE)
+            .setSmallIcon(DroidNotify.icon(ctx))
+            .setContentTitle(json.optString("headline"))
+            .setContentText(body)
+            .setSubText(json.optString("title"))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(big))
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setContentIntent(DroidNotify.openIntent(ctx, json.optString("url"), id.hashCode()))
+        if (next > System.currentTimeMillis()) {
+            n.setWhen(next).setShowWhen(true).setUsesChronometer(true)
+            if (Build.VERSION.SDK_INT >= 24) n.setChronometerCountDown(true)
+        }
+        json.optString("lineColor").takeIf { it.isNotEmpty() }?.let {
+            try { n.setColor(android.graphics.Color.parseColor(if (it.startsWith("#")) it else "#$it")) } catch (e: Exception) {}
+        }
+        json.optString("ticketsURL").takeIf { it.isNotEmpty() }?.let {
+            n.addAction(0, json.optString("ticketsLabel", "Ticket"), DroidNotify.openIntent(ctx, it, id.hashCode() + 1))
+        }
+        if (timeout > 0) { n.setTimeoutAfter(timeout); n.setOngoing(false) } else n.setOngoing(true)
+        try { NotificationManagerCompat.from(ctx).notify("live-$id", 1, n.build()) } catch (e: SecurityException) {}
+    }
+
+    fun end(ctx: Context, id: String) = NotificationManagerCompat.from(ctx).cancel("live-$id", 1)
+}
+
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == "android.intent.action.MY_PACKAGE_REPLACED") {
