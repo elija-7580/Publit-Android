@@ -1,0 +1,6 @@
+name = "amtab-gtfsrt"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+USER_AGENT = "Publit-AMTAB-GTFSRT/0.2 (+https://github.com/elija-7580/Publit-)"
