@@ -410,7 +410,7 @@ enum AdaptiveUIColor {
 // Skip draws only its built-in button styles. Publit's own ones become the same look around a plain
 // button (Compose puts the click on the whole styled frame); only the pressed dimming is missing.
 
-private struct EnabledOpacity: ViewModifier {
+struct EnabledOpacity: ViewModifier {
     @Environment(\.isEnabled) var isEnabled
     func body(content: Content) -> some View { content.opacity(isEnabled ? 1 : 0.35) }
 }
