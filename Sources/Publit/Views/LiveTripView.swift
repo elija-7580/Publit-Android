@@ -1175,7 +1175,8 @@ struct TripPanel<Header: View, Content: View>: View {
             .offset(y: moved)
             // Measured on the screen, not on the panel: the panel moves under the finger, and
             // a translation in its own space would feed back into itself (the jitter).
-            .simultaneousGesture(dragGesture(height: height), including: detent == .full ? .subviews : .all)
+            // Android has no subviews-only mask: in full height the top strip below drags the panel.
+            .simultaneousGesture(dragGesture(height: height), including: detent == .full ? .none : .all)
             .overlay(alignment: .top) {
                 // Up, the list scrolls: the top strip (handle and stage cards) still pulls the panel down.
                 if detent == .full {

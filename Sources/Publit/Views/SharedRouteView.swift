@@ -22,8 +22,12 @@ struct SharedRouteView: View {
                 ContentUnavailableView {
                     Label(L10n.t("This route could not be loaded."), systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                 } description: {
+                    #if os(Android)
+                    Text(verbatim: "\(route.fromName) → \(route.toName)\n" + L10n.t("It may be too old or no longer in the timetable. You can search for it again."))
+                    #else
                     Text(verbatim: "\(route.fromName) → \(route.toName)\n")
                         + Text("It may be too old or no longer in the timetable. You can search for it again.")
+                    #endif
                 } actions: {
                     Button(L10n.t("Search this route")) { app.searchAgain(route) }
                         .buttonStyle(.ink)

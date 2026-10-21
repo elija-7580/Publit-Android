@@ -1,6 +1,7 @@
 #if os(Android)
 import SwiftUI
 import SkipFuse
+import SkipBridge
 
 // Android: SwiftUI modifiers and types that Skip does not bridge (yet). Declared in this module,
 // they take precedence over Skip's unavailable stubs, so the shared views compile unchanged.
@@ -61,42 +62,54 @@ struct TextRun {
     }
 }
 
-/// Text with differently styled parts in one paragraph (SwiftUI's `Text + Text`), drawn by SkipUI
-/// as one Compose AnnotatedString, so it wraps like a single text.
-struct StyledText: View, SkipUIBridging {
-    typealias Body = Never
+/// Text with differently styled parts in one paragraph (SwiftUI's `Text + Text`), drawn in Compose
+/// as one AnnotatedString (StyledTextComposer in PublitCompose.kt), so it wraps like a single text.
+struct StyledText: View {
     let runs: [TextRun]
 
     init(_ runs: [TextRun]) { self.runs = runs }
 
-    var Java_view: any SkipUI.View {
-        var flags: [Int] = []
+    var body: some View {
+        // Up to four distinct colors travel as bridged SkipUI colors; runs refer to them by index.
+        var palette: [Color] = []
+        var items: [[String: Any]] = []
         for r in runs {
-            var f = 0
-            if r.color != nil { f |= 1 }
-            if r.size != nil { f |= 2 }
-            if r.weight != nil { f |= 4 }
-            flags.append(f)
+            var item: [String: Any] = ["t": r.text]
+            if let c = r.color {
+                if let i = palette.firstIndex(of: c) { item["c"] = i }
+                else if palette.count < 4 { palette.append(c); item["c"] = palette.count - 1 }
+            }
+            if let size = r.size { item["s"] = Double(size) }
+            if let w = r.weight { item["w"] = w }
+            items.append(item)
         }
-        return SkipUI.Text(bridgedRuns: runs.map { SkipUI.Text(verbatim: $0.text) },
-                           colors: runs.map { ($0.color ?? Color.primary).Java_view },
-                           fontSizes: runs.map { Double($0.size ?? 0) },
-                           fontWeights: runs.map { $0.weight ?? 400 },
-                           flags: flags)
+        let json = (try? JSONSerialization.data(withJSONObject: items)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+        let colors = palette
+        return ComposeView {
+            var args: [Any?] = [json]
+            for i in 0..<4 { args.append(i < colors.count ? colors[i].Java_view as? JConvertible : nil) }
+            return try! AnyDynamicObject(className: "publit.module.StyledTextComposer", arguments: args)
+        }
     }
 }
 
 // MARK: Shapes
 
-extension InsettableShape {
-    /// Skip declares this twice (inlinable and bridged); this picks the bridged one.
-    func strokeBorder<S: ShapeStyle>(_ content: S, lineWidth: CGFloat = 1, antialiased: Bool = true) -> StrokeBorderShapeView<Self, S, EmptyView> {
-        let view: StrokeBorderShapeView<Self, S, EmptyView> = strokeBorder(content, style: StrokeStyle(lineWidth: lineWidth), antialiased: antialiased)
-        return view
+// MARK: Accessibility
+
+extension View {
+    /// TalkBack reaches the same actions through the long-press context menu.
+    func accessibilityActions<Content: View>(@ViewBuilder _ content: () -> Content) -> some View { self }
+    /// Compose Text has no selection outside a SelectionContainer; values stay plain text.
+    func textSelection(_ selectability: TextSelectability) -> some View { self }
+    /// Numbers change without the rolling-digit animation.
+    func contentTransition(_ transition: ContentTransition) -> some View { self }
+
+    /// Content pinned to the top or bottom edge, over the view (Compose has no safe-area inset API here).
+    func safeAreaInset<V: View>(edge: VerticalEdge, alignment: HorizontalAlignment = .center, spacing: CGFloat? = nil, @ViewBuilder content: () -> V) -> some View {
+        overlay(alignment: Alignment(horizontal: alignment, vertical: edge == .top ? .top : .bottom)) { content() }
     }
 }
-
-// MARK: Accessibility
 
 extension View {
     func accessibilityElement(children: AccessibilityChildBehavior = .ignore) -> some View { self }

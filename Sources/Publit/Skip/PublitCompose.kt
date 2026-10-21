@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.vector.toPath
 
@@ -84,5 +85,31 @@ object PublitIcons {
         c.drawCircle(px / 2f, px / 2f, px / 2f, p)
         draw(c, v, px / 2f, px / 2f, px * 0.58f, fg)
         return bmp
+    }
+}
+
+/// `Text + Text` from StyledText.swift: one AnnotatedString, so the parts wrap as a single paragraph.
+/// json: [{"t": text, "c": palette index, "s": size in pt, "w": weight}].
+class StyledTextComposer(val json: String, val c0: skip.ui.Color?, val c1: skip.ui.Color?, val c2: skip.ui.Color?, val c3: skip.ui.Color?) : skip.ui.ContentComposer {
+    @Composable
+    override fun Compose(context: skip.ui.ComposeContext) {
+        val palette = listOf(c0, c1, c2, c3).map { it?.colorImpl?.invoke() }
+        val base = skip.ui.EnvironmentValues.shared.font?.fontImpl?.invoke() ?: androidx.compose.material3.LocalTextStyle.current
+        val defaultColor = skip.ui.Color.primary.colorImpl()
+        val runs = org.json.JSONArray(json)
+        val text = androidx.compose.ui.text.buildAnnotatedString {
+            for (i in 0 until runs.length()) {
+                val r = runs.getJSONObject(i)
+                val color = if (r.has("c")) palette.getOrNull(r.getInt("c")) ?: defaultColor else defaultColor
+                val style = androidx.compose.ui.text.SpanStyle(
+                    color = color,
+                    fontSize = if (r.has("s")) androidx.compose.ui.unit.TextUnit(r.getDouble("s").toFloat(), androidx.compose.ui.unit.TextUnitType.Sp) else androidx.compose.ui.unit.TextUnit.Unspecified,
+                    fontWeight = if (r.has("w")) androidx.compose.ui.text.font.FontWeight(r.getInt("w")) else null
+                )
+                withStyle(style) { append(r.getString("t")) }
+            }
+        }
+        val limit = skip.ui.EnvironmentValues.shared.lineLimit ?: Int.MAX_VALUE
+        androidx.compose.material3.Text(text = text, modifier = context.modifier, style = base, maxLines = limit, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }

@@ -100,4 +100,10 @@ final class CrashReports: NSObject, MXMetricManagerSubscriber, @unchecked Sendab
         return nil
     }
 }
+#else
+/// Android: Google Play's Android vitals collect crashes; nothing to subscribe to here.
+final class CrashReports {
+    static let shared = CrashReports()
+    func start() {}
+}
 #endif

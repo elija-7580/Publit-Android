@@ -94,3 +94,12 @@ extension Fmt {
     }
 }
 #endif
+
+#if os(Android)
+extension Fmt {
+    /// "5 minutes ago" to the minute; under a minute "now" (ICU on Android, via Droid.kt).
+    static func ago(_ date: Date, now: Date = .now, locale: Locale = .current) -> String {
+        Droid.string("relativeTime", max(0, now.timeIntervalSince(date))) ?? ""
+    }
+}
+#endif

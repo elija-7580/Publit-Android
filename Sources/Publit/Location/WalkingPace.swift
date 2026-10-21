@@ -21,7 +21,11 @@ enum WalkingPace {
         #endif
     }
 
+    #if canImport(CoreMotion)
     static var pedometerAvailable: Bool { CMPedometer.isDistanceAvailable() && CMPedometer.isStepCountingAvailable() }
+    #else
+    static var pedometerAvailable: Bool { false }
+    #endif
     static var isAvailable: Bool { healthAvailable || pedometerAvailable }
 
     static var source: Source? { UserDefaults.standard.string(forKey: sourceKey).flatMap(Source.init(rawValue:)) }
@@ -58,6 +62,9 @@ enum WalkingPace {
 
     @MainActor
     private static func pedometerSpeed() async -> Double? {
+        #if !canImport(CoreMotion)
+        return nil
+        #else
         guard pedometerAvailable else { return nil }
         let pedometer = CMPedometer()
         let end = Date()
@@ -72,5 +79,6 @@ enum WalkingPace {
         // No pace in the history: step length at a usual walking cadence (about 1.8 steps a second).
         if let d = result.distance, let s = result.steps, s > 2_000 { return d / s * 1.8 }
         return nil
+        #endif
     }
 }

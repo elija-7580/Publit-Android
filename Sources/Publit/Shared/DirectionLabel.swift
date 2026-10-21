@@ -10,10 +10,16 @@ struct DirectionLabel: View {
     var body: some View {
         Group {
             if let direction = TransitLabels.clean(direction) {
+                #if os(Android)
+                StyledText([TextRun(L10n.t("Towards") + " ", color: .secondary),
+                            TextRun(direction, color: .primary, weight: .semibold),
+                            TextRun(circular ? " · " + L10n.t("Circle line") : "", color: .secondary)])
+                #else
                 (Text(L10n.t("Towards") + " ").foregroundColor(.secondary)
                  // Semibold, not bold: the destination leads the row, but the station name above stays the heaviest text.
                  + Text(verbatim: direction).foregroundColor(.primary).fontWeight(.semibold)
                  + Text(verbatim: circular ? " · " + L10n.t("Circle line") : "").foregroundColor(.secondary))
+                #endif
             } else if circular {
                 Text("Circle line").foregroundColor(.primary).fontWeight(.semibold)
             } else {

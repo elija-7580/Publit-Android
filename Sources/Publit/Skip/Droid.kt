@@ -29,6 +29,39 @@ object Droid {
 
     @JvmStatic fun density(): Double = context().resources.displayMetrics.density.toDouble()
 
+    @JvmStatic fun screenWidthDp(): Double = context().resources.configuration.screenWidthDp.toDouble()
+    @JvmStatic fun screenHeightDp(): Double = context().resources.configuration.screenHeightDp.toDouble()
+    @JvmStatic fun androidVersion(): String = android.os.Build.VERSION.RELEASE ?: ""
+    @JvmStatic fun deviceModel(): String = android.os.Build.MODEL ?: "Android"
+
+    /// The window's brightness override, -1 while the system brightness applies.
+    @JvmStatic fun screenBrightness(): Double = activity()?.window?.attributes?.screenBrightness?.toDouble() ?: -1.0
+
+    @JvmStatic fun setScreenBrightness(value: Double) {
+        val a = activity() ?: return
+        a.runOnUiThread {
+            val attributes = a.window.attributes
+            attributes.screenBrightness = if (value < 0) android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE else value.toFloat().coerceIn(0f, 1f)
+            a.window.attributes = attributes
+        }
+    }
+
+    /// "5 minutes ago", "now" (Fmt.ago): ICU's relative formatter in the app language.
+    @JvmStatic fun relativeTime(seconds: Double): String {
+        val f = android.icu.text.RelativeDateTimeFormatter.getInstance(java.util.Locale.getDefault())
+        val s = seconds.toLong()
+        val Last = android.icu.text.RelativeDateTimeFormatter.Direction.LAST
+        return when {
+            s < 60 -> f.format(android.icu.text.RelativeDateTimeFormatter.Direction.PLAIN, android.icu.text.RelativeDateTimeFormatter.AbsoluteUnit.NOW)
+            s < 3600 -> f.format((s / 60).toDouble(), Last, android.icu.text.RelativeDateTimeFormatter.RelativeUnit.MINUTES)
+            s < 86400 -> f.format((s / 3600).toDouble(), Last, android.icu.text.RelativeDateTimeFormatter.RelativeUnit.HOURS)
+            s < 2 * 86400 -> f.format(Last, android.icu.text.RelativeDateTimeFormatter.AbsoluteUnit.DAY)
+            s < 7 * 86400 -> f.format((s / 86400).toDouble(), Last, android.icu.text.RelativeDateTimeFormatter.RelativeUnit.DAYS)
+            s < 30 * 86400 -> f.format((s / (7 * 86400)).toDouble(), Last, android.icu.text.RelativeDateTimeFormatter.RelativeUnit.WEEKS)
+            else -> f.format((s / (30 * 86400)).toDouble(), Last, android.icu.text.RelativeDateTimeFormatter.RelativeUnit.MONTHS)
+        }
+    }
+
     @JvmStatic fun fontScale(): Double = context().resources.configuration.fontScale.toDouble()
 
     @JvmStatic fun isDark(): Boolean =

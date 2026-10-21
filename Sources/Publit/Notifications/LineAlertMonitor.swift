@@ -82,22 +82,40 @@ enum LineAlertMonitor {
 enum ArrivalUpdates {
     private static let key = "sharedArrivals"
 
+    // Android's preferences store no dictionaries: there the map is kept as JSON.
+    private static func load() -> [String: Double] {
+        #if os(Android)
+        guard let data = UserDefaults.standard.data(forKey: key) else { return [:] }
+        return (try? JSONDecoder().decode([String: Double].self, from: data)) ?? [:]
+        #else
+        return UserDefaults.standard.dictionary(forKey: key) as? [String: Double] ?? [:]
+        #endif
+    }
+
+    private static func save(_ map: [String: Double]) {
+        #if os(Android)
+        UserDefaults.standard.set(try? JSONEncoder().encode(map), forKey: key)
+        #else
+        UserDefaults.standard.set(map, forKey: key)
+        #endif
+    }
+
     static func recordShare(tripKey: String, arrival: Date) {
-        var map = UserDefaults.standard.dictionary(forKey: key) as? [String: Double] ?? [:]
+        var map = load()
         let now = Date().timeIntervalSince1970
         map = map.filter { now - $0.value < 24 * 3600 }
         map[tripKey] = arrival.timeIntervalSince1970
-        UserDefaults.standard.set(map, forKey: key)
+        save(map)
     }
 
     /// Call after a live refresh of a saved trip.
     static func follow(_ trip: SavedTrip) async {
-        var map = UserDefaults.standard.dictionary(forKey: key) as? [String: Double] ?? [:]
+        var map = load()
         guard let shared = map[trip.id] else { return }
         let arrival = trip.itinerary.endTime
         guard arrival > .now, ArrivalShare.shifted(sharedArrival: Date(timeIntervalSince1970: shared), current: arrival) else { return }
         map[trip.id] = arrival.timeIntervalSince1970
-        UserDefaults.standard.set(map, forKey: key)
+        save(map)
         let content = UNMutableNotificationContent()
         content.title = L10n.f("New arrival time: %@", Fmt.time(arrival, tz: trip.itinerary.legs.last?.to.tz))
         content.body = L10n.f("You shared your arrival at %@. Tap to send the new time.", trip.toName)

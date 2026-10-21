@@ -128,7 +128,11 @@ struct PassEditorView: View {
 
             Section(L10n.t("Notes")) {
                 TextField(L10n.t("Notes"), text: text(\.notes), axis: .vertical)
+                    #if os(Android)
+                    .lineLimit(6)
+                    #else
                     .lineLimit(2...6)
+                    #endif
             }
         }
         .inkList()

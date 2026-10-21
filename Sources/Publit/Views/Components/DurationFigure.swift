@@ -11,10 +11,35 @@ struct DurationFigure: View {
     }
 
     var body: some View {
+        #if os(Android)
+        StyledText(runs)
+            .lineLimit(1).minimumScaleFactor(0.7)
+            .accessibilityLabel(Text(verbatim: Fmt.duration(seconds: seconds)))
+        #else
         Text(styled)
             .lineLimit(1).minimumScaleFactor(0.7)
             .accessibilityLabel(Text(verbatim: Fmt.duration(seconds: seconds)))
+        #endif
     }
+
+    #if os(Android)
+    private var runs: [TextRun] {
+        var result: [TextRun] = []
+        var group = ""
+        var numeric = false
+        func append() {
+            guard !group.isEmpty else { return }
+            result.append(numeric ? TextRun(group, color: Color.ink, size: size, weight: .bold)
+                                  : TextRun(group, color: Color.secondary, size: size * 0.5, weight: .medium))
+        }
+        for character in Fmt.duration(seconds: seconds) {
+            if character.isNumber != numeric { append(); group = ""; numeric = character.isNumber }
+            group.append(character)
+        }
+        append()
+        return result
+    }
+    #else
 
     private var styled: AttributedString {
         var result = AttributedString()
@@ -35,4 +60,5 @@ struct DurationFigure: View {
         append()
         return result
     }
+    #endif
 }

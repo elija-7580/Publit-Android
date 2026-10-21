@@ -314,11 +314,15 @@ final class HangLog: @unchecked Sendable {
     }
 
     static var device: String {
+        #if os(Android)
+        return UIDevice.current.model
+        #else
         var info = utsname()
         uname(&info)
         return withUnsafeBytes(of: &info.machine) { raw in
             String(decoding: raw.prefix { $0 != 0 }, as: UTF8.self)
         }
+        #endif
     }
 
     /// The main thread replied.

@@ -9,7 +9,12 @@ enum L10n {
     static var bundle: Bundle { .module }
     /// The language the texts are shown in, for the spoken guidance ("de", "en", …).
     static var languageCode: String {
-        Bundle.module.preferredLocalizations.first ?? Locale.current.language.languageCode?.identifier ?? "en"
+        let available = Set(Bundle.module.localizations)
+        for language in Locale.preferredLanguages {
+            let code = String(language.prefix { $0 != "-" && $0 != "_" })
+            if available.contains(code) { return code }
+        }
+        return "en"
     }
     #else
     static var bundle: Bundle { .main }

@@ -129,6 +129,16 @@ struct SmartRoutingSettingsSection: View {
             if enabled {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(L10n.t("Changes")).font(.subheadline)
+                    #if os(Android)
+                    Slider(value: $transferMinutes, in: SmartRouting.transferMinutesRange, step: 1)
+                        .accessibilityIdentifier("smartTransferSlider")
+                    HStack {
+                        Text(L10n.t("Faster")).font(.caption)
+                        Spacer()
+                        Text(L10n.t("Fewer changes")).font(.caption)
+                    }
+                    .foregroundStyle(.secondary)
+                    #else
                     Slider(value: $transferMinutes, in: SmartRouting.transferMinutesRange, step: 1) {
                         Text(L10n.t("Changes"))
                     } minimumValueLabel: {
@@ -137,6 +147,7 @@ struct SmartRoutingSettingsSection: View {
                         Text(L10n.t("Fewer changes")).font(.caption)
                     }
                     .accessibilityIdentifier("smartTransferSlider")
+                    #endif
                     Text(L10n.f("A change counts like %lld extra minutes.", Int(transferMinutes)))
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -190,7 +201,14 @@ struct SmartRoutingSettingsSection: View {
     }
 
     static func speedText(_ metersPerSecond: Double) -> String {
-        Measurement(value: metersPerSecond * 3.6, unit: UnitSpeed.kilometersPerHour)
+        #if os(Android)
+        let f = NumberFormatter()
+        f.minimumFractionDigits = 1
+        f.maximumFractionDigits = 1
+        return (f.string(from: NSNumber(value: metersPerSecond * 3.6)) ?? String(format: "%.1f", metersPerSecond * 3.6)) + " km/h"
+        #else
+        return Measurement(value: metersPerSecond * 3.6, unit: UnitSpeed.kilometersPerHour)
             .formatted(.measurement(width: .abbreviated, usage: .asProvided, numberFormatStyle: .number.precision(.fractionLength(1))))
+        #endif
     }
 }

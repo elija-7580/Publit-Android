@@ -384,10 +384,15 @@ struct StationMapView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .searchable(text: $query, isPresented: $searching, placement: .navigationBarDrawer(displayMode: .always),
                             prompt: Text("Search places, sights and stops"))
+                #if os(Android)
+                // No search suggestions or scope bar in Compose: the same list over the map while searching.
+                .overlay { if searching { androidSearchPanel } }
+                #else
                 .searchScopes($scope, activation: .onSearchPresentation) {
                     ForEach(MapSearchScope.allCases) { Text($0.title).tag($0) }
                 }
                 .searchSuggestions { suggestions }
+                #endif
                 .onSubmit(of: .search) {
                     if let c = PlaceCategory.matching(query) { browse(c) } else if let first = results.first { show(first) }
                 }
@@ -537,6 +542,21 @@ struct StationMapView: View {
 
     // MARK: Search
 
+    #if os(Android)
+    private var androidSearchPanel: some View {
+        VStack(spacing: 0) {
+            Picker(L10n.t("Search"), selection: $scope) {
+                ForEach(MapSearchScope.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            List { suggestions }
+                .listStyle(.plain)
+        }
+        .background(Color.surface)
+    }
+    #endif
+
     @ViewBuilder
     private var suggestions: some View {
         if MapSearch.query(query) == nil {
@@ -610,6 +630,7 @@ struct StationMapView: View {
         categoryLoading = false
     }
 
+    #if canImport(MapKit)
     /// Apple's points of interest of one kind in an area (a little larger than the screen, at most ~25 km).
     private static func applePlaces(in area: MKCoordinateRegion, category: PlaceCategory) async -> [GeocodeMatch] {
         var r = area
@@ -637,6 +658,12 @@ struct StationMapView: View {
             return m
         }
     }
+    #else
+    /// Android: the places of one kind from OpenStreetMap in the same area.
+    private static func applePlaces(in area: MKCoordinateRegion, category: PlaceCategory) async -> [GeocodeMatch] {
+        await OSMPlaces.places(in: area, category: category)
+    }
+    #endif
 
     private func search() async {
         guard let text = MapSearch.query(query) else { results = []; searchedFor = nil; return }
@@ -664,6 +691,7 @@ struct StationMapView: View {
         }
     }
 
+    #if canImport(MapKit)
     /// Points of interest and addresses from Apple Maps around the visible map; none when Apple has no answer.
     private static func applePlaces(_ text: String?, near: LatLon?, addresses: Bool = true) async -> [GeocodeMatch] {
         guard let text else { return [] }
@@ -681,6 +709,10 @@ struct StationMapView: View {
             return TransitMapView.Coordinator.match(item, name: item.name ?? text, at: point)
         }
     }
+    #else
+    /// Android: the Transitous geocoder already covers OSM places and addresses.
+    private static func applePlaces(_ text: String?, near: LatLon?, addresses: Bool = true) async -> [GeocodeMatch] { [] }
+    #endif
 
     /// A place picked on the map: marked where it is (the map does not move) and opened in the place sheet.
     /// The refined version (with address) only updates what is still open.
