@@ -1,6 +1,7 @@
 #!/bin/bash
 # Re-runs recorded skipstone commands in Kotlin (non-bridge) mode: generates the Kotlin sources that the
 # macOS/Xcode build would normally produce. Usage: kotlinize.sh [argslog]
+set -e
 LOG=${1:-/data/tools/kz_args.log}
 while IFS= read -r line; do
   args=$(echo "$line" | cut -d' ' -f2- | sed -E 's/--skip-bridge-output [^ ]+//')

@@ -154,7 +154,15 @@ object DroidLive {
             n.addAction(0, json.optString("ticketsLabel", "Ticket"), DroidNotify.openIntent(ctx, it, id.hashCode() + 1))
         }
         if (timeout > 0) { n.setTimeoutAfter(timeout); n.setOngoing(false) } else n.setOngoing(true)
-        try { NotificationManagerCompat.from(ctx).notify("live-$id", 1, n.build()) } catch (e: SecurityException) {}
+        // Android 16 Live Updates: promotion is a request; the OS/user decides whether to show it.
+        var notification = n.build()
+        if (Build.VERSION.SDK_INT >= 36 && timeout <= 0) {
+            notification = android.app.Notification.Builder.recoverBuilder(ctx, notification)
+                .setRequestPromotedOngoing(true)
+                .setShortCriticalText(json.optString("line").take(7))
+                .build()
+        }
+        try { NotificationManagerCompat.from(ctx).notify("live-$id", 1, notification) } catch (e: SecurityException) {}
     }
 
     fun end(ctx: Context, id: String) = NotificationManagerCompat.from(ctx).cancel("live-$id", 1)

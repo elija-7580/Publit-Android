@@ -36,6 +36,13 @@ object Droid {
     @JvmStatic fun screenHeightDp(): Double = context().resources.configuration.screenHeightDp.toDouble()
     @JvmStatic fun androidVersion(): String = android.os.Build.VERSION.RELEASE ?: ""
     @JvmStatic fun deviceModel(): String = android.os.Build.MODEL ?: "Android"
+    @JvmStatic fun appVersion(): String = context().packageManager.getPackageInfo(context().packageName, 0).versionName ?: "0.6.0"
+    @JvmStatic fun appBuild(): String {
+        val info = context().packageManager.getPackageInfo(context().packageName, 0)
+        @Suppress("DEPRECATION")
+        return (if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()).toString()
+    }
+
 
     /// The window's brightness override, -1 while the system brightness applies.
     @JvmStatic fun screenBrightness(): Double = activity()?.window?.attributes?.screenBrightness?.toDouble() ?: -1.0
