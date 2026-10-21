@@ -1,0 +1,15 @@
+<resources>
+    <string name="nearby">Yakında</string>
+    <string name="refresh">Yenile</string>
+    <string name="waiting_location">Konumunuz bekleniyor…</string>
+    <string name="location_off">Konum kapalı</string>
+    <string name="no_departures">Yakında kalkış yok</string>
+    <string name="try_again">Tekrar dene</string>
+    <string name="updated">Güncellendi: %1$s</string>
+    <string name="now">şimdi</string>
+    <string name="min">dk</string>
+    <string name="live">Canlı</string>
+    <string name="cancelled">İptal</string>
+    <string name="allow_location">Konuma izin ver</string>
+    <string name="far_note">En yakın kalkışlar %1$s uzakta, yürüyerek yaklaşık %2$d dk.</string>
+</resources>

@@ -113,3 +113,16 @@ class StyledTextComposer(val json: String, val c0: skip.ui.Color?, val c1: skip.
         androidx.compose.material3.Text(text = text, modifier = context.modifier, style = base, maxLines = limit, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }
+
+/** Native text selection, opt-in through SwiftUI's .textSelection(.enabled). */
+class SelectionModifier(val enabled: Boolean) : skip.ui.ContentModifier {
+    override fun modify(view: skip.ui.View): skip.ui.View = skip.ui.ComposeView { context ->
+        if (enabled) {
+            androidx.compose.foundation.text.selection.SelectionContainer(modifier = context.modifier) {
+                view.Compose(context = context.content())
+            }
+        } else {
+            androidx.compose.foundation.text.selection.DisableSelection { view.Compose(context = context) }
+        }
+    }
+}

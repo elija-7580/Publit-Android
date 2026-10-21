@@ -23,3 +23,11 @@ pluginManagement {
 plugins {
     id("skip-plugin") apply true
 }
+
+// Standalone watch app; no Swift runtime is needed on Wear OS.
+include(":wear")
+
+// Keep the requested Android 8 floor even when Skip's test defaults move upwards.
+dependencyResolutionManagement {
+    versionCatalogs.named("libs") { version("android-sdk-min", "26") }
+}

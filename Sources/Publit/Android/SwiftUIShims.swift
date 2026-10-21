@@ -127,8 +127,12 @@ extension View {
     /// Named actions take a string in Skip; the views here pass Text. The row's tap does the same.
     func accessibilityAction(named name: Text, _ handler: @escaping () -> Void) -> some View { self }
     func accessibilityActions<Content: View>(@ViewBuilder _ content: () -> Content) -> some View { self }
-    /// Compose Text has no selection outside a SelectionContainer; values stay plain text.
-    func textSelection(_ selectability: TextSelectability) -> some View { self }
+    /// The surrounding container enables Android's native copy/select handles.
+    func textSelection(_ selectability: TextSelectability) -> some View {
+        composeModifier {
+            try! AnyDynamicObject(className: "publit.module.SelectionModifier", arguments: [selectability == .enabled])
+        }
+    }
     /// Numbers change without the rolling-digit animation.
     func contentTransition(_ transition: ContentTransition) -> some View { self }
 
@@ -433,7 +437,7 @@ extension View {
             .foregroundStyle(Color.ink)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .frame(minHeight: 40)
+            .frame(minHeight: 48)
             .background(Color.inkFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .modifier(EnabledOpacity())
     }
@@ -453,7 +457,7 @@ extension View {
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(Color.ink)
             .padding(.horizontal, 12)
-            .frame(minHeight: 34)
+            .frame(minHeight: 48)
             .background(Color.inkFill, in: Capsule())
     }
 

@@ -1,0 +1,15 @@
+<resources>
+    <string name="nearby">Nelle vicinanze</string>
+    <string name="refresh">Aggiorna</string>
+    <string name="waiting_location">In attesa della tua posizione…</string>
+    <string name="location_off">Posizione disattivata</string>
+    <string name="no_departures">Nessuna partenza nelle vicinanze</string>
+    <string name="try_again">Riprova</string>
+    <string name="updated">Aggiornato %1$s</string>
+    <string name="now">ora</string>
+    <string name="min">min</string>
+    <string name="live">In tempo reale</string>
+    <string name="cancelled">Soppresso</string>
+    <string name="allow_location">Consenti posizione</string>
+    <string name="far_note">Le partenze più vicine sono a %1$s, circa %2$d min a piedi.</string>
+</resources>

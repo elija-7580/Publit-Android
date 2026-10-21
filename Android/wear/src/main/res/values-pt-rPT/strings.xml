@@ -1,0 +1,15 @@
+<resources>
+    <string name="nearby">Por perto</string>
+    <string name="refresh">Atualizar</string>
+    <string name="waiting_location">À espera da sua localização…</string>
+    <string name="location_off">Localização desativada</string>
+    <string name="no_departures">Sem partidas por perto</string>
+    <string name="try_again">Tentar novamente</string>
+    <string name="updated">Atualizado %1$s</string>
+    <string name="now">agora</string>
+    <string name="min">min</string>
+    <string name="live">Em tempo real</string>
+    <string name="cancelled">Suprimido</string>
+    <string name="allow_location">Permitir localização</string>
+    <string name="far_note">As partidas mais próximas estão a %1$s, cerca de %2$d min a pé.</string>
+</resources>

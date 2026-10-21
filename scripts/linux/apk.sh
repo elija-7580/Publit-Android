@@ -11,6 +11,7 @@ if [ ! -x "$T/skipstone-bin" ]; then
   [ -n "$BIN" ] || { echo "skipstone artifact missing"; exit 1; }
   cp "$BIN" "$T/skipstone-bin"; chmod +x "$T/skipstone-bin"
 fi
+chmod +x "$D/skiplog.sh"
 export SKIP_COMMAND_OVERRIDE=$D/skiplog.sh
 # Android ABIs packaged into the APK/AAB = the Swift architectures (aarch64 → arm64-v8a, x86_64, armv7 → armeabi-v7a)
 export PUBLIT_ABIS=$(echo ${ARCHS:-aarch64} | sed 's/aarch64/arm64-v8a/; s/armv7/armeabi-v7a/' | tr ' ' ',')
