@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Publit – Ink & Dot prototype</title>
+<!-- Clickable design prototype, not the app. Static sample data (Munich). Values from tokens.json. -->
+<style>
+:root, .light {
+  --bg:#F4F4F2; --surface:#FFFFFF; --raised:#FFFFFF; --fill:#EBEBE7;
+  --ink:#111111; --ink2:#66666B; --ink3:#9C9CA1; --line:rgba(0,0,0,.08); --onink:#FFFFFF;
+  --glass:rgba(255,255,255,.72); --live:#1B7A33; --delay:#B25000; --danger:#D70015;
+  --dot:#FFC531; --shadow:0 1px 0 rgba(0,0,0,.03);
+}
+.dark {
+  --bg:#0B0B0C; --surface:#19191B; --raised:#222225; --fill:#2A2A2D;
+  --ink:#F4F4F2; --ink2:#A1A1A6; --ink3:#6E6E73; --line:rgba(255,255,255,.08); --onink:#111111;
+  --glass:rgba(30,30,33,.72); --live:#30D158; --delay:#FF9F0A; --danger:#FF453A; --shadow:none;
+}
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body { margin:0; }
+body { font-family:-apple-system,"SF Pro Text",Inter,Roboto,"Noto Sans",system-ui,sans-serif; background:#d9d9d5; color:#111;
+  min-height:100vh; display:flex; flex-direction:column; align-items:center; gap:16px; padding:20px 0 40px; }
+body.solo { background:var(--bg); padding:0; }
+.controls { display:flex; gap:8px; font-size:14px; }
+.controls button { border:0; border-radius:999px; padding:8px 14px; background:#111; color:#fff; font:inherit; font-weight:600; cursor:pointer; }
+.gallery { display:grid; grid-template-columns:repeat(4, 390px); gap:28px; }
+.phone { width:390px; height:844px; border-radius:48px; overflow:hidden; position:relative; background:var(--bg); color:var(--ink);
+  box-shadow:0 0 0 10px #1a1a1a, 0 20px 50px rgba(0,0,0,.25); }
+body.solo .phone { width:100vw; height:100vh; border-radius:0; box-shadow:none; }
+.scroll { position:absolute; inset:0; overflow-y:auto; padding:58px 16px 190px; scrollbar-width:none; }
+.scroll::-webkit-scrollbar { display:none; }
+.num { font-variant-numeric:tabular-nums; }
+/* type */
+.large { font-size:34px; font-weight:800; letter-spacing:-.8px; margin:6px 4px 14px; display:flex; align-items:center; gap:10px; }
+.title { font-size:22px; font-weight:700; letter-spacing:-.4px; }
+.sec { font-size:13px; font-weight:600; color:var(--ink2); margin:22px 6px 8px; letter-spacing:.1px; }
+.muted { color:var(--ink2); } .faint { color:var(--ink3); }
+/* surfaces: flat, opaque */
+.card { background:var(--surface); border-radius:22px; box-shadow:var(--shadow); overflow:hidden; }
+.row { display:flex; align-items:center; gap:12px; padding:13px 16px; position:relative; cursor:pointer; }
+.row + .row::before { content:""; position:absolute; top:0; left:16px; right:0; height:1px; background:var(--line); }
+.chip { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:999px; background:var(--fill); font-size:14px; font-weight:600; }
+.chip.on { background:var(--ink); color:var(--onink); }
+.chips { display:flex; gap:8px; overflow-x:auto; margin:0 0 12px; scrollbar-width:none; }
+/* line badge: the only strong colour on screen */
+.badge { min-width:38px; height:26px; padding:0 7px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center;
+  font-size:14px; font-weight:800; letter-spacing:-.2px; color:#fff; flex:none; }
+.badge.round { border-radius:999px; }
+/* figures */
+.fig { font-size:30px; font-weight:750; letter-spacing:-.8px; line-height:1; }
+.figs { font-size:20px; font-weight:700; letter-spacing:-.3px; }
+.unit { font-size:13px; font-weight:600; color:var(--ink2); margin-left:2px; }
+.right { margin-left:auto; text-align:right; }
+.delay { color:var(--delay); } .live { color:var(--live); } .danger { color:var(--danger); }
+.strike { text-decoration:line-through; }
+/* buttons */
+.btn { display:flex; align-items:center; justify-content:center; gap:8px; height:52px; border-radius:16px; border:0; width:100%;
+  font:inherit; font-size:17px; font-weight:650; background:var(--ink); color:var(--onink); cursor:pointer; }
+.btn.soft { background:var(--fill); color:var(--ink); height:46px; font-size:15px; font-weight:600; border-radius:14px; }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+/* the dot: signature, used only for "you / live" */
+.dot { width:10px; height:10px; border-radius:50%; background:var(--dot); flex:none; }
+.dot.pulse { box-shadow:0 0 0 0 rgba(255,197,49,.6); animation:pulse 2s infinite; }
+@keyframes pulse { 70% { box-shadow:0 0 0 8px rgba(255,197,49,0); } 100% { box-shadow:0 0 0 0 rgba(255,197,49,0); } }
+/* glass: one layer, floating controls only */
+.glass { background:var(--glass); -webkit-backdrop-filter:blur(24px) saturate(1.6); backdrop-filter:blur(24px) saturate(1.6);
+  border:1px solid var(--line); }
+.tabbar { position:absolute; left:16px; right:16px; bottom:24px; height:64px; border-radius:32px; display:flex; justify-content:space-around; align-items:center; z-index:5; }
+.tab { display:flex; flex-direction:column; align-items:center; gap:3px; font-size:11px; font-weight:600; color:var(--ink3); cursor:pointer; width:72px; }
+.tab.on { color:var(--ink); }
+.tab svg { width:24px; height:24px; }
+.tab .pip { width:4px; height:4px; border-radius:50%; background:transparent; }
+.tab.on .pip { background:var(--dot); }
+.livebar { position:absolute; left:16px; right:16px; bottom:98px; border-radius:22px; padding:12px 12px 12px 14px; display:flex; gap:12px; align-items:center; z-index:5; cursor:pointer; }
+.progress { height:6px; border-radius:3px; background:var(--fill); margin-top:8px; position:relative; }
+.progress i { position:absolute; left:0; top:0; bottom:0; border-radius:3px; background:var(--ink); }
+.progress b { position:absolute; top:50%; width:12px; height:12px; margin:-6px 0 0 -6px; border-radius:50%; background:var(--dot); box-shadow:0 0 0 3px var(--surface); }
+.x { width:30px; height:30px; border-radius:50%; background:var(--fill); display:flex; align-items:center; justify-content:center; color:var(--ink2); flex:none; font-size:14px; }
+/* plan */
+.field { display:flex; align-items:center; gap:12px; padding:14px 16px; font-size:17px; }
+.field .k { width:42px; color:var(--ink3); font-size:13px; font-weight:600; }
+.swap { position:absolute; right:14px; top:50%; transform:translateY(-50%); width:36px; height:36px; border-radius:50%; background:var(--fill); display:flex; align-items:center; justify-content:center; }
+.legs { display:flex; align-items:center; gap:6px; margin-top:10px; flex-wrap:wrap; }
+.walk { font-size:12px; font-weight:600; color:var(--ink2); display:inline-flex; align-items:center; gap:2px; }
+.track { height:6px; border-radius:3px; display:flex; gap:3px; margin-top:12px; }
+.track span { border-radius:3px; height:6px; }
+/* trip timeline: the logo stroke, round caps, stops as rings */
+.tl { position:relative; padding:4px 0 4px 0; }
+.stop { display:grid; grid-template-columns:52px 28px 1fr; align-items:stretch; min-height:44px; }
+.stop .t { font-size:15px; font-weight:700; padding-top:1px; }
+.stop .t small { display:block; font-size:12px; font-weight:600; }
+.rail { position:relative; display:flex; justify-content:center; align-items:flex-start; }
+.rail .seg { position:absolute; top:10px; bottom:-12px; left:50%; margin-left:-3px; width:6px; border-radius:3px; }
+.rail .ring { position:relative; z-index:1; width:16px; height:16px; border-radius:50%; background:var(--surface); border:4px solid var(--ink); margin-top:2px; }
+.rail .ring.small { width:10px; height:10px; border-width:0; background:var(--surface); margin-top:5px; opacity:.9; }
+.rail .me { position:absolute; z-index:2; left:50%; width:18px; height:18px; margin-left:-9px; border-radius:50%; background:var(--dot); box-shadow:0 0 0 4px var(--surface); }
+.stop .n { font-size:16px; font-weight:600; padding-bottom:14px; }
+.stop .n .muted { font-size:14px; font-weight:500; display:block; margin-top:2px; }
+.dashed { background:repeating-linear-gradient(to bottom, var(--ink3) 0 6px, transparent 6px 11px) !important; width:4px !important; margin-left:-2px !important; }
+.hero { padding:18px 18px 16px; }
+.pill { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:650; padding:5px 10px; border-radius:999px; background:var(--fill); }
+.back { display:inline-flex; align-items:center; gap:4px; font-size:17px; font-weight:600; color:var(--ink); cursor:pointer; margin:0 0 8px 2px; }
+/* ticket */
+.ticket { border-radius:22px; padding:18px; color:#fff; background:#0A5BA8; position:relative; overflow:hidden; }
+.ticket .code { width:92px; height:92px; border-radius:12px; background:#fff; margin-left:auto; display:grid; grid-template-columns:repeat(8,1fr); padding:8px; gap:2px; }
+.ticket .code i { background:#111; border-radius:1px; }
+.ticket .code i:nth-child(3n), .ticket .code i:nth-child(7n+1) { background:transparent; }
+.status { position:absolute; top:0; left:0; right:0; height:50px; display:flex; justify-content:space-between; padding:16px 30px 0; font-size:16px; font-weight:650; z-index:6; pointer-events:none; }
+.icon { width:18px; height:18px; flex:none; }
+</style>
+</head>
+<body>
+<div class="controls">
+  <button onclick="toggleTheme()">Hell / Dunkel</button>
+  <button onclick="location.hash = location.hash === '#gallery' ? '' : '#gallery'; location.reload()">Einzeln / Übersicht</button>
+</div>
+<div id="root"></div>
+<script>
+const LINES = {
+  U3:{c:"#EC6726"}, U6:{c:"#0065AE"}, S1:{c:"#16BAE7", round:true}, S8:{c:"#2D2B29", round:true},
+  "19":{c:"#E30613"}, "52":{c:"#00586A"}, "100":{c:"#00586A"}
+};
+const badge = (n) => `<span class="badge${LINES[n].round ? " round" : ""}" style="background:${LINES[n].c}">${n}</span>`;
+const svg = {
+  near:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+  plan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H15a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h6.5"/></svg>',
+  ticket:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4z"/><path d="M14 7v10" stroke-dasharray="2 2.5"/></svg>',
+  saved:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v16l-5-4-5 4z"/></svg>',
+  walk:'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="1.8"/><path d="M10 21l2-6-2.5-2.5L11 8l3 3 3 1M9 13l-2 2"/></svg>',
+  swap:'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4"/></svg>',
+  logo:'<svg width="30" height="30" viewBox="300 280 380 580"><path d="M400 790 V420 a150 150 0 1 1 150 150 H400" fill="none" stroke="currentColor" stroke-width="96" stroke-linecap="round" stroke-linejoin="round"/><circle cx="550" cy="420" r="58" fill="#FFC531"/></svg>'
+};
+
+const S = { tab:"near", trip:false, theme: localStorage.getItem("publit-theme") || "light", bar:true };
+
+function nearby() {
+  const dep = (l, to, pl, m, extra="") => `<div class="row" onclick="openTrip()">${badge(l)}
+    <div style="min-width:0"><div style="font-weight:600;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${to}</div>
+    <div class="muted" style="font-size:13px;margin-top:2px">${pl}</div></div>
+    <div class="right">${m}${extra}</div></div>`;
+  const min = (n, cls="") => `<span class="fig num ${cls}">${n}</span><span class="unit">min</span>`;
+  return `<div class="large"><span style="color:var(--ink)">${svg.logo}</span>In der Nähe</div>
+  <div class="chips"><span class="chip on">Alle</span><span class="chip">U-Bahn</span><span class="chip">S-Bahn</span><span class="chip">Tram</span><span class="chip">Bus</span></div>
+  <div class="card">
+    <div class="row" style="padding-bottom:6px;cursor:default"><div><div class="title">Marienplatz</div>
+      <div class="muted" style="font-size:14px;margin-top:2px;display:flex;align-items:center;gap:6px"><span class="dot"></span>120 m · 2 min zu Fuß</div></div></div>
+    ${dep("U3","Fürstenried West","Gleis 1",min(2))}
+    ${dep("U6","Garching-Forschungszentrum","Gleis 2",min(4,"delay"),`<div class="delay" style="font-size:12px;font-weight:700">+2</div>`)}
+    ${dep("S1","Freising","Gleis 1",min(7))}
+    ${dep("S8","Flughafen München","Gleis 2",`<span class="figs num danger strike">16:31</span>`,`<div class="danger" style="font-size:12px;font-weight:700">fällt aus</div>`)}
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="row" style="padding-bottom:6px;cursor:default"><div><div class="title">Theatinerstraße</div>
+      <div class="muted" style="font-size:14px;margin-top:2px">340 m · 5 min zu Fuß</div></div></div>
+    ${dep("19","Pasing","Richtung Westen",min(3))}
+    ${dep("100","Ostbahnhof","Museenlinie",min(11))}
+  </div>`;
+}
+
+function plan() {
+  const res = (dep, arr, dur, legs, track, note="") => `<div class="card" style="padding:16px;margin-bottom:10px;cursor:pointer" onclick="openTrip()">
+    <div style="display:flex;align-items:baseline;gap:8px"><span class="figs num">${dep}</span><span class="faint">–</span><span class="figs num">${arr}</span>
+      <span class="right muted num" style="font-size:15px;font-weight:600">${dur}</span></div>
+    <div class="legs">${legs}</div>
+    <div class="track">${track}</div>
+    ${note ? `<div style="font-size:13px;margin-top:10px;font-weight:600" class="${note[0]}">${note[1]}</div>` : ""}</div>`;
+  const w = (m) => `<span class="walk">${svg.walk}${m}</span>`;
+  const seg = (f, c) => `<span style="flex:${f};background:${c}"></span>`;
+  const ws = (f) => `<span style="flex:${f};background:var(--fill)"></span>`;
+  return `<div class="large">Planen</div>
+  <div class="card" style="position:relative">
+    <div class="field"><span class="k">Von</span><span style="display:flex;align-items:center;gap:8px"><span class="dot"></span>Aktueller Ort</span></div>
+    <div style="height:1px;background:var(--line);margin-left:70px"></div>
+    <div class="field"><span class="k">Nach</span><b style="font-weight:600">Flughafen München</b></div>
+    <div class="swap">${svg.swap}</div>
+  </div>
+  <div class="chips" style="margin-top:12px"><span class="chip on">Jetzt</span><span class="chip">Abfahrt</span><span class="chip">Ankunft</span><span class="chip">Optionen</span></div>
+  <div class="sec">VERBINDUNGEN</div>
+  ${res("14:02","14:46","44 min", `${w(4)} ${badge("S8")} ${w(2)}`, ws(4)+seg(38,LINES.S8.c)+ws(2))}
+  ${res("14:09","14:58","49 min", `${w(3)} ${badge("U6")} ${badge("S1")} ${w(2)}`, ws(3)+seg(12,LINES.U6.c)+seg(32,LINES.S1.c)+ws(2), ["delay","Umstieg knapp: 3 min in Feldmoching"])}
+  ${res("14:22","15:06","44 min", `${w(4)} ${badge("S8")} ${w(2)}`, ws(4)+seg(38,LINES.S8.c)+ws(2))}`;
+}
+
+function trip() {
+  const stop = (t, tc, ring, seg, name, sub, me="") => `<div class="stop"><div class="t num">${t}${tc ? `<small class="${tc[0]}">${tc[1]}</small>` : ""}</div>
+    <div class="rail">${seg}${ring}${me}</div><div class="n">${name}${sub ? `<span class="muted">${sub}</span>` : ""}</div></div>`;
+  const segc = (c) => `<span class="seg" style="background:${c}"></span>`;
+  const segw = `<span class="seg dashed"></span>`;
+  return `<div class="back" onclick="closeTrip()">‹ Zurück</div>
+  <div class="card hero">
+    <div style="display:flex;align-items:center;gap:8px"><span class="pill"><span class="dot pulse"></span>Unterwegs</span><span class="pill live">pünktlich</span></div>
+    <div style="margin-top:14px" class="muted">Ankunft Flughafen München</div>
+    <div style="display:flex;align-items:baseline;gap:10px;margin-top:2px"><span class="fig num" style="font-size:44px">14:46</span><span class="muted num" style="font-weight:600">in 31 min</span></div>
+    <div class="progress" style="margin-top:14px"><i style="width:30%"></i><b style="left:30%"></b></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-top:8px" class="faint num"><span>14:02 Marienplatz</span><span>14:46</span></div>
+  </div>
+  <div class="card" style="margin-top:12px;padding:18px 16px 4px">
+    ${stop("14:02","", `<span class="ring"></span>`, segw, "Aktueller Ort", "4 min zu Fuß")}
+    ${stop("14:06",["live","14:06"], `<span class="ring" style="border-color:${LINES.S8.c}"></span>`, segc(LINES.S8.c), `<span style="display:flex;align-items:center;gap:8px">${badge("S8")} Marienplatz</span>`, "Gleis 2 · Richtung Flughafen", `<span class="me" style="top:66px"></span>`)}
+    ${stop("14:21","", `<span class="ring small"></span>`, segc(LINES.S8.c), "<span class='muted' style='font-weight:500;font-size:15px'>8 Halte · Ostbahnhof, Ismaning …</span>", "")}
+    ${stop("14:44",["live","14:44"], `<span class="ring" style="border-color:${LINES.S8.c}"></span>`, segw, "Flughafen München", "Aussteigen rechts")}
+    ${stop("14:46","", `<span class="ring"></span>`, "", "Terminal 2", "")}
+  </div>
+  <button class="btn" style="margin-top:14px">Fahrt beenden</button>
+  <div class="grid2"><button class="btn soft">Gespeichert</button><button class="btn soft">Ankunft teilen</button>
+    <button class="btn soft">Kalender</button><button class="btn soft">Ticket zeigen</button></div>`;
+}
+
+function tickets() {
+  return `<div class="large">Tickets</div>
+  <div class="sec">GÜLTIG JETZT</div>
+  <div class="ticket"><div style="display:flex;gap:12px">
+    <div><div style="font-size:13px;font-weight:700;opacity:.8">MVV</div><div style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin-top:4px">Deutschlandticket</div>
+    <div style="font-size:14px;opacity:.85;margin-top:6px">Gültig bis 31. Okt.</div></div>
+    <div class="code">${"<i></i>".repeat(64)}</div></div></div>
+  <div class="sec">FÜR DIESE FAHRT</div>
+  <div class="card">
+    <div class="row"><span class="badge" style="background:var(--ink);color:var(--onink)">DB</span><div><div style="font-weight:600">Einzelfahrt Flughafen</div><div class="muted" style="font-size:13px">Heute · 1 Erw.</div></div><div class="right faint">›</div></div>
+    <div class="row"><span class="badge" style="background:var(--ink);color:var(--onink)">DB</span><div><div style="font-weight:600">Fahrrad-Tageskarte</div><div class="muted" style="font-size:13px">Heute</div></div><div class="right faint">›</div></div>
+  </div>
+  <button class="btn soft" style="margin-top:12px">+ Ticket hinzufügen</button>`;
+}
+
+function saved() {
+  const p = (n, s, icon) => `<div class="row"><span class="x" style="width:36px;height:36px;color:var(--ink)">${icon}</span><div><div style="font-weight:600">${n}</div><div class="muted" style="font-size:13px">${s}</div></div><div class="right faint">›</div></div>`;
+  return `<div class="large">Gespeichert</div>
+  <div class="card">${p("Zuhause","Schwabing · 24 min","⌂")}${p("Arbeit","Garching · 31 min","◼")}</div>
+  <div class="sec">DEMNÄCHST</div>
+  <div class="card"><div class="row" onclick="openTrip()">${badge("S8")}<div><div style="font-weight:600">Zum Flughafen</div><div class="muted num" style="font-size:13px">Heute 14:02 – 14:46</div></div><div class="right"><span class="pill"><span class="dot"></span>läuft</span></div></div></div>`;
+}
+
+function screen(tab, inTrip) {
+  const body = inTrip ? trip() : ({near:nearby, plan:plan, ticket:tickets, saved:saved})[tab]();
+  const t = (k, label) => `<div class="tab ${tab===k?"on":""}" onclick="go('${k}')">${svg[k]}${label}<span class="pip"></span></div>`;
+  const bar = S.bar && !inTrip ? `<div class="livebar glass" onclick="openTrip()">${badge("S8")}
+      <div style="flex:1;min-width:0"><div style="display:flex;gap:6px;align-items:baseline"><b style="font-size:15px">Aussteigen in 31 min</b><span class="live" style="font-size:12px;font-weight:700">pünktlich</span></div>
+      <div class="muted" style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">S8 → Flughafen · Ankunft 14:46</div>
+      <div class="progress" style="margin-top:7px"><i style="width:30%"></i><b style="left:30%"></b></div></div>
+      <span class="x" onclick="event.stopPropagation();S.bar=false;render()"><svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8"/></svg></span></div>` : "";
+  return `<div class="status"><span class="num">13:15</span><span>●●● ▮</span></div>
+    <div class="scroll">${body}</div>${bar}
+    <div class="tabbar glass">${t("near","In der Nähe")}${t("plan","Planen")}${t("ticket","Tickets")}${t("saved","Gespeichert")}</div>`;
+}
+
+function render() {
+  const root = document.getElementById("root");
+  if (location.hash === "#gallery") {
+    const cells = [["near",false],["plan",false],["near",true],["ticket",false]];
+    root.innerHTML = ["light","dark"].map(th => `<div class="gallery" style="margin-bottom:28px">${cells.map(([tab, tr]) => `<div class="phone ${th}">${screen(tab, tr)}</div>`).join("")}</div>`).join("");
+    return;
+  }
+  document.body.classList.toggle("solo", innerWidth < 500);
+  root.innerHTML = `<div class="phone ${S.theme}">${screen(S.tab, S.trip)}</div>`;
+}
+function go(t) { S.tab = t; S.trip = false; render(); }
+function openTrip() { S.trip = true; render(); }
+function closeTrip() { S.trip = false; render(); }
+function toggleTheme() { S.theme = S.theme === "light" ? "dark" : "light"; localStorage.setItem("publit-theme", S.theme); render(); }
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+# Faster CI for Publit. To use it, replace .github/workflows/ci.yml with this file
+# (GitHub → Code → .github/workflows/ci.yml → ✏️ → paste → Commit). See docs/ci.md.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**/*.md", "docs/**", "LICENSE"]
+  pull_request:
+    paths-ignore: ["**/*.md", "docs/**", "LICENSE"]
+  workflow_dispatch:
+    inputs:
+      ui:
+        description: "UI tests: all, none, or test numbers like F14,F15"
+        default: all
+  schedule:
+    - cron: "17 3 * * *" # nightly full run with UI tests
+
+permissions:
+  contents: write
+
+# A newer push cancels the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Core tests (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.swift') }}-${{ github.sha }}
+          restore-keys: spm-${{ runner.os }}-${{ hashFiles('Package.swift') }}-
+      - run: swift test -Xlinker --allow-shlib-undefined
+
+  feeds:
+    name: Feed converters
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip, cache-dependency-path: feeds/amtab-gtfsrt/requirements.txt }
+      - working-directory: feeds/amtab-gtfsrt
+        run: |
+          pip install -r requirements.txt
+          python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - working-directory: feeds/amtab-gtfsrt/worker
+        run: node --test
+
+  ios:
+    name: iOS build, unit and UI tests
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Which UI tests
+        id: ui
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
+          INPUT: ${{ github.event.inputs.ui }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # Default: no UI tests on a push (they take most of the time). "[ui]" in the commit
+          # message runs all, "[ui F14 F15]" only those; manual and nightly runs do all.
+          sel=""
+          if [ "$EVENT" = "schedule" ]; then sel="all"; fi
+          if [ "$EVENT" = "workflow_dispatch" ]; then sel="${INPUT:-all}"; fi
+          if [ "$EVENT" = "push" ] || [ "$EVENT" = "pull_request" ]; then
+            tag=$(printf '%s' "$MESSAGE" | grep -oE '\[ui[^]]*\]' | head -1 || true)
+            if [ "$tag" = "[ui]" ]; then sel="all"; elif [ -n "$tag" ]; then sel=$(printf '%s' "$tag" | sed -E 's/^\[ui[: ]*//; s/\]$//'); fi
+          fi
+          args=""
+          if [ "$sel" = "all" ]; then
+            args="-only-testing:PublitUITests"
+          elif [ -n "$sel" ] && [ "$sel" != "none" ]; then
+            for n in $(printf '%s' "$sel" | tr ', ' '  '); do
+              for t in $(grep -oE "func test${n}[A-Za-z0-9]*" Tests/UI/PublitUITests.swift | sed 's/func //'); do
+                args="$args -only-testing:PublitUITests/PublitUITests/$t"
+              done
+            done
+          fi
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+          echo "UI tests: ${args:-none}"
+      - name: Start the simulator (boots while the app builds)
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; c=[x for k in sorted(d, reverse=True) if 'iOS' in k for x in d[k] if x['name'].startswith('iPhone 16 Pro') and 'Max' not in x['name']]; print(c[0]['udid'])")
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$UDID" || true
+      - name: Generate project
+        run: brew install xcodegen && xcodegen generate
+      - name: Build
+        run: |
+          mkdir -p ci
+          set -o pipefail
+          xcodebuild build-for-testing -project Publit.xcodeproj -scheme Publit \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO ONLY_ACTIVE_ARCH=YES DEBUG_INFORMATION_FORMAT=dwarf \
+            -skipMacroValidation -skipPackagePluginValidation 2>&1 | tee ci/build.log | grep -E "error:|BUILD" || true
+          if ! grep -q "TEST BUILD SUCCEEDED" ci/build.log; then
+            grep -E ": error:" ci/build.log | sed -E "s#${GITHUB_WORKSPACE}/##" | sort -u | head -40 > ci/errors.txt
+            sed -E 's#^([^:]+):([0-9]+):([0-9]+): error: (.*)#::error file=\1,line=\2,col=\3::\4#' ci/errors.txt
+            exit 1
+          fi
+      - name: Simulator ready
+        run: |
+          UDID=${{ steps.sim.outputs.udid }}
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+          xcrun simctl location "$UDID" set 48.13715,11.57540
+          xcrun simctl privacy "$UDID" grant location io.github.elija7580.publit || true
+      - name: Unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building -project Publit.xcodeproj -scheme Publit \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
+            -only-testing:PublitTests 2>&1 | tee ci/unit.log | grep -E "Test Case.*failed|error:|Executed" || true
+          grep -q "TEST EXECUTE SUCCEEDED" ci/unit.log
+      - name: UI tests and screenshots
+        if: steps.ui.outputs.args != ''
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building -project Publit.xcodeproj -scheme Publit \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
+            ${{ steps.ui.outputs.args }} 2>&1 | tee ci/ui.log | grep -E "Test Case|error:|Executed" || true
+          mkdir -p ci/screenshots && cp ~/publit-shots/*.png ci/screenshots/ 2>/dev/null || true
+          # The logs are cut to their last lines when published: keep every failure message apart.
+          grep -E ": error: |WATCHDOG" ci/ui.log | sed -E "s#${GITHUB_WORKSPACE}/##" > ci/ui-failures.txt || true
+          grep -q "TEST EXECUTE SUCCEEDED" ci/ui.log
+      - name: Publish results to the ci-results branch
+        if: always() && github.event_name != 'pull_request'
+        run: |
+          mkdir -p ci
+          for f in ci/*.log; do [ -f "$f" ] && tail -n 400 "$f" > "$f.tail" && mv "$f.tail" "$f"; done
+          echo "${{ github.sha }} ${{ job.status }}" > ci/RESULT
+          [ -n "${{ steps.ui.outputs.args }}" ] || echo "UI tests skipped (add [ui] to the commit message)" > ci/ui.log
+          cd ci
+          git init -q -b ci-results
+          git config user.name "github-actions"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A && git commit -qm "CI results for ${{ github.sha }}"
+          for i in 1 2 3; do
+            git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-results && exit 0
+            sleep $((i * 10))
+          done
+          exit 1
