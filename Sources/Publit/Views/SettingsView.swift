@@ -33,7 +33,7 @@ struct SettingsView: View {
 
 
         ---
-        Publit \(AppInfo.version) (\(AppInfo.build)) · \(HangLog.device) · iOS \(UIDevice.current.systemVersion)
+        Publit \(AppInfo.version) (\(AppInfo.build)) · \(HangLog.device) · \(UIDevice.current.systemName) \(UIDevice.current.systemVersion)
         Recorded: \(s.freezes) freezes, \(s.errors) failed requests, \(s.crashes) crashes, \(s.exits) unexpected exits
         If you can, attach the file from Settings → Diagnostics → Share diagnostics.
         """
