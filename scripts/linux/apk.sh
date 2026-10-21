@@ -5,6 +5,8 @@ D=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd); source $D/env.sh
 P=$(cd $D/../.. && pwd); MODE=${1:-debug}; cd $P
 MOD=$(grep '^PRODUCT_NAME' Skip.env | sed 's/.*= *//')
 export SKIP_COMMAND_OVERRIDE=$D/skiplog.sh
+# Android ABIs packaged into the APK/AAB = the Swift architectures (aarch64 → arm64-v8a, x86_64, armv7 → armeabi-v7a)
+export PUBLIT_ABIS=$(echo ${ARCHS:-aarch64} | sed 's/aarch64/arm64-v8a/; s/armv7/armeabi-v7a/' | tr ' ' ',')
 {
 if [ -z "$SKIP_SWIFT" ]; then
 skip android build --arch ${ARCHS:-aarch64} --configuration $MODE -d .build/Android/$MOD/jni-libs \

@@ -32,6 +32,9 @@ android {
     }
 
     defaultConfig {
+        // Only the architectures the Swift libraries were built for (apk.sh sets PUBLIT_ABIS from ARCHS);
+        // other ABIs from dependencies would let Play install the app where the Swift code is missing.
+        ndk { abiFilters += (System.getenv("PUBLIT_ABIS") ?: "arm64-v8a").split(",") }
         minSdk = libs.versions.android.sdk.min.get().toInt()
         targetSdk = libs.versions.android.sdk.compile.get().toInt()
         // skip.tools.skip-build-plugin will automatically use Skip.env properties for:
