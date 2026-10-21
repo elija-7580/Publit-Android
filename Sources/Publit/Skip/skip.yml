@@ -4,6 +4,17 @@
 skip:
   mode: 'native'
 
+# Apply to both the app and Skip's included build (otherwise their manifests default to API 28).
+settings:
+  contents:
+    - block: 'dependencyResolutionManagement'
+      contents:
+        - block: 'versionCatalogs'
+          contents:
+            - block: 'create("libs")'
+              contents:
+                - 'version("android-sdk-min", "26")'
+
 build:
   contents:
     - block: 'dependencies'
