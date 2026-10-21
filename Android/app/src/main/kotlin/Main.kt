@@ -159,6 +159,12 @@ open class MainActivity: AppCompatActivity {
         super.onRestoreInstanceState(bundle)
     }
 
+    @Deprecated("Pickers and the document scanner report here")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        Droid.onActivityResult(requestCode, resultCode, data)
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: kotlin.Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         logger.info("onRequestPermissionsResult: ${requestCode}")

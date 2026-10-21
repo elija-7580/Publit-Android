@@ -18,7 +18,9 @@ struct PassImportView: View {
     @Environment(PassStore.self) var store
     @Environment(\.dismiss) var dismiss
     @State var stage: Stage = .choose
+    #if !os(Android)
     @State var photo: PhotosPickerItem?
+    #endif
     @State var choosingFile = false
     @State var choosingPhoto = false
     @State var scanning = false
@@ -66,8 +68,38 @@ struct PassImportView: View {
         .onDisappear {
             if !scanning && !choosingFile && !choosingPhoto { readingTask?.cancel() }
         }
-        .photosPicker(isPresented: $choosingPhoto, selection: $photo, matching: .images)
         .task { if let sharedURL { await open(sharedURL) } }
+        #if os(Android)
+        // Android: the system photo picker, file picker and ML Kit's document scanner.
+        .onChange(of: choosingPhoto) { _, on in
+            guard on else { return }
+            readingTask?.cancel()
+            readingTask = Task {
+                let url = await DroidPicker.image()
+                choosingPhoto = false
+                if let url { await open(url) }
+            }
+        }
+        .onChange(of: choosingFile) { _, on in
+            guard on else { return }
+            readingTask?.cancel()
+            readingTask = Task {
+                let url = await DroidPicker.file(["application/pdf", "image/*"])
+                choosingFile = false
+                if let url { await open(url) }
+            }
+        }
+        .onChange(of: scanning) { _, on in
+            guard on else { return }
+            readingTask?.cancel()
+            readingTask = Task {
+                let url = await DroidPicker.scan()
+                scanning = false
+                if let url { await open(url) }
+            }
+        }
+        #else
+        .photosPicker(isPresented: $choosingPhoto, selection: $photo, matching: .images)
         .fileImporter(isPresented: $choosingFile, allowedContentTypes: [.pdf, .image]) { result in
             guard case .success(let url) = result else { return }
             readingTask?.cancel()
@@ -95,6 +127,7 @@ struct PassImportView: View {
             }
             .ignoresSafeArea()
         }
+        #endif
     }
 
     private var showsCancel: Bool {
@@ -113,7 +146,7 @@ struct PassImportView: View {
                     Label(L10n.t("PDF or image file"), systemImage: "doc")
                 }
                 .accessibilityIdentifier("importFile")
-                if VNDocumentCameraViewController.isSupported {
+                if canScan {
                     Button { scanning = true } label: {
                         Label(L10n.t("Scan a paper ticket"), systemImage: "doc.viewfinder")
                     }
@@ -128,16 +161,34 @@ struct PassImportView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    private var canScan: Bool {
+        #if os(Android)
+        DroidPicker.canScan
+        #else
+        VNDocumentCameraViewController.isSupported
+        #endif
+    }
+
     private func open(_ url: URL) async {
         stage = .reading
+        #if os(Android)
+        let ext = url.pathExtension.lowercased()
+        let isImage = ["jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "bmp"].contains(ext)
+        #else
         let access = url.startAccessingSecurityScopedResource()
         defer { if access { url.stopAccessingSecurityScopedResource() } }
+        #endif
         do {
+            #if os(Android)
+            guard ext == "pdf" || isImage else { throw TicketRecognizer.Failure.unreadable }
+            let isPDF = ext == "pdf"
+            #else
             let type = UTType(filenameExtension: url.pathExtension)
             guard type?.conforms(to: .pdf) == true || type?.conforms(to: .image) == true else {
                 throw TicketRecognizer.Failure.unreadable
             }
             let isPDF = type?.conforms(to: .pdf) == true
+            #endif
             let data = try await Task.detached(priority: .userInitiated) {
                 let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
                 guard size <= PassStore.maxDocumentBytes else { throw PassStore.Failure.documentTooLarge }
@@ -252,6 +303,7 @@ struct PDFPageChoice: View {
     }
 }
 
+#if !os(Android)
 /// VisionKit's document camera: edge detection and perspective correction for paper tickets.
 private struct DocumentScanner: UIViewControllerRepresentable {
     let done: (UIImage?) -> Void
@@ -279,3 +331,4 @@ private struct DocumentScanner: UIViewControllerRepresentable {
         func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFailWithError error: Error) { done(nil) }
     }
 }
+#endif

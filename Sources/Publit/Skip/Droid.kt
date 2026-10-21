@@ -176,7 +176,128 @@ object Droid {
     @JvmStatic fun liveShow(json: String) = DroidLive.show(context(), org.json.JSONObject(json))
     @JvmStatic fun liveEnd(id: String) = DroidLive.end(context(), id)
 
+    @JvmStatic fun cacheDir(): String = context().cacheDir.absolutePath
+
+    // MARK: Tickets (DroidTickets.kt); numbers cross as Double
+
+    @JvmStatic fun pdfPageCount(path: String): Double = DroidTickets.pageCount(path).toDouble()
+
+    @JvmStatic fun renderTicketPage(path: String, pdf: Boolean, page: Double, maxPixels: Double, out: String): Boolean {
+        val bmp = DroidTickets.page(path, pdf, page.toInt(), maxPixels.toInt()) ?: return false
+        return DroidTickets.save(bmp, out)
+    }
+
+    @JvmStatic fun scanTicket(path: String, pdf: Boolean, page: Double, recognizeText: Boolean): String =
+        DroidTickets.scan(path, pdf, page.toInt(), recognizeText)
+
+    @JvmStatic fun ticketPieces(path: String, pdf: Boolean, page: Double): String = DroidTickets.pieces(path, pdf, page.toInt())
+
+    @JvmStatic fun cropTicket(path: String, pdf: Boolean, page: Double, x: Double, y: Double, w: Double, h: Double, out: String): Boolean =
+        DroidTickets.crop(path, pdf, page.toInt(), x, y, w, h, out)
+
+    @JvmStatic fun renderCode(format: String, text: String, bytes: String, maxW: Double, maxH: Double, out: String): Boolean =
+        DroidTickets.renderCode(format, text.ifEmpty { null }, bytes.ifEmpty { null }, maxW.toInt(), maxH.toInt(), out)
+
+    /** Logos: decoded, at most maxW × maxH pixels (never enlarged), PNG with transparency. */
+    @JvmStatic fun fitLogo(path: String, maxW: Double, maxH: Double, out: String): Boolean {
+        val bmp = android.graphics.BitmapFactory.decodeFile(path) ?: return false
+        if (bmp.width < 16 || bmp.height < 16) return false
+        val f = minOf(1.0, minOf(maxW / bmp.width, maxH / bmp.height))
+        val w = maxOf(1, Math.round(bmp.width * f).toInt()); val h = maxOf(1, Math.round(bmp.height * f).toInt())
+        return DroidTickets.save(if (f < 1.0) android.graphics.Bitmap.createScaledBitmap(bmp, w, h, true) else bmp, out)
+    }
+
+    @JvmStatic fun canScanDocuments(): Boolean = DroidTickets.canScanDocuments()
+
+    // MARK: Pickers (photo, file, document scanner); the result path goes to DroidEvents.pickerResult
+
+    const val PICK_IMAGE = 7101
+    const val PICK_FILE = 7102
+    const val SCAN_DOCUMENT = 7103
+    private var pendingPick: String? = null
+
+    private fun finishPick(path: String) {
+        val id = pendingPick ?: return
+        pendingPick = null
+        DroidEvents.shared.pickerResult(id, path)
+    }
+
+    @JvmStatic fun pickImage(requestId: String) {
+        val activity = activity() ?: return DroidEvents.shared.pickerResult(requestId, "")
+        pendingPick = requestId
+        val intent = androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia().createIntent(activity,
+            androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+        try { activity.startActivityForResult(intent, PICK_IMAGE) } catch (e: Exception) { finishPick("") }
+    }
+
+    @JvmStatic fun pickFile(requestId: String, types: String) {
+        val activity = activity() ?: return DroidEvents.shared.pickerResult(requestId, "")
+        pendingPick = requestId
+        val intent = android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT)
+            .addCategory(android.content.Intent.CATEGORY_OPENABLE)
+            .setType("*/*")
+            .putExtra(android.content.Intent.EXTRA_MIME_TYPES, types.split(",").toTypedArray())
+        try { activity.startActivityForResult(intent, PICK_FILE) } catch (e: Exception) { finishPick("") }
+    }
+
+    @JvmStatic fun scanDocument(requestId: String) {
+        val activity = activity() ?: return DroidEvents.shared.pickerResult(requestId, "")
+        pendingPick = requestId
+        val options = com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions.Builder()
+            .setGalleryImportAllowed(false)
+            .setPageLimit(1)
+            .setResultFormats(com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+            .setScannerMode(com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+            .build()
+        com.google.mlkit.vision.documentscanner.GmsDocumentScanning.getClient(options).getStartScanIntent(activity)
+            .addOnSuccessListener { sender ->
+                try { activity.startIntentSenderForResult(sender, SCAN_DOCUMENT, null, 0, 0, 0) } catch (e: Exception) { finishPick("") }
+            }
+            .addOnFailureListener { finishPick("") }
+    }
+
+    /** Called by MainActivity.onActivityResult. */
+    @JvmStatic fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        if (requestCode != PICK_IMAGE && requestCode != PICK_FILE && requestCode != SCAN_DOCUMENT) return
+        if (resultCode != android.app.Activity.RESULT_OK || data == null) return finishPick("")
+        val uri = if (requestCode == SCAN_DOCUMENT) {
+            com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult.fromActivityResultIntent(data)?.pages?.firstOrNull()?.imageUri
+        } else data.data
+        if (uri == null) return finishPick("")
+        val ctx = context()
+        Thread {
+            val path = try {
+                var name = "picked"
+                ctx.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                    if (c.moveToFirst()) c.getString(0)?.let { name = it }
+                }
+                if (!name.contains('.')) {
+                    val ext = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(ctx.contentResolver.getType(uri)) ?: "jpg"
+                    name += ".$ext"
+                }
+                val dir = java.io.File(ctx.cacheDir, "Picked/" + System.currentTimeMillis()).apply { mkdirs() }
+                val file = java.io.File(dir, name.replace('/', '_'))
+                ctx.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } }
+                file.absolutePath
+            } catch (e: Exception) { "" }
+            android.os.Handler(android.os.Looper.getMainLooper()).post { finishPick(path) }
+        }.start()
+    }
+
     // MARK: Other apps
+
+    /** The calendar app's "New event" screen, prefilled (Android needs no permission for this). */
+    @JvmStatic fun addCalendarEvent(title: String, startMillis: Double, endMillis: Double, location: String, notes: String) {
+        val intent = android.content.Intent(android.content.Intent.ACTION_INSERT)
+            .setData(android.provider.CalendarContract.Events.CONTENT_URI)
+            .putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis.toLong())
+            .putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, endMillis.toLong())
+            .putExtra(android.provider.CalendarContract.Events.TITLE, title)
+            .putExtra(android.provider.CalendarContract.Events.EVENT_LOCATION, location)
+            .putExtra(android.provider.CalendarContract.Events.DESCRIPTION, notes)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        try { context().startActivity(intent) } catch (e: Exception) {}
+    }
 
     /** Opens a link (web, geo:, tel:, mailto:, another app's scheme); false when no app takes it. */
     @JvmStatic fun openURL(url: String): Boolean {

@@ -9,6 +9,13 @@ import UIKit
 /// Logos as Publit keeps them: decoded, at most 480 × 160 pixels, PNG.
 enum LogoImages {
     static func prepare(_ data: Data) -> Data? {
+        #if os(Android)
+        // Android: scaled by Kotlin (Bitmap), transparency kept.
+        let out = DroidScratch.file("png")
+        defer { try? FileManager.default.removeItem(at: out) }
+        let ok = DroidScratch.with(data, pdf: false) { Droid.bool("fitLogo", $0, 480.0, 160.0, out.path) } ?? false
+        return ok ? try? Data(contentsOf: out) : nil
+        #else
         guard let image = UIImage(data: data) else { return nil }
         let px = CGSize(width: image.size.width * image.scale, height: image.size.height * image.scale)
         guard px.width >= 16, px.height >= 16 else { return nil }
@@ -20,6 +27,7 @@ enum LogoImages {
         return UIGraphicsImageRenderer(size: size, format: format).pngData { _ in
             image.draw(in: CGRect(origin: .zero, size: size))
         }
+        #endif
     }
 
     static func fetch(_ candidate: LogoCandidate) async -> Data? {

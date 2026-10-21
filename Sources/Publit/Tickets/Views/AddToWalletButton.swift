@@ -6,6 +6,14 @@ import SwiftUI
 import UIKit
 #endif
 
+#if os(Android)
+/// Android: no Apple Wallet (Google Wallet needs a signed issuer account); the ticket stays in Publit.
+struct AddToWalletButton: View {
+    let pass: TicketPass
+    var logo: UIImage? = nil
+    var body: some View { EmptyView() }
+}
+#else
 /// Apple's "Add to Apple Wallet" button. Builds and signs the pass only when tapped.
 /// Shown only when Wallet export is configured (WalletPassConfig) and the code can be exported.
 struct AddToWalletButton: View {
@@ -142,3 +150,4 @@ enum WalletPassImages {
         }
     }
 }
+#endif

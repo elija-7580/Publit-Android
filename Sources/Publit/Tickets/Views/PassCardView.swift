@@ -265,7 +265,12 @@ struct BarcodeView: View {
             Group {
                 if let rendered {
                     if rendered.exact {
+                        #if os(Android)
+                        // Drawn at screen pixels; fitted without smoothing (Compose sizes bitmaps in dp).
+                        Image(uiImage: rendered.image).resizable().interpolation(.none).scaledToFit()
+                        #else
                         Image(uiImage: rendered.image).interpolation(.none)
+                        #endif
                     } else {
                         Image(uiImage: rendered.image).resizable().interpolation(.high).scaledToFit()
                     }
@@ -303,7 +308,11 @@ enum PassLogoCache {
     static func image(_ pass: TicketPass, store: PassStore) -> UIImage? {
         guard let logo = pass.logo, let url = store.logoURL(pass) else { return nil }
         if let hit = cache.object(forKey: logo.file as NSString) { return hit }
+        #if os(Android)
+        guard let data = try? Data(contentsOf: url), let image = UIImage(data: data) else { return nil }
+        #else
         guard let image = UIImage(contentsOfFile: url.path) else { return nil }
+        #endif
         cache.setObject(image, forKey: logo.file as NSString, cost: Int(image.size.width * image.scale * image.size.height * image.scale * 4))
         return image
     }

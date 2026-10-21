@@ -11,6 +11,23 @@ private final class CachedTicketImage: NSObject, @unchecked Sendable {
     init(_ image: UIImage) { self.image = image }
 }
 
+#if os(Android)
+/// Android: images decoded (upright, bounded size) by Kotlin, off the UI thread.
+enum TicketImageLoader {
+    static func preview(_ data: Data) async -> UIImage? {
+        await Task.detached(priority: .userInitiated) {
+            TicketRecognizer.image(TicketPage(data: data, pdf: false, page: 0), maxPixels: 1024)
+        }.value
+    }
+
+    static func load(_ url: URL, original: Bool) async -> UIImage? {
+        await Task.detached(priority: .userInitiated) { () -> UIImage? in
+            guard let data = try? Data(contentsOf: url) else { return nil }
+            return TicketRecognizer.image(TicketPage(data: data, pdf: false, page: 0), maxPixels: original ? 4096 : 2048)
+        }.value
+    }
+}
+#else
 enum TicketImageLoader {
     private static let cache: NSCache<NSString, CachedTicketImage> = {
         let cache = NSCache<NSString, CachedTicketImage>()
@@ -62,6 +79,7 @@ enum TicketImageLoader {
         return loaded?.image
     }
 }
+#endif
 
 /// No disk access or full-resolution image decode during a SwiftUI body evaluation.
 /// The stored file is unchanged; Original bypasses the display thumbnail.

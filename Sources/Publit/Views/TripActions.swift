@@ -73,7 +73,16 @@ struct TripActionsSection: View {
             }
             .padding(.vertical, 4)
             .listRowSeparator(.hidden)
+            #if os(Android)
+            .onChange(of: calendarTrip?.id) { _, id in
+                // Android: the calendar app's "New event" screen, prefilled (no permission needed).
+                guard id != nil, let trip = calendarTrip else { return }
+                CalendarEventSheet.open(trip)
+                calendarTrip = nil
+            }
+            #else
             .sheet(item: $calendarTrip) { trip in CalendarEventSheet(trip: trip).ignoresSafeArea() }
+            #endif
             // Here and not on TicketSection: on a Section it is copied onto every ticket row.
             .sheet(isPresented: $addingTicket) { AddTicketView(tripId: saved?.id) }
         } footer: {
@@ -252,6 +261,15 @@ struct TicketCardButton: View {
     }
 }
 
+#if os(Android)
+enum CalendarEventSheet {
+    static func open(_ trip: SavedTrip) {
+        Droid.call("addCalendarEvent", CalendarText.title(trip), trip.startTime.timeIntervalSince1970 * 1000,
+                   trip.endTime.timeIntervalSince1970 * 1000, CalendarText.location(trip),
+                   CalendarText.notes(trip) + "\n\n" + CalendarText.url(trip).absoluteString)
+    }
+}
+#else
 /// System "New Event" sheet, prefilled. Needs no calendar permission (iOS 17 write-only via EventKitUI).
 struct CalendarEventSheet: UIViewControllerRepresentable {
     let trip: SavedTrip
@@ -334,6 +352,7 @@ struct EqualColumns: Layout {
         }
     }
 }
+#endif
 
 /// Icon above a short title, filling an equal share of the row.
 struct TileLabelStyle: LabelStyle {

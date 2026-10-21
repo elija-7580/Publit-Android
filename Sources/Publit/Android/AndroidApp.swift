@@ -1,5 +1,4 @@
 #if os(Android)
-import Foundation
 import SwiftUI
 
 // Android: one app state and one location manager, shared with the Kotlin callbacks (DroidEvents).
@@ -27,6 +26,6 @@ enum AndroidEnvironment {
     static var isDark: Bool { Droid.bool("isDark") }
 
     /// Screen pixels per point (dp), like iOS's displayScale.
-    static var displayScale: SwiftUI.CGFloat { SwiftUI.CGFloat(Droid.double("density") ?? 2) }
+    static var displayScale: CGFloat { CGFloat(Droid.double("density") ?? 2) }
 }
 #endif

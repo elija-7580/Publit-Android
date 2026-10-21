@@ -6,6 +6,64 @@ import SwiftUI
 import UIKit
 #endif
 
+#if os(Android)
+/// Android: the original ticket as images (PDF pages drawn by PdfRenderer), zoom with the buttons.
+struct ZoomableDocumentView: View {
+    let url: URL
+    let kind: TicketPass.Document.Kind
+    var page = 0
+    @State var pages: [UIImage] = []
+    @State var loading = true
+    @State var zoom: Double = 1
+
+    var body: some View {
+        GeometryReader { geo in
+            ScrollView(.vertical) {
+                ScrollView(.horizontal) {
+                    VStack(spacing: 12) {
+                        ForEach(Array(pages.enumerated()), id: \.offset) { _, image in
+                            let width = geo.size.width * zoom
+                            let aspect = image.size.width > 0 ? image.size.height / image.size.width : 1.4
+                            Image(uiImage: image).resizable().frame(width: width, height: width * aspect)
+                        }
+                    }
+                }
+            }
+            .overlay {
+                if loading { LogoLoader(size: 40) }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                HStack(spacing: 8) {
+                    Button { zoom = max(1, zoom / 1.5) } label: { Image(systemName: "minus.magnifyingglass") }
+                        .disabled(zoom <= 1)
+                    Button { zoom = min(6, zoom * 1.5) } label: { Image(systemName: "plus.magnifyingglass") }
+                        .disabled(zoom >= 6)
+                }
+                .buttonStyle(.soft)
+                .padding()
+            }
+        }
+        .background(Color.ground)
+        .accessibilityIdentifier("passOriginal")
+        .accessibilityLabel(L10n.t("Original ticket"))
+        .task {
+            let (url, kind, first) = (url, kind, page)
+            let images = await Task.detached(priority: .userInitiated) { () -> [UIImage] in
+                guard let data = try? Data(contentsOf: url) else { return [] }
+                guard kind == .pdf else {
+                    return TicketRecognizer.image(TicketPage(data: data, pdf: false, page: 0)).map { [$0] } ?? []
+                }
+                // The ticket page first, then the others in order (outward and return tickets).
+                let count = max(1, min(TicketRecognizer.pageCount(pdf: data), 12))
+                let order = [first] + (0..<count).filter { $0 != first }
+                return order.compactMap { TicketRecognizer.renderPage(pdf: data, page: $0, maxPixels: 2000) }
+            }.value
+            pages = images
+            loading = false
+        }
+    }
+}
+#else
 /// The original ticket, zoomable: PDFs in PDFKit, images in a scroll view (pinch or double-tap).
 struct ZoomableDocumentView: View {
     let url: URL
@@ -137,3 +195,4 @@ struct BrightnessBoost: ViewModifier {
 extension View {
     func brightnessBoost(_ active: Bool = true) -> some View { modifier(BrightnessBoost(active: active)) }
 }
+#endif

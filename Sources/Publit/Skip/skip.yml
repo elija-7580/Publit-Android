@@ -1,12 +1,19 @@
-# Skip configuration for the Publit module (Android).
-# Kotlin dependencies of the platform code in this folder (Droid.kt, PublitMap.kt, …).
-build:
-  contents:
-    - block: 'dependencies'
-      contents:
-        - 'implementation("org.maplibre.gl:android-sdk:13.0.2")'
-        - 'implementation("com.google.zxing:core:3.5.3")'
+# Skip configuration for the Publit module
 
 # this is a natively-compiled Skip Fuse module
 skip:
   mode: 'native'
+
+build:
+  contents:
+    - block: 'dependencies'
+      contents:
+        # OpenStreetMap maps (vector tiles, Ink & Dot styles)
+        - 'implementation("org.maplibre.gl:android-sdk:13.7.1")'
+        # Drawing ticket codes again (QR, Aztec, PDF417, Code 128, Data Matrix)
+        - 'implementation("com.google.zxing:core:3.5.4")'
+        # Reading tickets on the device: text, codes, document scanner (Google Play services)
+        - 'implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")'
+        - 'implementation("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")'
+        - 'implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")'
+        - 'implementation("androidx.exifinterface:exifinterface:1.4.2")'

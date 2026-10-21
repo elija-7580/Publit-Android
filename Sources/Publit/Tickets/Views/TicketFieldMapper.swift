@@ -87,6 +87,31 @@ struct TicketFieldMapper: View {
 
     @MainActor private func load() async {
         guard loading else { return }
+        #if os(Android)
+        // Android: the page is drawn and read by Kotlin (PdfRenderer, ML Kit); no PDF text layer.
+        do {
+            let source = source
+            let page = try await Task.detached(priority: .userInitiated) { () throws -> TicketPage in
+                switch source {
+                case .data(let bytes, let type, let number): return TicketPage(data: bytes, pdf: type == .pdf, page: number)
+                case .file(let url, let type, let number): return TicketPage(data: try Data(contentsOf: url), pdf: type == .pdf, page: number)
+                }
+            }.value
+            let drawn = await Task.detached(priority: .userInitiated) { TicketRecognizer.image(page) }.value
+            guard let drawn else { throw TicketRecognizer.Failure.unreadable }
+            try Task.checkCancellation()
+            image = drawn
+            do { pieces = try await TicketRecognizer.pieces(page) }
+            catch is CancellationError { throw CancellationError() }
+            catch { self.error = error.localizedDescription }
+            try Task.checkCancellation()
+            loading = false
+        } catch is CancellationError {
+        } catch {
+            self.error = error.localizedDescription
+            loading = false
+        }
+        #else
         do {
             let (cg, embedded) = try await Task.detached(priority: .userInitiated) { () throws -> (CGImage, [TicketTextPiece]) in
                 let data: Data
@@ -117,9 +142,57 @@ struct TicketFieldMapper: View {
             self.error = error.localizedDescription
             loading = false
         }
+        #endif
     }
 }
 
+#if os(Android)
+/// Android: the page with a tappable box on every text; zoom with the buttons, then scroll.
+struct TicketMappingCanvas: View {
+    let image: UIImage
+    let pieces: [TicketTextPiece]
+    let assigned: [TicketField: Int]
+    let onTap: (TicketTextPiece) -> Void
+    @State var zoom: Double = 1
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = geo.size.width * zoom
+            let aspect = image.size.width > 0 ? image.size.height / image.size.width : 1.4
+            let height = width * aspect
+            ScrollView(.vertical) {
+                ScrollView(.horizontal) {
+                    ZStack(alignment: .topLeading) {
+                        Image(uiImage: image).resizable().frame(width: width, height: height)
+                        ForEach(pieces) { piece in
+                            let used = assigned.values.contains(piece.id)
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.inkAction.opacity(used ? 0.2 : 0.04))
+                                .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.inkAction.opacity(used ? 0.9 : 0.35), lineWidth: 1))
+                                .frame(width: max(12, piece.rect.width * width), height: max(12, piece.rect.height * height))
+                                .offset(x: piece.rect.minX * width, y: piece.rect.minY * height)
+                                .onTapGesture { onTap(piece) }
+                                .accessibilityLabel(Text(verbatim: piece.text))
+                        }
+                    }
+                    .frame(width: width, height: height, alignment: .topLeading)
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                HStack(spacing: 8) {
+                    Button { zoom = max(1, zoom / 1.5) } label: { Image(systemName: "minus.magnifyingglass") }
+                        .disabled(zoom <= 1)
+                    Button { zoom = min(6, zoom * 1.5) } label: { Image(systemName: "plus.magnifyingglass") }
+                        .disabled(zoom >= 6)
+                }
+                .buttonStyle(.soft)
+                .padding()
+            }
+        }
+        .background(Color.ground)
+    }
+}
+#else
 private struct TicketMappingCanvas: UIViewRepresentable {
     let image: UIImage
     let pieces: [TicketTextPiece]
@@ -225,3 +298,4 @@ private final class TicketMappingScrollView: UIScrollView, UIScrollViewDelegate 
         }
     }
 }
+#endif
