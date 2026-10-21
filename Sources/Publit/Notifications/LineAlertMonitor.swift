@@ -73,6 +73,9 @@ enum LineAlertMonitor {
         let request = BGAppRefreshTaskRequest(identifier: taskId)
         request.earliestBeginDate = Date().addingTimeInterval(30 * 60)
         try? BGTaskScheduler.shared.submit(request)
+        #elseif os(Android)
+        // WorkManager checks about every 30 minutes with a network; off again when nothing is to watch.
+        Droid.call("scheduleLineCheck", isEnabled && !savedLines().isEmpty)
         #endif
     }
 }

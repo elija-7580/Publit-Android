@@ -49,6 +49,13 @@ import SkipFuse
         #endif
     }
 
+    /// A step for the diagnostics (heat, memory pressure …).
+    /* SKIP @bridge */public func diagnosticNote(_ text: String) {
+        #if os(Android)
+        HangLog.shared.note(text)
+        #endif
+    }
+
     /// A result from an Android picker or scanner (photo, document, calendar …).
     /* SKIP @bridge */public func pickerResult(_ requestId: String, _ json: String) {
         #if os(Android)

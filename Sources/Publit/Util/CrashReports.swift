@@ -100,8 +100,38 @@ final class CrashReports: NSObject, MXMetricManagerSubscriber, @unchecked Sendab
         return nil
     }
 }
+#elseif os(Android)
+/// Crashes, hangs (ANRs) and low-memory ends that Android recorded for the app (ApplicationExitInfo,
+/// Android 11+), plus the call stack of the last Kotlin/Java exception, written into the diagnostics
+/// at the next launch, like MetricKit's reports on iOS. Memory warnings and heat as steps.
+final class CrashReports {
+    static let shared = CrashReports()
+    /// End time of the newest report already written, so a relaunch does not repeat it.
+    private let seenKey = "diagnosticsSeenUntil"
+
+    private struct Report: Decodable {
+        let kind: String
+        let time: Double
+        let text: String
+        let stack: String
+    }
+
+    func start() {
+        Droid.call("startDiagnostics", AppInfo.build)
+        let defaults = UserDefaults.standard
+        let seen = defaults.double(forKey: seenKey)
+        guard let json = Droid.string("diagnosticReports", seen * 1000), let data = json.data(using: .utf8),
+              let reports = try? JSONDecoder().decode([Report].self, from: data) else { return }
+        var newest = seen
+        for r in reports.sorted(by: { $0.time < $1.time }) {
+            let at = Date(timeIntervalSince1970: r.time / 1000)
+            newest = max(newest, at.timeIntervalSince1970)
+            HangLog.shared.report(r.kind, r.text, at: at, steps: [], stack: r.stack.isEmpty ? "  (no call stack)\n" : "Call stack:\n" + r.stack)
+        }
+        if newest > seen { defaults.set(newest, forKey: seenKey) }
+    }
+}
 #else
-/// Android: Google Play's Android vitals collect crashes; nothing to subscribe to here.
 final class CrashReports {
     static let shared = CrashReports()
     func start() {}

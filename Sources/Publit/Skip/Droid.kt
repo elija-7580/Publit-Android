@@ -386,6 +386,13 @@ object Droid {
 
     // MARK: Launcher shortcuts (the iOS app's Siri shortcuts)
 
+    // Background work, diagnostics, Health Connect (DroidBackground.kt)
+    @JvmStatic fun scheduleLineCheck(on: Boolean) = DroidWork.scheduleLineCheck(context(), on)
+    @JvmStatic fun startDiagnostics(build: String) = DroidDiagnostics.start(context(), build)
+    @JvmStatic fun diagnosticReports(sinceMillis: Double): String = DroidDiagnostics.reports(context(), sinceMillis)
+    @JvmStatic fun stepsAvailable(): Boolean = DroidHealth.available(context())
+    @JvmStatic fun measureWalkingSpeed(requestId: String) = DroidHealth.measure(context(), requestId)
+
     @JvmStatic fun setShortcuts(json: String) {
         val ctx = context()
         val list = org.json.JSONArray(json)

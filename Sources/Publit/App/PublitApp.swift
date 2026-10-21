@@ -76,7 +76,10 @@ let logger: Logger = Logger(subsystem: "app.publit", category: "Publit")
     /* SKIP @bridge */public func onPause() {}
     /* SKIP @bridge */public func onStop() {}
     /* SKIP @bridge */public func onDestroy() {}
-    /* SKIP @bridge */public func onLowMemory() { TransitousClient.shared.releaseMemory(background: false) }
+    /* SKIP @bridge */public func onLowMemory() {
+        HangLog.shared.report("MEMORY", "Android warned that memory is low.")
+        TransitousClient.shared.releaseMemory(background: false)
+    }
 
     /// Android intent with a URL (publit:// deep links, shared files, notification taps).
     /* SKIP @bridge */public func onOpenURL(_ url: String) {

@@ -21,7 +21,10 @@ enum WalkingPace {
         #endif
     }
 
-    #if canImport(CoreMotion)
+    #if os(Android)
+    /// Android: steps and distance from Health Connect (the phone's step counter and fitness apps).
+    static var pedometerAvailable: Bool { Droid.bool("stepsAvailable") }
+    #elseif canImport(CoreMotion)
     static var pedometerAvailable: Bool { CMPedometer.isDistanceAvailable() && CMPedometer.isStepCountingAvailable() }
     #else
     static var pedometerAvailable: Bool { false }
@@ -62,7 +65,13 @@ enum WalkingPace {
 
     @MainActor
     private static func pedometerSpeed() async -> Double? {
-        #if !canImport(CoreMotion)
+        #if os(Android)
+        guard pedometerAvailable else { return nil }
+        // Health Connect asks for access first; the result is the speed in m/s, or -1.
+        let result = await DroidRequests.shared.run { id in Droid.call("measureWalkingSpeed", id) }
+        guard let v = Double(result.trimmingCharacters(in: .whitespacesAndNewlines)), v > 0 else { return nil }
+        return v
+        #elseif !canImport(CoreMotion)
         return nil
         #else
         guard pedometerAvailable else { return nil }
