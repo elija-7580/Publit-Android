@@ -68,17 +68,50 @@ open class MainActivity: AppCompatActivity {
         }
 
         AppDelegate.shared.onLaunch()
+        handle(intent)
+    }
 
-        // Example of requesting permissions on startup.
-        // These must match the permissions in the AndroidManifest.xml file.
-        //let permissions = listOf(
-        //    Manifest.permission.ACCESS_COARSE_LOCATION,
-        //    Manifest.permission.ACCESS_FINE_LOCATION
-        //    Manifest.permission.CAMERA,
-        //    Manifest.permission.WRITE_EXTERNAL_STORAGE,
-        //)
-        //let requestTag = 1
-        //ActivityCompat.requestPermissions(self, permissions.toTypedArray(), requestTag)
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handle(intent)
+    }
+
+    /// publit:// links, notification taps and shared tickets (PDF, image, wallet pass) reach the Swift app here.
+    private fun handle(intent: android.content.Intent?) {
+        intent ?: return
+        val action = intent.action
+        if (action == android.content.Intent.ACTION_SEND || action == android.content.Intent.ACTION_SEND_MULTIPLE) {
+            val text = intent.getStringExtra(android.content.Intent.EXTRA_TEXT)
+            @Suppress("DEPRECATION")
+            val stream = intent.getParcelableExtra<android.net.Uri>(android.content.Intent.EXTRA_STREAM)
+            if (stream != null) { importFile(stream, intent.type); return }
+            if (text != null) { DroidEvents.shared.openURL(text.trim()); return }
+        }
+        val data = intent.data ?: return
+        if (data.scheme == "content" || data.scheme == "file") { importFile(data, intent.type); return }
+        DroidEvents.shared.openURL(data.toString())
+        intent.data = null
+    }
+
+    /// Copies an opened or shared file into the cache, so the Swift side can read it by path.
+    private fun importFile(uri: android.net.Uri, type: String?) {
+        try {
+            var name = "import"
+            contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                if (c.moveToFirst()) c.getString(0)?.let { name = it }
+            }
+            if (!name.contains('.')) {
+                val ext = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(type ?: contentResolver.getType(uri))
+                if (ext != null) name += ".$ext"
+            }
+            val dir = java.io.File(cacheDir, "Inbox").apply { mkdirs() }
+            val file = java.io.File(dir, name.replace('/', '_'))
+            contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } }
+            DroidEvents.shared.openFile(file.absolutePath)
+        } catch (e: Exception) {
+            logger.error("import failed: ${e}")
+        }
     }
 
     override fun onStart() {
@@ -89,6 +122,8 @@ open class MainActivity: AppCompatActivity {
     override fun onResume() {
         super.onResume()
         AppDelegate.shared.onResume()
+        // Permissions can change in the system settings while Publit is in the background.
+        Droid.permissionsChanged()
     }
 
     override fun onPause() {
@@ -127,6 +162,7 @@ open class MainActivity: AppCompatActivity {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: kotlin.Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         logger.info("onRequestPermissionsResult: ${requestCode}")
+        Droid.onPermissionsResult(requestCode)
     }
 
     companion object {

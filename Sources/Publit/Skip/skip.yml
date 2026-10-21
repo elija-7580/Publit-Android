@@ -1,11 +1,11 @@
-# Skip configuration for Publit module
-#
-# Kotlin dependencies and Gradle build options for this module can be configured here
-#build:
-#  contents:
-#    - block: 'dependencies'
-#      contents:
-#        - 'implementation("androidx.compose.runtime:runtime")'
+# Skip configuration for the Publit module (Android).
+# Kotlin dependencies of the platform code in this folder (Droid.kt, PublitMap.kt, …).
+build:
+  contents:
+    - block: 'dependencies'
+      contents:
+        - 'implementation("org.maplibre.gl:android-sdk:13.0.2")'
+        - 'implementation("com.google.zxing:core:3.5.3")'
 
 # this is a natively-compiled Skip Fuse module
 skip:

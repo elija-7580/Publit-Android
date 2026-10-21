@@ -1,6 +1,7 @@
 #if canImport(CoreLocation)
 import CoreLocation
 #endif
+import Foundation
 import Observation
 import SkipFuse
 

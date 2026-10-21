@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channel_reminders">Losgeh-Erinnerungen</string>
+    <string name="channel_alerts">Fahrt- und Linienhinweise</string>
+    <string name="channel_live">Laufende Fahrt</string>
+</resources>

@@ -3,7 +3,6 @@ import Foundation
 import SwiftUI
 import SkipFuse
 import SkipBridge
-import SkipUI
 
 // Publit's maps on Android: OpenStreetMap drawn by MapLibre (Skip/PublitMap.kt). Swift builds a spec
 // (base settings as JSON plus one JSON payload per layer with a version), Kotlin only redraws layers
