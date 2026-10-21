@@ -1,0 +1,23 @@
+Public transport, without the noise. Publit is a free, open-source transit app built on the open Transitous routing service. No ads, no account, no tracking.
+
+• Departures nearby: line, direction, platform and live times around you
+• All routes on one timeline: compare connections, see where you change and where it gets tight
+• Every step of the route: map and steps in the colours of the lines, with platforms, stops and delays
+• Smart routing: Publit rates how safely a change works and how long you wait and walk. The route that feels shortest comes first
+• Live trip: your line, the minutes to your destination and where to get off, also as an ongoing notification
+• New connection from here: missed a change? One tap finds the best way from where you are
+• Get-off reminder shortly before your stop, with an announcement if you like
+• Map with all stations, lines and departures right at the station
+• One search for places, addresses and stops; links from Google Maps land in the right spot
+• Cafés, pharmacies, supermarkets nearby on the map (OpenStreetMap)
+• Tickets in the app: from PDF, photo or screenshot, read on your phone, nothing is uploaded
+• Home, work, saved trips: stored only on your device
+• Calendar and sharing, with the arrival time for the others
+• Home screen widget with the next departures at a stop of your choice
+• Light and dark, designed for day and night
+• 15 languages
+
+Data: routing and departures from Transitous (MOTIS, GTFS and GTFS-RT feeds of transport operators), maps from OpenFreeMap / OpenStreetMap. Map data © OpenStreetMap contributors.
+
+Privacy policy: https://elija-7580.github.io/publit-site/privacy/
+Source code (MIT): https://github.com/elija-7580/Publit-Android

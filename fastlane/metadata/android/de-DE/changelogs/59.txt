@@ -1,0 +1,1 @@
+Erste Android-Version: die iOS-App (v0.6.0) für Android, mit Homescreen-Widget, Hintergrund-Prüfung gespeicherter Linien und Gehtempo aus Health Connect.

@@ -1,0 +1,1 @@
+First Android version: the iOS app (v0.6.0) ported to Android, with a home screen widget, background checks of saved lines and walking pace from Health Connect.
