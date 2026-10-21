@@ -3,4 +3,6 @@
     <string name="channel_reminders">Leave reminders</string>
     <string name="channel_alerts">Trip and line alerts</string>
     <string name="channel_live">Trip in progress</string>
+    <string name="widget_departures">Departures</string>
+    <string name="widget_description">Next departures at a stop of your choice.</string>
 </resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_departures">Odjazdy</string>
+    <string name="widget_description">Najbliższe odjazdy z wybranego przystanku.</string>
+</resources>

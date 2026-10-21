@@ -17,3 +17,9 @@ build:
         - 'implementation("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")'
         - 'implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")'
         - 'implementation("androidx.exifinterface:exifinterface:1.4.2")'
+        # Background checks of saved lines, widget refresh
+        - 'implementation("androidx.work:work-runtime-ktx:2.10.5")'
+        # Home screen widget (next departures at a stop)
+        - 'implementation("androidx.glance:glance-appwidget:1.1.1")'
+        # Walking pace from steps (Health Connect, only when chosen)
+        - 'implementation("androidx.health.connect:connect-client:1.1.0")'

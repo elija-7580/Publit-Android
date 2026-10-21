@@ -223,3 +223,15 @@ object DroidHealth {
         launcher.launch(permissions)
     }
 }
+
+/// Health Connect asks apps to explain why they read health data; Publit shows its privacy policy.
+class HealthRationaleActivity : android.app.Activity() {
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        try {
+            startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("https://elija-7580.github.io/publit-site/privacy/")))
+        } catch (_: Exception) { }
+        finish()
+    }
+}

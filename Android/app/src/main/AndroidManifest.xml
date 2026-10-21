@@ -15,10 +15,14 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Scanning a paper ticket (only when chosen) -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Walking pace from your steps (Health Connect, only when chosen) -->
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <queries>
+        <package android:name="com.google.android.apps.healthdata" />
         <!-- "Open in …" for maps apps, Google Maps, Citymapper, operator apps and websites -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
@@ -84,5 +88,46 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!-- Home screen widget: next departures at a stop -->
+        <receiver
+            android:name="publit.module.DeparturesWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_departures">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/departures_widget_info" />
+        </receiver>
+        <activity
+            android:name="publit.module.DeparturesWidgetConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Publit">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <!-- Health Connect: why Publit reads steps (opens the privacy policy) -->
+        <activity
+            android:name="publit.module.HealthRationaleActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity="publit.module.HealthRationaleActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
     </application>
 </manifest>

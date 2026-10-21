@@ -3,4 +3,6 @@
     <string name="channel_reminders">Losgeh-Erinnerungen</string>
     <string name="channel_alerts">Fahrt- und Linienhinweise</string>
     <string name="channel_live">Laufende Fahrt</string>
+    <string name="widget_departures">Abfahrten</string>
+    <string name="widget_description">Nächste Abfahrten an einer Haltestelle deiner Wahl.</string>
 </resources>
