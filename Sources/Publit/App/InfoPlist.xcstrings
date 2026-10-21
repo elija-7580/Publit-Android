@@ -1,0 +1,576 @@
+{
+ "sourceLanguage": "en",
+ "strings": {
+  "NSCalendarsWriteOnlyAccessUsageDescription": {
+   "extractionState": "manual",
+   "localizations": {
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit přidá vybrané cesty do vašeho kalendáře."
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit trägt die Fahrten, die du auswählst, in deinen Kalender ein."
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Το Publit προσθέτει στο ημερολόγιό σας τις διαδρομές που επιλέγετε."
+     }
+    },
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit adds the trips you choose to your calendar."
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit añade a tu calendario los viajes que elijas."
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit ajoute à votre calendrier les trajets que vous choisissez."
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "A Publit a naptáradba teszi a kiválasztott utazásokat."
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit aggiunge al tuo calendario i viaggi che scegli."
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit zet de reizen die je kiest in je agenda."
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit dodaje wybrane przez Ciebie podróże do kalendarza."
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "O Publit adiciona ao seu calendário as viagens que escolher."
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit adaugă în calendar călătoriile pe care le alegeți."
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit lägger till resorna du väljer i din kalender."
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit seçtiğiniz yolculukları takviminize ekler."
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit додає вибрані вами поїздки в календар."
+     }
+    }
+   }
+  },
+  "NSCameraUsageDescription": {
+   "extractionState": "manual",
+   "localizations": {
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit používá fotoaparát jen tehdy, když chcete naskenovat papírovou jízdenku. Sken zůstane ve vašem iPhonu."
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit nutzt die Kamera nur, wenn du ein Papierticket scannen möchtest. Der Scan bleibt auf deinem iPhone."
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Το Publit χρησιμοποιεί την κάμερα μόνο όταν επιλέγετε να σαρώσετε ένα χάρτινο εισιτήριο. Η σάρωση μένει στο iPhone σας."
+     }
+    },
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit uses the camera only when you choose to scan a paper ticket. The scan stays on your iPhone."
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit usa la cámara solo cuando decides escanear un billete en papel. El escaneo se queda en tu iPhone."
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit utilise l’appareil photo uniquement lorsque vous choisissez de scanner un billet papier. Le scan reste sur votre iPhone."
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "A Publit csak akkor használja a kamerát, ha papírjegyet szeretnél beolvasni. A beolvasás az iPhone-odon marad."
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit usa la fotocamera solo quando scegli di scansionare un biglietto cartaceo. La scansione resta sul tuo iPhone."
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit gebruikt de camera alleen als je een papieren kaartje wilt scannen. De scan blijft op je iPhone."
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit używa aparatu tylko wtedy, gdy chcesz zeskanować papierowy bilet. Skan pozostaje na Twoim iPhonie."
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "O Publit usa a câmara apenas quando escolhe digitalizar um bilhete em papel. A digitalização fica no seu iPhone."
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit folosește camera doar când alegi să scanezi un bilet pe hârtie. Scanarea rămâne pe iPhone-ul tău."
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit använder kameran bara när du väljer att skanna en pappersbiljett. Skanningen stannar på din iPhone."
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit kamerayı yalnızca kâğıt bilet taramayı seçtiğinizde kullanır. Tarama iPhone’unuzda kalır."
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit використовує камеру лише тоді, коли ви хочете відсканувати паперовий квиток. Скан лишається на вашому iPhone."
+     }
+    }
+   }
+  },
+  "NSHealthShareUsageDescription": {
+   "extractionState": "manual",
+   "localizations": {
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit čte vaši rychlost chůze z aplikace Zdraví, jen pokud zapnete „Použít mou rychlost chůze“, aby trasy plánovaly chůzi a přestupy vaším tempem. Zůstává ve vašem iPhonu."
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit liest dein Gehtempo aus Apple Health, nur wenn du „Mein Gehtempo verwenden“ einschaltest, damit Routen Fußwege und Umstiege in deinem Tempo planen. Es bleibt auf deinem iPhone."
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Το Publit διαβάζει την ταχύτητα βαδίσματός σου από την Υγεία της Apple, μόνο αν ενεργοποιήσεις «Χρήση της ταχύτητας βαδίσματός μου», ώστε οι διαδρομές να υπολογίζουν περπάτημα και μετεπιβιβάσεις με τον ρυθμό σου. Μένει στο iPhone σου."
+     }
+    },
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit reads your walking speed from Apple Health, only if you turn on “Use my walking speed”, so routes plan walks and changes at your pace. It stays on your iPhone."
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit lee tu velocidad al caminar de Salud de Apple, solo si activas «Usar mi velocidad al caminar», para planificar trayectos a pie y transbordos a tu ritmo. Se queda en tu iPhone."
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit lit votre vitesse de marche dans l’app Santé, uniquement si vous activez « Utiliser ma vitesse de marche », pour planifier marches et correspondances à votre rythme. Elle reste sur votre iPhone."
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "A Publit az Apple Egészség appból olvassa ki a gyaloglási sebességedet, csak ha bekapcsolod a „Saját gyaloglási tempóm használata” opciót, hogy az útvonalak a te tempódban tervezzék a gyaloglást és az átszállást. Az iPhone-odon marad."
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit legge la tua velocità di camminata da Salute di Apple, solo se attivi «Usa la mia velocità a piedi», per pianificare percorsi a piedi e cambi al tuo ritmo. Resta sul tuo iPhone."
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit leest je loopsnelheid uit Apple Gezondheid, alleen als je ‘Mijn looptempo gebruiken’ aanzet, zodat routes looptijden en overstappen op jouw tempo plannen. Het blijft op je iPhone."
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit odczytuje Twoją prędkość chodu z aplikacji Zdrowie, tylko jeśli włączysz „Użyj mojego tempa chodu”, aby trasy planowały przejścia i przesiadki w Twoim tempie. Pozostaje na Twoim iPhonie."
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "O Publit lê a sua velocidade de marcha da app Saúde, só se ativar “Usar a minha velocidade a pé”, para planear percursos a pé e transbordos ao seu ritmo. Fica no seu iPhone."
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit citește viteza ta de mers din Apple Sănătate, doar dacă activezi „Folosește viteza mea de mers”, ca rutele să planifice mersul pe jos și schimbările în ritmul tău. Rămâne pe iPhone-ul tău."
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit läser din gånghastighet från Apple Hälsa, bara om du slår på ”Använd min gånghastighet”, så att rutter planerar promenader och byten i din takt. Den stannar på din iPhone."
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit, yürüme hızını yalnızca “Yürüme hızımı kullan” seçeneğini açarsan Apple Sağlık’tan okur; böylece rotalar yürüyüşleri ve aktarmaları senin hızına göre planlar. iPhone’unda kalır."
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit зчитує вашу швидкість ходьби з Apple Здоров’я, лише якщо ви ввімкнете «Використовувати мою швидкість ходьби», щоб маршрути планували пішохідні відрізки й пересадки у вашому темпі. Вона залишається на вашому iPhone."
+     }
+    }
+   }
+  },
+  "NSHealthUpdateUsageDescription": {
+   "extractionState": "manual",
+   "localizations": {
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit nic nezapisuje do aplikace Zdraví. Jen čte vaši rychlost chůze, pokud zapnete „Použít moji rychlost chůze“."
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit schreibt nichts in Apple Health. Es liest nur deine Gehgeschwindigkeit, wenn du „Meine Gehgeschwindigkeit verwenden“ einschaltest."
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Το Publit δεν γράφει στην Υγεία της Apple. Διαβάζει μόνο την ταχύτητα βαδίσματός σας, αν ενεργοποιήσετε «Χρήση της ταχύτητας βαδίσματός μου»."
+     }
+    },
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit does not write to Apple Health. It only reads your walking speed, if you turn on “Use my walking speed”."
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit no escribe en Salud. Solo lee tu velocidad al caminar si activas «Usar mi velocidad al caminar»."
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit n'écrit rien dans Santé. Il lit seulement votre vitesse de marche si vous activez « Utiliser ma vitesse de marche »."
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "A Publit nem ír az Egészség appba. Csak a gyaloglási sebességedet olvassa, ha bekapcsolod a „Saját gyaloglási sebességem használata” opciót."
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit non scrive in Salute. Legge solo la tua velocità di camminata, se attivi «Usa la mia velocità di camminata»."
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit schrijft niets naar Gezondheid. Het leest alleen je wandelsnelheid als je ‘Gebruik mijn wandelsnelheid’ aanzet."
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit nic nie zapisuje w aplikacji Zdrowie. Odczytuje tylko Twoją prędkość chodu, jeśli włączysz „Użyj mojej prędkości chodu”."
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "O Publit não escreve na app Saúde. Só lê a sua velocidade de marcha, se ativar «Usar a minha velocidade de marcha»."
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit nu scrie în Sănătate. Citește doar viteza ta de mers, dacă activezi „Folosește viteza mea de mers”."
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit skriver inget till Hälsa. Den läser bara din gånghastighet om du slår på ”Använd min gånghastighet”."
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit Sağlık'a hiçbir şey yazmaz. Yalnızca “Yürüme hızımı kullan” seçeneğini açarsan yürüme hızını okur."
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit нічого не записує в Здоров'я. Він лише читає вашу швидкість ходьби, якщо ввімкнути «Використовувати мою швидкість ходьби»."
+     }
+    }
+   }
+  },
+  "NSLocationWhenInUseUsageDescription": {
+   "extractionState": "manual",
+   "localizations": {
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit používá vaši polohu k zobrazení odjezdů v okolí a k plánování cest z místa, kde jste."
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit nutzt deinen Standort, um Abfahrten in deiner Nähe zu zeigen und Routen ab deinem Standort zu planen."
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Το Publit χρησιμοποιεί την τοποθεσία σας για να δείχνει αναχωρήσεις κοντά σας και να σχεδιάζει διαδρομές από εκεί που βρίσκεστε."
+     }
+    },
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit uses your location to show departures near you and to plan trips from where you are."
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit usa tu ubicación para mostrar salidas cercanas y planificar viajes desde donde estás."
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit utilise votre position pour afficher les départs à proximité et planifier des trajets depuis l’endroit où vous êtes."
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "A Publit a helyzetedet használja, hogy megmutassa a közeli indulásokat, és onnan tervezzen útvonalat, ahol vagy."
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit usa la tua posizione per mostrare le partenze vicine e pianificare i viaggi da dove ti trovi."
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit gebruikt je locatie om vertrektijden in de buurt te tonen en reizen te plannen vanaf waar je bent."
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit używa Twojej lokalizacji, aby pokazywać odjazdy w pobliżu i planować podróże z miejsca, w którym jesteś."
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "O Publit usa a sua localização para mostrar partidas perto de si e planear viagens a partir de onde está."
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit folosește locația dvs. pentru a afișa plecările din apropiere și a planifica rute de unde vă aflați."
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit använder din plats för att visa avgångar nära dig och planera resor från där du är."
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit, yakınınızdaki kalkışları göstermek ve bulunduğunuz yerden yolculuk planlamak için konumunuzu kullanır."
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit використовує вашу геопозицію, щоб показувати відправлення поруч і планувати поїздки звідти, де ви є."
+     }
+    }
+   }
+  },
+  "NSMotionUsageDescription": {
+   "extractionState": "manual",
+   "localizations": {
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit čte vaši rychlost chůze z krokoměru, jen pokud zapnete „Použít mou rychlost chůze“. Zůstává ve vašem iPhonu."
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit liest dein Gehtempo aus dem Schrittzähler, nur wenn du „Mein Gehtempo verwenden“ einschaltest. Es bleibt auf deinem iPhone."
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Το Publit διαβάζει την ταχύτητα βαδίσματός σου από τον μετρητή βημάτων, μόνο αν ενεργοποιήσεις «Χρήση της ταχύτητας βαδίσματός μου». Μένει στο iPhone σου."
+     }
+    },
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit reads your walking speed from the step counter, only if you turn on “Use my walking speed”. It stays on your iPhone."
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit lee tu velocidad al caminar del podómetro solo si activas «Usar mi velocidad al caminar». Se queda en tu iPhone."
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit lit votre vitesse de marche dans le podomètre, uniquement si vous activez « Utiliser ma vitesse de marche ». Elle reste sur votre iPhone."
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "A Publit csak akkor olvassa ki a gyaloglási tempódat a lépésszámlálóból, ha bekapcsolod a „Saját gyaloglási tempóm használata” opciót. Az iPhone-odon marad."
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit legge la tua velocità a piedi dal contapassi solo se attivi «Usa la mia velocità a piedi». Resta sul tuo iPhone."
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit leest je looptempo uit de stappenteller, alleen als je „Mijn looptempo gebruiken” aanzet. Het blijft op je iPhone."
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit odczytuje Twoje tempo chodu z krokomierza tylko wtedy, gdy włączysz „Użyj mojego tempa chodu”. Zostaje na Twoim iPhonie."
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "O Publit lê a sua velocidade a pé a partir do contador de passos, só se ativar «Usar a minha velocidade a pé». Fica no seu iPhone."
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit citește viteza ta de mers din pedometru doar dacă activezi „Folosește viteza mea de mers”. Rămâne pe iPhone."
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit läser din gånghastighet från stegräknaren, bara om du slår på ”Använd min gånghastighet”. Den stannar på din iPhone."
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit, yürüme hızını adım sayardan yalnızca “Yürüme hızımı kullan” seçeneğini açarsan okur. iPhone'unda kalır."
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Publit зчитує вашу швидкість ходьби з крокоміра, лише якщо ви ввімкнете «Використовувати мою швидкість ходьби». Вона залишається на вашому iPhone."
+     }
+    }
+   }
+  }
+ },
+ "version": "1.0"
+}

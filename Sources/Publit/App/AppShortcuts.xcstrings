@@ -1,0 +1,766 @@
+{
+ "sourceLanguage": "en",
+ "strings": {
+  "Next departures in ${applicationName}": {
+   "extractionState": "manual",
+   "localizations": {
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Next departures in ${applicationName}"
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Nächste Abfahrten in ${applicationName}"
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Prochains départs dans ${applicationName}"
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Prossime partenze in ${applicationName}"
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Próximas salidas en ${applicationName}"
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Próximas partidas no ${applicationName}"
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Volgende vertrektijden in ${applicationName}"
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Najbliższe odjazdy w ${applicationName}"
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Найближчі відправлення в ${applicationName}"
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Următoarele plecări în ${applicationName}"
+     }
+    },
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Nejbližší odjezdy v ${applicationName}"
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Nästa avgångar i ${applicationName}"
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Επόμενες αναχωρήσεις στο ${applicationName}"
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Következő indulások a(z) ${applicationName} appban"
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "${applicationName} ile sonraki kalkışlar"
+     }
+    }
+   }
+  },
+  "Next departures at ${stop} in ${applicationName}": {
+   "extractionState": "manual",
+   "localizations": {
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Next departures at ${stop} in ${applicationName}"
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Nächste Abfahrten an ${stop} in ${applicationName}"
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Prochains départs à ${stop} dans ${applicationName}"
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Prossime partenze da ${stop} in ${applicationName}"
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Próximas salidas en ${stop} en ${applicationName}"
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Próximas partidas em ${stop} no ${applicationName}"
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Volgende vertrektijden bij ${stop} in ${applicationName}"
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Najbliższe odjazdy z ${stop} w ${applicationName}"
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Найближчі відправлення з ${stop} в ${applicationName}"
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Următoarele plecări din ${stop} în ${applicationName}"
+     }
+    },
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Nejbližší odjezdy z ${stop} v ${applicationName}"
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Nästa avgångar från ${stop} i ${applicationName}"
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Επόμενες αναχωρήσεις από ${stop} στο ${applicationName}"
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Következő indulások innen: ${stop}, ${applicationName}"
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "${applicationName} ile ${stop} durağından sonraki kalkışlar"
+     }
+    }
+   }
+  },
+  "Departures at ${stop} in ${applicationName}": {
+   "extractionState": "manual",
+   "localizations": {
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Departures at ${stop} in ${applicationName}"
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Abfahrten an ${stop} in ${applicationName}"
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Départs à ${stop} dans ${applicationName}"
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Partenze da ${stop} in ${applicationName}"
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Salidas en ${stop} en ${applicationName}"
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Partidas em ${stop} no ${applicationName}"
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Vertrektijden bij ${stop} in ${applicationName}"
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Odjazdy z ${stop} w ${applicationName}"
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Відправлення з ${stop} в ${applicationName}"
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Plecări din ${stop} în ${applicationName}"
+     }
+    },
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Odjezdy z ${stop} v ${applicationName}"
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Avgångar från ${stop} i ${applicationName}"
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Αναχωρήσεις από ${stop} στο ${applicationName}"
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Indulások innen: ${stop}, ${applicationName}"
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "${applicationName} ile ${stop} kalkışları"
+     }
+    }
+   }
+  },
+  "Take me home with ${applicationName}": {
+   "extractionState": "manual",
+   "localizations": {
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Take me home with ${applicationName}"
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Bring mich mit ${applicationName} nach Hause"
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Ramène-moi à la maison avec ${applicationName}"
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Portami a casa con ${applicationName}"
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Llévame a casa con ${applicationName}"
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Leva-me para casa com o ${applicationName}"
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Breng me naar huis met ${applicationName}"
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Zabierz mnie do domu z ${applicationName}"
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Відвези мене додому з ${applicationName}"
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Du-mă acasă cu ${applicationName}"
+     }
+    },
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Doveď mě domů s ${applicationName}"
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Ta mig hem med ${applicationName}"
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Πήγαινέ με σπίτι με το ${applicationName}"
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Vigyél haza a(z) ${applicationName} segítségével"
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "${applicationName} ile beni eve götür"
+     }
+    }
+   }
+  },
+  "Route home in ${applicationName}": {
+   "extractionState": "manual",
+   "localizations": {
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Route home in ${applicationName}"
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Heimweg in ${applicationName}"
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Itinéraire pour rentrer dans ${applicationName}"
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Percorso verso casa in ${applicationName}"
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Ruta a casa en ${applicationName}"
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Rota para casa no ${applicationName}"
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Route naar huis in ${applicationName}"
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Trasa do domu w ${applicationName}"
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Маршрут додому в ${applicationName}"
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Rută spre casă în ${applicationName}"
+     }
+    },
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Trasa domů v ${applicationName}"
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Resväg hem i ${applicationName}"
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Διαδρομή για το σπίτι στο ${applicationName}"
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Útvonal haza a(z) ${applicationName} appban"
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "${applicationName} ile eve rota"
+     }
+    }
+   }
+  },
+  "Route to work in ${applicationName}": {
+   "extractionState": "manual",
+   "localizations": {
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Route to work in ${applicationName}"
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Weg zur Arbeit in ${applicationName}"
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Itinéraire pour le travail dans ${applicationName}"
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Percorso verso il lavoro in ${applicationName}"
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Ruta al trabajo en ${applicationName}"
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Rota para o trabalho no ${applicationName}"
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Route naar werk in ${applicationName}"
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Trasa do pracy w ${applicationName}"
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Маршрут на роботу в ${applicationName}"
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Rută spre serviciu în ${applicationName}"
+     }
+    },
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Trasa do práce v ${applicationName}"
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Resväg till jobbet i ${applicationName}"
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Διαδρομή για τη δουλειά στο ${applicationName}"
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Útvonal a munkahelyre a(z) ${applicationName} appban"
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "${applicationName} ile işe rota"
+     }
+    }
+   }
+  },
+  "Show my ticket in ${applicationName}": {
+   "extractionState": "manual",
+   "localizations": {
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Show my ticket in ${applicationName}"
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Zeig mein Ticket in ${applicationName}"
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Affiche mon billet dans ${applicationName}"
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Mostra il mio biglietto in ${applicationName}"
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Muestra mi billete en ${applicationName}"
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Mostra o meu bilhete no ${applicationName}"
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Toon mijn ticket in ${applicationName}"
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Pokaż mój bilet w ${applicationName}"
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Покажи мій квиток в ${applicationName}"
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Arată-mi biletul în ${applicationName}"
+     }
+    },
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Ukaž mou jízdenku v ${applicationName}"
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Visa min biljett i ${applicationName}"
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Δείξε το εισιτήριό μου στο ${applicationName}"
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Mutasd a jegyemet a(z) ${applicationName} appban"
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "${applicationName} içinde biletimi göster"
+     }
+    }
+   }
+  },
+  "Show my ${applicationName} ticket": {
+   "extractionState": "manual",
+   "localizations": {
+    "en": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Show my ${applicationName} ticket"
+     }
+    },
+    "de": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Zeig mein ${applicationName}-Ticket"
+     }
+    },
+    "fr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Affiche mon billet ${applicationName}"
+     }
+    },
+    "it": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Mostra il mio biglietto ${applicationName}"
+     }
+    },
+    "es": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Muestra mi billete de ${applicationName}"
+     }
+    },
+    "pt-PT": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Mostra o meu bilhete do ${applicationName}"
+     }
+    },
+    "nl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Toon mijn ${applicationName}-ticket"
+     }
+    },
+    "pl": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Pokaż mój bilet ${applicationName}"
+     }
+    },
+    "uk": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Покажи мій квиток ${applicationName}"
+     }
+    },
+    "ro": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Arată-mi biletul ${applicationName}"
+     }
+    },
+    "cs": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Ukaž mou jízdenku ${applicationName}"
+     }
+    },
+    "sv": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Visa min ${applicationName}-biljett"
+     }
+    },
+    "el": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Δείξε το εισιτήριο ${applicationName}"
+     }
+    },
+    "hu": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "Mutasd a(z) ${applicationName} jegyemet"
+     }
+    },
+    "tr": {
+     "stringUnit": {
+      "state": "translated",
+      "value": "${applicationName} biletimi göster"
+     }
+    }
+   }
+  }
+ },
+ "version": "1.0"
+}
