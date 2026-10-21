@@ -1,0 +1,14 @@
+#!/bin/bash
+# Linux stand-in for xcrun (skip calls it): drops Apple-only flags and runs the tool directly
+args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --sdk|-sdk) shift 2;;
+    --triple) shift 2;;
+    --toolchain|-toolchain) shift 2;;
+    --find|-f) shift; command -v "$1"; exit $?;;
+    --show-sdk-path) echo /; exit 0;;
+    *) args+=("$1"); shift;;
+  esac
+done
+exec "${args[@]}"

@@ -1,0 +1,21 @@
+#!/bin/bash
+# Usage: apk.sh [debug|release]   env: ARCHS (default aarch64), SKIP_SWIFT=1 (Kotlin/Gradle only)
+# 1. Swift for Android (native .so)  2. Kotlin sources (kotlinize)  3. Gradle. Log: /data/apk.log
+D=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd); source $D/env.sh
+P=$(cd $D/../.. && pwd); MODE=${1:-debug}; cd $P
+MOD=$(grep '^PRODUCT_NAME' Skip.env | sed 's/.*= *//')
+export SKIP_COMMAND_OVERRIDE=$D/skiplog.sh
+{
+if [ -z "$SKIP_SWIFT" ]; then
+skip android build --arch ${ARCHS:-aarch64} --configuration $MODE -d .build/Android/$MOD/jni-libs \
+  --toolchain $T/swift --swift $T/swift/usr/bin/swift --sdk $SWIFT_ANDROID_SDK --ndk $ANDROID_NDK_HOME \
+  --swift-sdk-home $HOME/.swiftpm/swift-sdks --product $MOD \
+  -Xcc -fPIC -Xswiftc -DSKIP_BRIDGE -Xswiftc -DTARGET_OS_ANDROID || { echo "SWIFT BUILD FAILED"; exit 1; }
+[ -f /data/tools/kz_args.log ] && bash $D/kotlinize.sh /data/tools/kz_args.log
+fi
+# the module's gradle reads jniLibs from its default build dir: point it at the native libs
+for d in .build/plugins/outputs/*/$MOD/destination/skipstone/$MOD; do mkdir -p $d/build; rm -rf $d/build/jni-libs; ln -s $P/.build/Android/$MOD/jni-libs $d/build/jni-libs; done
+cd Android && SKIP_BRIDGE_ANDROID_BUILD_DISABLED=1 gradle --no-daemon -Dorg.gradle.jvmargs=-Xmx3g -Pkotlin.compiler.execution.strategy=in-process -Dorg.gradle.workers.max=2 assemble${MODE^} ${GRADLE_EXTRA} || { echo "GRADLE FAILED"; exit 1; }
+echo "APK OK"
+} > /data/apk.log 2>&1
+tail -3 /data/apk.log
