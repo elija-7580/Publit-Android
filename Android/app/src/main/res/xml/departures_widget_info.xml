@@ -12,4 +12,4 @@
     android:initialLayout="@layout/glance_default_loading_layout"
     android:configure="publit.module.DeparturesWidgetConfigActivity"
     android:widgetFeatures="reconfigurable"
-    android:widgetCategory="home_screen" />
+    android:widgetCategory="home_screen|keyguard" />

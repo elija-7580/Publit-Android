@@ -412,7 +412,7 @@ enum AdaptiveUIColor {
 // MARK: Button styles
 
 // Skip draws only its built-in button styles. Publit's own ones become the same look around a plain
-// button (Compose puts the click on the whole styled frame); only the pressed dimming is missing.
+// button. A non-consuming pointer observer adds pressed dimming without stealing clicks or scrolls.
 
 struct EnabledOpacity: ViewModifier {
     @Environment(\.isEnabled) var isEnabled
@@ -420,6 +420,10 @@ struct EnabledOpacity: ViewModifier {
 }
 
 extension View {
+    private func pressedFeedback() -> some View {
+        composeModifier { try! AnyDynamicObject(className: "publit.module.PressFeedbackModifier", arguments: []) }
+    }
+
     func buttonStyle(_ style: InkButtonStyle) -> some View {
         buttonStyle(.plain)
             .font(.headline)
@@ -428,6 +432,7 @@ extension View {
             .padding(.vertical, 11)
             .frame(minHeight: 44)
             .background(Color.ink, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .pressedFeedback()
             .modifier(EnabledOpacity())
     }
 
@@ -439,6 +444,7 @@ extension View {
             .padding(.vertical, 8)
             .frame(minHeight: 48)
             .background(Color.inkFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .pressedFeedback()
             .modifier(EnabledOpacity())
     }
 
@@ -450,6 +456,7 @@ extension View {
             .background(style.selected ? Color.ink : Color.surface, in: Circle())
             .overlay(Circle().stroke(Color.ink.opacity(style.selected ? 0 : 0.09), lineWidth: 1))
             .mapShadow()
+            .pressedFeedback()
     }
 
     func buttonStyle(_ style: ChipButtonStyle) -> some View {
@@ -459,6 +466,7 @@ extension View {
             .padding(.horizontal, 12)
             .frame(minHeight: 48)
             .background(Color.inkFill, in: Capsule())
+            .pressedFeedback()
     }
 
     func buttonStyle(_ style: ActionButtonStyle) -> some View {
@@ -466,6 +474,7 @@ extension View {
             .padding(12).frame(maxWidth: .infinity)
             .foregroundStyle(Color.ink)
             .background(Color.ink.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
+            .pressedFeedback()
     }
 
     /// Custom switch style: set on the whole app; Android keeps its Material switch.

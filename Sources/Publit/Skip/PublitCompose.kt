@@ -1,6 +1,12 @@
 // Publit for Android: small Compose building blocks that SwiftUI on Skip has no equivalent for.
 package publit.module
 
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -124,5 +130,20 @@ class SelectionModifier(val enabled: Boolean) : skip.ui.ContentModifier {
         } else {
             androidx.compose.foundation.text.selection.DisableSelection { view.Compose(context = context) }
         }
+    }
+}
+
+/** Observe without consuming pointer events: inner buttons keep their click and scroll semantics. */
+class PressFeedbackModifier : skip.ui.ContentModifier {
+    override fun modify(view: skip.ui.View): skip.ui.View = skip.ui.ComposeView { context ->
+        val pressed = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+        Box(modifier = context.modifier.alpha(if (pressed.value) 0.75f else 1f).pointerInput(Unit) {
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                pressed.value = true
+                try { waitForUpOrCancellation(pass = PointerEventPass.Initial) }
+                finally { pressed.value = false }
+            }
+        }) { view.Compose(context = context.content()) }
     }
 }
