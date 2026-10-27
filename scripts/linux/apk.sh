@@ -27,7 +27,7 @@ bash $D/kotlinize.sh "$T/kz_args.log" || exit 1
 fi
 # the module's gradle reads jniLibs from its default build dir: point it at the native libs
 for d in .build/plugins/outputs/*/$MOD/destination/skipstone/$MOD; do mkdir -p $d/build; rm -rf $d/build/jni-libs; ln -s $P/.build/Android/$MOD/jni-libs $d/build/jni-libs; done
-cd Android && SKIP_BRIDGE_ANDROID_BUILD_DISABLED=1 gradle --no-daemon -Dorg.gradle.jvmargs=-Xmx3g -Pkotlin.compiler.execution.strategy=in-process -Dorg.gradle.workers.max=2 assemble${MODE^} ${GRADLE_EXTRA} || { echo "GRADLE FAILED"; exit 1; }
+cd Android && SKIP_BRIDGE_ANDROID_BUILD_DISABLED=1 gradle --no-daemon -Dorg.gradle.jvmargs=-Xmx3g -Pkotlin.compiler.execution.strategy=in-process -Dorg.gradle.workers.max=${GRADLE_WORKERS:-2} assemble${MODE^} ${GRADLE_EXTRA} || { echo "GRADLE FAILED"; exit 1; }
 echo "APK OK"
 } > /data/apk.log 2>&1
 tail -3 /data/apk.log

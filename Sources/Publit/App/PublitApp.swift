@@ -5,6 +5,7 @@ import SkipFuse
 /// A logger for the Publit module.
 let logger: Logger = Logger(subsystem: "app.publit", category: "Publit")
 
+#if os(Android)
 /// Android: the app's root, loaded by `MainActivity` (Android/app/src/main/kotlin/Main.kt).
 /// It replaces the iOS `@main struct PublitApp: App` of the iOS app one to one: the same stores,
 /// environments, launch steps and deep links.
@@ -103,6 +104,8 @@ let logger: Logger = Logger(subsystem: "app.publit", category: "Publit")
         await LineAlertMonitor.check(minInterval: 10 * 60)
     }
 }
+
+#endif
 
 struct RootView: View {
     @Environment(AppState.self) var app

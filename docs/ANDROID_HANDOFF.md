@@ -31,6 +31,26 @@
 - Gradle build and emulator boot are still running at this checkpoint. **Latest complete app/Wear build not yet confirmed.**
 - **No app screen has yet passed visual inspection; no final app screenshots have been produced.**
 
+## Build check — 2026-10-27
+
+- Fresh Linux checkout, Swift 6.4.1 + Swift SDK for Android, NDK 28.2.13676358: **arm64 debug build succeeded**
+  (native Swift `libPublit.so`, Kotlin, Gradle); `app-debug.apk` and `wear-debug.apk` produced.
+- Swift build of `Publit` for Android: **0 errors, 0 warnings** in project sources after this round.
+- Not yet done: install/launch on an emulator or device, screen-by-screen UI check.
+- Fixed in this round:
+  - Android compile: `@State private` properties cannot be bridged (AddToWalletButton);
+    `TextSelectability` is a protocol on Skip, so `== .enabled` does not compile (SwiftUIShims).
+  - Kotlin compile on older compile SDKs: Android 16 Live Update setters are now called reflectively (DroidNotifications).
+  - macOS/iOS host pre-build (Android Studio sync): `AppState.shared` defined on all platforms; Android-only
+    `PublitRootView`/`PublitAppDelegate` guarded; duplicate `ActivityAttributes` conformance removed;
+    widget-dependent `PresentationSampleView` excluded from the iOS host build.
+  - Concurrency warnings that become errors in Swift 6 mode: PlanModel `maxWalk` captured by `async let`,
+    `PassStore.maxDocumentBytes` read off the main actor, PlaceSearchView `scope` in an autoclosure.
+  - `scripts/linux/install.sh`: script path resolved before `cd`; prerequisite check. Ubuntu 26.04 also needs
+    `libxml2.so.2` → `libxml2.so.16` symlink and the sandbox TLS CA imported into the JDK for `sdkmanager`.
+- Mac (Android Studio) prerequisites, in this order: `brew install skiptools/skip/skip`, `skip android sdk install`,
+  Android Studio → SDK Tools → NDK 28.2.13676358 + Command-line Tools. Then sync and Run.
+
 ## Remaining work
 
 1. Finish x86_64 debug build with the latest source; fix compiler/manifest/resource failures if present.

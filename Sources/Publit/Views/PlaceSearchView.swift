@@ -205,8 +205,10 @@ struct PlaceSearchView: View {
     }
 
     private func searchNames(_ text: String, token: UUID) async {
+        let scope = scope
         let useGoogle = GooglePlaces.isActive && scope != .stops
-        async let transit = TransitousClient.shared.geocode(text, near: location.coordinate, type: useGoogle && scope == .all ? nil : scope.apiType)
+        let near = location.coordinate
+        async let transit = TransitousClient.shared.geocode(text, near: near, type: useGoogle && scope == .all ? nil : scope.apiType)
         var google: [GooglePlaces.Suggestion]?
         if useGoogle {
             google = try? await GooglePlaces.autocomplete(text, near: location.coordinate, session: googleSession)

@@ -1,4 +1,4 @@
-#if !os(Android)
+#if !os(Android) && !os(iOS)
 #if DEBUG
 import SwiftUI
 #if canImport(UIKit)

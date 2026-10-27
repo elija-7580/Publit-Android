@@ -14,7 +14,7 @@ final class PassStore {
     @ObservationIgnored private var revision = 0
 
     /// Documents above this size are rejected; tickets are a few pages at most.
-    static let maxDocumentBytes = 25 * 1024 * 1024
+    nonisolated static let maxDocumentBytes = 25 * 1024 * 1024
 
     enum Failure: LocalizedError, Equatable {
         case documentTooLarge

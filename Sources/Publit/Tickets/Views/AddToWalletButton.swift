@@ -11,9 +11,9 @@ import UIKit
 struct AddToWalletButton: View {
     let pass: TicketPass
     var logo: UIImage? = nil
-    @State private var consent = false
-    @State private var working = false
-    @State private var error: String?
+    @State var consent = false
+    @State var working = false
+    @State var error: String?
     var body: some View {
         Button { consent = true } label: {
             Label(GoogleWallet.text("wallet_add"), systemImage: "wallet.pass")

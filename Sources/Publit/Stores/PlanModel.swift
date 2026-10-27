@@ -153,8 +153,9 @@ final class PlanModel {
                 // it arrives clearly earlier (the server alone prefers walking 30 min to save one).
                 async let shortRes = TransitousClient.shared.plan(from: f, to: t, time: time, arriveBy: arriveBy,
                                                                   maxWalk: Reach.shortWalkSeconds, options: options)
+                let firstWalk = maxWalk  // immutable copy for the concurrent request
                 async let longRes = TransitousClient.shared.plan(from: f, to: t, time: time, arriveBy: arriveBy,
-                                                                 maxWalk: maxWalk, options: options)
+                                                                 maxWalk: firstWalk, options: options)
                 let long = try await longRes
                 if let short = try? await shortRes, !short.itineraries.isEmpty {
                     res = long.replacingItineraries(Reach.preferShortWalks(short: short.itineraries, long: long.itineraries))

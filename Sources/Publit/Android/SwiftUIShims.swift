@@ -130,7 +130,7 @@ extension View {
     /// The surrounding container enables Android's native copy/select handles.
     func textSelection(_ selectability: TextSelectability) -> some View {
         composeModifier {
-            try! AnyDynamicObject(className: "publit.module.SelectionModifier", arguments: [selectability == .enabled])
+            try! AnyDynamicObject(className: "publit.module.SelectionModifier", arguments: [type(of: selectability).allowsSelection])
         }
     }
     /// Numbers change without the rolling-digit animation.

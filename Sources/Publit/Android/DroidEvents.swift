@@ -31,8 +31,10 @@ import SkipFuse
 
     /// A notification or shortcut was tapped: open its publit:// link.
     /* SKIP @bridge */public func openURL(_ url: String) {
+        #if os(Android)
         guard let u = URL(string: url) else { return }
         Task { @MainActor in AppState.shared.open(u) }
+        #endif
     }
 
     /// A shared or opened file (ticket PDF/image) was copied to this local path.

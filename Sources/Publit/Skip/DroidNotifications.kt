@@ -157,10 +157,13 @@ object DroidLive {
         // Android 16 Live Updates: promotion is a request; the OS/user decides whether to show it.
         var notification = n.build()
         if (Build.VERSION.SDK_INT >= 36 && timeout <= 0) {
-            notification = android.app.Notification.Builder.recoverBuilder(ctx, notification)
-                .setRequestPromotedOngoing(true)
-                .setShortCriticalText(json.optString("line").take(7))
-                .build()
+            // Called by reflection: these setters are missing from older compile SDKs.
+            try {
+                val b = android.app.Notification.Builder.recoverBuilder(ctx, notification)
+                try { b.javaClass.getMethod("setRequestPromotedOngoing", Boolean::class.javaPrimitiveType).invoke(b, true) } catch (e: Exception) {}
+                try { b.javaClass.getMethod("setShortCriticalText", CharSequence::class.java).invoke(b, json.optString("line").take(7)) } catch (e: Exception) {}
+                notification = b.build()
+            } catch (e: Exception) {}
         }
         try { NotificationManagerCompat.from(ctx).notify("live-$id", 1, notification) } catch (e: SecurityException) {}
     }

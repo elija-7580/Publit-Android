@@ -1,10 +1,12 @@
-#if os(Android)
 import SwiftUI
 
-// Android: one app state and one location manager, shared with the Kotlin callbacks (DroidEvents).
+// One app state, shared with the Kotlin callbacks (DroidEvents). Defined on every platform so the
+// iOS pre-build that Skip runs before the Android build also compiles.
 extension AppState {
     static let shared = AppState()
 }
+
+#if os(Android)
 
 /// Environment values iOS provides that SkipUI does not (yet): read from Android.
 enum AndroidEnvironment {

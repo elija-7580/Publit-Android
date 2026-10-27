@@ -159,7 +159,7 @@ struct HafasSource: LiveSource {
             let alerts: [Alert] = J.list(j["msgL"]).map { J.dict($0) }.compactMap { m in
                 guard J.str(m["type"]) == "HIM", let x = J.int(m["himX"]), hims.indices.contains(x) else { return nil }
                 // Summary headers ("SUM_GLB_…") are network-wide notes, not about this ride.
-                if J.list(m["tagL"]).compactMap { J.str($0) }.contains(where: { $0.contains("GLB") }) { return nil }
+                if J.list(m["tagL"]).compactMap({ J.str($0) }).contains(where: { $0.contains("GLB") }) { return nil }
                 let him = hims[x]
                 if let mask = J.int(him["prod"]), let cls, mask & cls == 0 { return nil }
                 return alert(him, tz: tz)
@@ -252,11 +252,11 @@ struct WienerLinienSource: LiveSource {
                                  impactPeriod: start == nil && end == nil ? nil : [AlertPeriod(start: start, end: end)]))
         }
         var out: [LiveDeparture] = []
-        for monitor in J.list(data["monitors"]).map { J.dict($0) } {
-            for line in J.list(monitor["lines"]).map { J.dict($0) } {
+        for monitor in J.list(data["monitors"]).map({ J.dict($0) }) {
+            for line in J.list(monitor["lines"]).map({ J.dict($0) }) {
                 guard let name = J.str(line["name"]) else { continue }
                 let alerts = infos.filter { $0.lines.contains(name) }.map { $0.alert }
-                for dep in J.list(J.dict(line["departures"])["departure"]).map { J.dict($0) } {
+                for dep in J.list(J.dict(line["departures"])["departure"]).map({ J.dict($0) }) {
                     let t = J.dict(dep["departureTime"])
                     guard let planned = J.str(t["timePlanned"]).flatMap({ stamp.date(from: $0) }) else { continue }
                     let vehicle = J.dict(dep["vehicle"])

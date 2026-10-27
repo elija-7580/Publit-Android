@@ -2,9 +2,6 @@ import Foundation
 #if canImport(ActivityKit) || os(Android)
 #if canImport(ActivityKit)
 import ActivityKit
-#if canImport(ActivityKit)
-extension TripActivityAttributes: ActivityAttributes {}
-#endif
 #endif
 
 /// Live Activity for a saved trip: "Leave in 6 min", then the ride, on the lock screen and
