@@ -131,8 +131,10 @@ struct TripView: View {
             switch progress {
             case .notStarted: return L10n.t("Not departed yet")
             case .finished: return L10n.f("Arrived at %@", stops.last?.name ?? "")
-            case .atStop(let i): return L10n.f("At %@", stops[i].name)
-            case .between(let i, _): return L10n.f("Between %@ and %@", stops[i].name, stops[i + 1].name)
+            case .atStop(let i): return L10n.f("At %@", stops.indices.contains(i) ? stops[i].name : "")
+            case .between(let i, _):
+                guard stops.indices.contains(i), stops.indices.contains(i + 1) else { return L10n.t("Not departed yet") }
+                return L10n.f("Between %@ and %@", stops[i].name, stops[i + 1].name)
             }
         }()
         Label(text, systemImage: leg.realTime ? "dot.radiowaves.left.and.right" : "calendar")

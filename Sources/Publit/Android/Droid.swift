@@ -6,12 +6,12 @@ import SkipFuse
 /// Android services the iOS frameworks provided (location, notifications, speech, calendar, sharing …).
 /// Values cross as simple types or JSON strings.
 enum Droid {
-    nonisolated(unsafe) private static var statics: AnyDynamicObject?
+    // A `static let` is initialised once, thread-safely. The former lazily-set `static var` was read
+    // and written from the main thread and background tasks at the same time (a data race).
+    nonisolated(unsafe) private static let statics: AnyDynamicObject? =
+        try? AnyDynamicObject(forStaticsOfClassName: "publit.module.Droid")
 
-    static var kotlin: AnyDynamicObject? {
-        if statics == nil { statics = try? AnyDynamicObject(forStaticsOfClassName: "publit.module.Droid") }
-        return statics
-    }
+    static var kotlin: AnyDynamicObject? { statics }
 
     /// Calls a Kotlin function without a result.
     static func call(_ name: String, _ args: Any?...) {

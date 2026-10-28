@@ -142,10 +142,18 @@ struct InkProgress: View {
 extension View {
     /// A list on the flat "Ink & Dot" ground with opaque cards (apply `inkCard()` to its sections).
     func inkList() -> some View {
+        #if os(Android)
+        // SkipUI draws the round section corners and the cover over each card's last divider in
+        // the list background colour. A hidden (clear) background left square cards with a stray
+        // line under each one. The Material scheme (PublitTheme.kt) makes that background the ground.
+        listSectionSpacing(12)
+            .liveBarPadding()
+        #else
         scrollContentBackground(.hidden)
             .background(Color.ground)
             .listSectionSpacing(12)
             .liveBarPadding()
+        #endif
     }
 
     /// Opaque floating controls with a quiet edge, shared across platforms (no blur).

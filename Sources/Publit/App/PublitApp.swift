@@ -148,25 +148,34 @@ struct RootView: View {
         withAnimation(.easeOut(duration: 0.3)) { splash = false }
     }
 
+    /// iOS fills tab bar symbols by itself; the Android bar draws the filled glyphs explicitly.
+    static func tabSymbol(_ name: String) -> String {
+        #if os(Android)
+        return name + ".fill"
+        #else
+        return name
+        #endif
+    }
+
     @ViewBuilder
     private var tabs: some View {
         @Bindable var app = app
         TabView(selection: $app.tab) {
             NavigationStack { NearbyView() }
                 .liveTripBar()
-                .tabItem { Label("Nearby", systemImage: "location.circle") }
+                .tabItem { Label("Nearby", systemImage: Self.tabSymbol("location.circle")) }
                 .tag(AppTab.nearby)
             NavigationStack { PlanView() }
                 .liveTripBar()
-                .tabItem { Label("Plan", systemImage: "calendar") }
+                .tabItem { Label("Plan", systemImage: Self.tabSymbol("calendar")) }
                 .tag(AppTab.plan)
             NavigationStack { PassWalletView() }
                 .liveTripBar()
-                .tabItem { Label("Tickets", systemImage: "ticket") }
+                .tabItem { Label("Tickets", systemImage: Self.tabSymbol("ticket")) }
                 .tag(AppTab.tickets)
             NavigationStack { FavoritesView() }
                 .liveTripBar()
-                .tabItem { Label("Saved", systemImage: "star") }
+                .tabItem { Label("Saved", systemImage: Self.tabSymbol("star")) }
                 .tag(AppTab.favorites)
         }
         .sheet(item: $app.sharedTicketFile) { file in

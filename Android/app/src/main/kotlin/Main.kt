@@ -40,6 +40,7 @@ open class AndroidAppMain: Application {
     override fun onCreate() {
         super.onCreate()
         logger.info("starting app")
+        CrashRecorder.install(this)
         ProcessInfo.launch(applicationContext)
         AppDelegate.shared.onInit()
     }
@@ -69,6 +70,7 @@ open class MainActivity: AppCompatActivity {
 
         AppDelegate.shared.onLaunch()
         handle(intent)
+        if (savedInstanceState == null) CrashRecorder.showPendingReport(this)
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
@@ -199,11 +201,18 @@ internal fun SyncSystemBarsWithTheme() {
 @Composable
 internal fun PresentationRootView(context: ComposeContext) {
     val colorScheme = if (isSystemInDarkTheme()) ColorScheme.dark else ColorScheme.light
-    PresentationRoot(defaultColorScheme = colorScheme, context = context) { ctx ->
-        SyncSystemBarsWithTheme()
-        val contentContext = ctx.content()
-        Box(modifier = ctx.modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            AppRootView().Compose(context = contentContext)
+    // Publit's palette instead of the wallpaper-derived dynamic colours (see PublitTheme.kt).
+    Material3ColorScheme({ scheme, dark -> publitColorScheme(scheme, dark) }) {
+        PresentationRoot(defaultColorScheme = colorScheme, context = context) { ctx ->
+            SyncSystemBarsWithTheme()
+            val contentContext = ctx.content()
+            Box(modifier = ctx.modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                AppRootView()
+                    .material3NavigationBar { options ->
+                        publitNavigationBar(options, MaterialTheme.colorScheme.background.luminance() < 0.5f)
+                    }
+                    .Compose(context = contentContext)
+            }
         }
     }
 }
