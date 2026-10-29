@@ -32,6 +32,6 @@ Two test APKs per release: arm64 (`Publit-native.apk`) and 32-bit ARM (`Publit-n
 | 6 | Map (MapLibre) + station map | Views/Map, StationMapView, MapLayers | done (MapLibre/OpenFreeMap: trip + route map, station map with search and mode filter; open: live vehicles, line shapes, sharing, layers sheet, category search) |
 | 7 | Saved places/lines/trips, settings, onboarding | FavoritesView, FavoritesStore, SettingsView, OnboardingView | done (Home/Work, saved stops/places/lines, save stop + save line, line departures, settings: start screen/data/about, onboarding; open: saved trips (TripStore, SavedTripView), settings for map/route options/notifications/diagnostics as their features arrive) |
 | 8 | Live trip, notifications, reminders | LiveTripView, Notifications/* | done (saved + past trips, save/calendar/share/leave reminder, start trip → live view, get-off reminders, ongoing live notification refreshed by alarms; open: line alerts (LineAlertMonitor), voice guide, off-route/missed detection, alternatives) |
-| 9 | Live sources overlay, offline cache | LiveSources*, ResponseCache | open |
+| 9 | Live sources overlay, offline cache | LiveSources*, ResponseCache | done (offline copies + note; live sources ÖBB, Wiener Linien, VBB, RMV, VBN, NAH.SH; open: search.ch, VRR/VRN (EFA), ACTV, SL, TfL, LiveSourcesView, settings toggle) |
 | 10 | Tickets (optional), widget, Wear OS | Tickets/*, DroidWidget.kt | open |
 | 11 | Switch app ID to `io.github.elija7580.publit`, release signing, remove Skip port | – | open |
