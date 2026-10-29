@@ -46,6 +46,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.material.icons.filled.NearMe
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.foundation.clickable
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.elija7580.publit.core.Fmt
@@ -57,13 +63,58 @@ import kotlinx.coroutines.delay
 import java.time.Instant
 
 @Composable
-fun PublitApp(vm: NearbyViewModel, crashReport: String?) {
+fun PublitApp(vm: NearbyViewModel, client: io.github.elija7580.publit.data.TransitousClient, crashReport: String?) {
     PublitTheme {
         val ink = LocalInk.current
-        Surface(Modifier.fillMaxSize(), color = ink.ground) {
-            NearbyScreen(vm)
-            CrashDialog(crashReport)
+        val nav = androidx.navigation.compose.rememberNavController()
+        val entry by nav.currentBackStackEntryAsState()
+        val route = entry?.destination?.route ?: "nearby"
+        val tabs = listOf(
+            Triple("nearby", L10n.t("Nearby"), androidx.compose.material.icons.Icons.Filled.NearMe),
+            Triple("plan", L10n.t("Plan"), androidx.compose.material.icons.Icons.Filled.Route),
+            Triple("saved", L10n.t("Saved"), androidx.compose.material.icons.Icons.Filled.Star),
+        )
+        androidx.compose.material3.Scaffold(
+            containerColor = ink.ground,
+            contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
+            bottomBar = {
+                androidx.compose.material3.NavigationBar(containerColor = ink.surface, tonalElevation = 0.dp) {
+                    tabs.forEach { (r, title, icon) ->
+                        val selected = route == r || (r == "nearby" && route.startsWith("stop"))
+                        androidx.compose.material3.NavigationBarItem(
+                            selected = selected,
+                            onClick = { if (!selected || route != r) nav.navigate(r) { popUpTo("nearby") { saveState = true }; launchSingleTop = true; restoreState = true } },
+                            icon = { androidx.compose.material3.Icon(icon, null) }, label = { Text(title) },
+                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                                selectedIconColor = ink.ink, selectedTextColor = ink.ink, indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                unselectedIconColor = ink.muted, unselectedTextColor = ink.muted),
+                        )
+                    }
+                }
+            },
+        ) { padding ->
+            androidx.navigation.compose.NavHost(nav, startDestination = "nearby", modifier = Modifier.padding(padding)) {
+                composable("nearby") {
+                    NearbyScreen(vm) { g -> nav.navigate("stop?id=${Uri.encode(g.id)}&name=${Uri.encode(g.name)}&exact=${g.isPole}") }
+                }
+                composable("stop?id={id}&name={name}&exact={exact}") { e ->
+                    val a = e.arguments
+                    StopScreen(client, a?.getString("id").orEmpty(), a?.getString("name").orEmpty(), a?.getString("exact") == "true") { nav.popBackStack() }
+                }
+                composable("plan") { Placeholder(L10n.t("Plan")) }
+                composable("saved") { Placeholder(L10n.t("Saved")) }
+            }
         }
+        CrashDialog(crashReport)
+    }
+}
+
+@Composable
+private fun Placeholder(title: String) {
+    Column(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp)) {
+        Text(title, fontWeight = FontWeight.Bold, fontSize = 32.sp)
+        Spacer(Modifier.height(16.dp))
+        Text("Kommt in einer der nächsten Testversionen.", color = LocalInk.current.muted)
     }
 }
 
@@ -90,7 +141,7 @@ private fun CrashDialog(report: String?) {
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun NearbyScreen(vm: NearbyViewModel) {
+fun NearbyScreen(vm: NearbyViewModel, onOpenStop: (io.github.elija7580.publit.data.StopGroup) -> Unit) {
     val ink = LocalInk.current
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -140,11 +191,16 @@ fun NearbyScreen(vm: NearbyViewModel) {
                     items(state.groups, key = { it.id }) { group ->
                         Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
                             Column {
-                                StationHeader(group, nearest = group.id == state.groups.first().id)
+                                Column(Modifier.clickable { onOpenStop(group) }) {
+                                    StationHeader(group, nearest = group.id == state.groups.first().id)
+                                }
                                 group.departures.take(5).forEachIndexed { i, st ->
                                     HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
                                     DepartureRow(st, now)
                                 }
+                                HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                                Text(L10n.t("All departures"), fontWeight = FontWeight.Medium, fontSize = 15.sp,
+                                    modifier = Modifier.fillMaxWidth().clickable { onOpenStop(group) }.padding(16.dp))
                             }
                         }
                     }

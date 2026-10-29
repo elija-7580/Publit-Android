@@ -26,6 +26,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val app = application as PublitApplication
         val crash = if (savedInstanceState == null) app.crashLog.take() else null
-        setContent { PublitApp(nearby, crash) }
+        setContent { PublitApp(nearby, app.client, crash) }
     }
 }
