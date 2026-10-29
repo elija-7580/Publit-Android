@@ -16,8 +16,6 @@ android {
         targetSdk = 36
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "0.7.0-native"
-        // MapLibre ships native code: only the ARM builds phones use (keeps the APK small).
-        ndk { abiFilters += listOf("arm64-v8a") }
     }
 
     signingConfigs {
@@ -48,6 +46,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    // MapLibre ships native code: one APK per ARM architecture keeps each small (Play uses bundles).
+    splits { abi { isEnable = true; reset(); include("arm64-v8a", "armeabi-v7a"); isUniversalApk = false } }
     buildFeatures { compose = true }
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
 }
