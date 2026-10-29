@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Publit β</string>
+    <string name="widget_departures">Departures</string>
+    <string name="widget_description">Next departures at a stop of your choice.</string>
 </resources>

@@ -71,6 +71,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.play.services.location)
     implementation(libs.maplibre)
+    implementation("androidx.glance:glance-appwidget:1.1.1")
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
 }

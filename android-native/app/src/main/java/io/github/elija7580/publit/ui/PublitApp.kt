@@ -79,7 +79,14 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { vm.permissionResult() }
         LaunchedEffect(Unit) { if (prefs.getString(START_TAB_KEY, "nearby") == "plan") nav.navigate("plan") { popUpTo("nearby") { saveState = true }; launchSingleTop = true } }
         val tripLink by openTrip.collectAsStateWithLifecycle()
-        LaunchedEffect(tripLink) { tripLink?.let { id -> openTrip.value = null; nav.navigate("savedtrip?id=$id") { launchSingleTop = true } } }
+        LaunchedEffect(tripLink) {
+            val link = tripLink ?: return@LaunchedEffect
+            openTrip.value = null
+            if (link.startsWith("stop:")) {
+                val (id, name) = link.removePrefix("stop:").split("|", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+                nav.navigate("stop?id=${Uri.encode(id)}&name=${Uri.encode(name)}&exact=false")
+            } else nav.navigate("savedtrip?id=$link") { launchSingleTop = true }
+        }
         var tripTarget by remember { mutableStateOf<TripTarget?>(null) }
         val openTrip = { t: TripTarget -> tripTarget = t; nav.navigate("trip") }
         val tabs = listOf(

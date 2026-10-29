@@ -38,7 +38,12 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         intent.getStringExtra(io.github.elija7580.publit.notify.TripNotifications.EXTRA_TRIP)?.let { openTrip.value = it }
+        stopLink(intent)?.let { openTrip.value = it }
     }
+
+    /** A widget tapped: its stop, as a "stop:" link for the app's navigation. */
+    private fun stopLink(i: android.content.Intent?): String? =
+        i?.getStringExtra("stopId")?.takeIf { it.isNotEmpty() }?.let { "stop:" + it + "|" + (i.getStringExtra("stopName") ?: "") }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,6 +51,7 @@ class MainActivity : ComponentActivity() {
         val app = application as PublitApplication
         val crash = if (savedInstanceState == null) app.crashLog.take() else null
         intent?.getStringExtra(io.github.elija7580.publit.notify.TripNotifications.EXTRA_TRIP)?.let { openTrip.value = it }
+        stopLink(intent)?.let { openTrip.value = it }
         setContent { PublitApp(nearby, plan, app.client, app.favorites, getSharedPreferences("publit", MODE_PRIVATE), app.trips, openTrip, crash) }
     }
 }

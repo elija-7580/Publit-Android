@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_departures">Plecări</string>
+    <string name="widget_description">Următoarele plecări dintr-o stație aleasă.</string>
+</resources>
