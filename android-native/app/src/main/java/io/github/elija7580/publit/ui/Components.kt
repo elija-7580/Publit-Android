@@ -63,7 +63,7 @@ fun modeIcon(mode: String): ImageVector = when (ModeGroup.of(mode)) {
 }
 
 @Composable
-fun LineBadge(stopTime: StopTime) {
+fun LineBadge(stopTime: io.github.elija7580.publit.data.RouteStyled) {
     val ink = LocalInk.current
     val colors = stopTime.lineColors
     val bg = hexColor(colors.background)

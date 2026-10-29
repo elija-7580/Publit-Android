@@ -21,6 +21,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Sensors
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.elija7580.publit.data.SavedLine
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -61,14 +65,14 @@ import kotlinx.coroutines.delay
 import java.time.Instant
 
 /** A departure opened as a trip (TripTarget on iOS). */
-data class TripTarget(val stopTime: StopTime, val stationName: String)
+data class TripTarget(val stopTime: StopTime, val stationName: String, val stationId: String, val coordinate: io.github.elija7580.publit.core.LatLon)
 
 /**
  * One vehicle's whole trip, as TripView on iOS: every stop with live times and the estimated position.
- * "Save line" follows with milestone 7.
+ * "Save line" stores the line at the station it was opened from.
  */
 @Composable
-fun TripScreen(client: TransitousClient, target: TripTarget, onBack: () -> Unit,
+fun TripScreen(client: TransitousClient, favorites: io.github.elija7580.publit.data.FavoritesStore, target: TripTarget, onBack: () -> Unit,
                onRoute: (from: Place?, to: Place?) -> Unit) {
     val ink = LocalInk.current
     val stopTime = target.stopTime
@@ -105,7 +109,14 @@ fun TripScreen(client: TransitousClient, target: TripTarget, onBack: () -> Unit,
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 16.dp)) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = L10n.t("Back")) }
-            Text(stopTime.lineName, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(stopTime.lineName, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f))
+            val saved by favorites.state.collectAsStateWithLifecycle()
+            val line = remember(stopTime.id) { SavedLine.of(stopTime, target.stationId, target.stationName, target.coordinate) }
+            val isSaved = saved.containsLine(line.id)
+            IconButton(onClick = { favorites.toggle(line) }) {
+                Icon(if (isSaved) Icons.Filled.Star else Icons.Filled.StarBorder, L10n.t(if (isSaved) "Saved line" else "Save line"))
+            }
         }
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
             item("head") {

@@ -16,6 +16,7 @@ class PublitApplication : Application() {
     lateinit var client: TransitousClient
     lateinit var location: LocationRepository
     lateinit var crashLog: CrashLog
+    val favorites by lazy { io.github.elija7580.publit.data.FavoritesStore(getSharedPreferences("publit", MODE_PRIVATE)) }
 
     override fun onCreate() {
         super.onCreate()

@@ -15,6 +15,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -56,13 +59,14 @@ import java.time.Instant
 
 /** A station's departures, as StopDeparturesView on iOS: refreshed every 30 s while visible. */
 @Composable
-fun StopScreen(client: TransitousClient, stopId: String, name: String, exact: Boolean, onBack: () -> Unit,
+fun StopScreen(client: TransitousClient, favorites: io.github.elija7580.publit.data.FavoritesStore, stopId: String, name: String, exact: Boolean, onBack: () -> Unit,
                onOpenTrip: (StopTime) -> Unit = {}) {
     val ink = LocalInk.current
     var departures by remember { mutableStateOf<List<StopTime>>(emptyList()) }
     var alerts by remember { mutableStateOf(emptyList<io.github.elija7580.publit.data.Alert>()) }
     var error by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
+    var at by remember { mutableStateOf<io.github.elija7580.publit.core.LatLon?>(null) }
     var showLines by rememberSaveable { mutableStateOf(false) }
     var filter by remember { mutableStateOf(ModeFilter()) }
     var available by remember { mutableStateOf(emptyList<ModeGroup>()) }
@@ -75,6 +79,7 @@ fun StopScreen(client: TransitousClient, stopId: String, name: String, exact: Bo
                 try {
                     val res = client.departures(stopId, 60, if (exact) null else 150, filter.apiValue)
                     departures = StopTime.upcoming(res.stopTimes)
+                    if (at == null) at = (res.place ?: res.stopTimes.firstOrNull()?.place)?.coordinate
                     if (!filter.isActive) available = ModeGroup.present(res.stopTimes.map { it.mode })
                     alerts = Alerts.relevant(res.place?.alertsList.orEmpty() + res.stopTimes.flatMap { it.place.alertsList })
                     error = null
@@ -89,9 +94,17 @@ fun StopScreen(client: TransitousClient, stopId: String, name: String, exact: Bo
 
     val shown = departures.filter { filter.allows(it.mode) }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 4.dp)) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = L10n.t("Back")) }
-            Text(name, fontWeight = FontWeight.Bold, fontSize = 22.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(name, fontWeight = FontWeight.Bold, fontSize = 22.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            val saved by favorites.state.collectAsStateWithLifecycle()
+            at?.let { c ->
+                val place = io.github.elija7580.publit.data.SavedPlace(stopId, name, null, c.lat, c.lon, stopId, exact = if (exact) true else null)
+                val isSaved = saved.contains(place)
+                IconButton(onClick = { favorites.toggle(place) }) {
+                    Icon(if (isSaved) Icons.Filled.Star else Icons.Filled.StarBorder, L10n.t("Save"))
+                }
+            }
         }
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
             if (alerts.isNotEmpty()) item("alerts") {

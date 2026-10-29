@@ -65,12 +65,15 @@ import kotlinx.coroutines.delay
 import java.time.Instant
 
 @Composable
-fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7580.publit.data.TransitousClient, crashReport: String?) {
+fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7580.publit.data.TransitousClient,
+              favorites: io.github.elija7580.publit.data.FavoritesStore, crashReport: String?) {
     PublitTheme {
         val ink = LocalInk.current
         val nav = androidx.navigation.compose.rememberNavController()
         val entry by nav.currentBackStackEntryAsState()
         val route = entry?.destination?.route ?: "nearby"
+        var savedLine by remember { mutableStateOf<io.github.elija7580.publit.data.SavedLine?>(null) }
+        var pickFor by remember { mutableStateOf<Pair<String, (io.github.elija7580.publit.data.SavedPlace) -> Unit>?>(null) }
         var tripTarget by remember { mutableStateOf<TripTarget?>(null) }
         val openTrip = { t: TripTarget -> tripTarget = t; nav.navigate("trip") }
         val tabs = listOf(
@@ -84,7 +87,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
             bottomBar = {
                 androidx.compose.material3.NavigationBar(containerColor = ink.surface, tonalElevation = 0.dp) {
                     tabs.forEach { (r, title, icon) ->
-                        val selected = route == r || (r == "nearby" && (route.startsWith("stop") || route == "trip" || route == "stationmap"))
+                        val selected = route == r || (r == "nearby" && (route.startsWith("stop") || route == "trip" || route == "stationmap")) || (r == "saved" && (route == "line" || route == "settings"))
                         NavigationBarItem(
                             selected = selected,
                             onClick = { if (!selected || route != r) nav.navigate(r) { popUpTo("nearby") { saveState = true }; launchSingleTop = true; restoreState = true } },
@@ -99,12 +102,12 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         ) { padding ->
             androidx.navigation.compose.NavHost(nav, startDestination = "nearby", modifier = Modifier.padding(padding)) {
                 composable("nearby") {
-                    NearbyScreen(vm, onOpenMap = { nav.navigate("stationmap") }, onOpenTrip = { st, g -> openTrip(TripTarget(st, g.name)) }) { g -> nav.navigate("stop?id=${Uri.encode(g.id)}&name=${Uri.encode(g.name)}&exact=${g.isPole}") }
+                    NearbyScreen(vm, onOpenMap = { nav.navigate("stationmap") }, onOpenTrip = { st, g -> openTrip(TripTarget(st, g.name, g.id, g.coordinate)) }) { g -> nav.navigate("stop?id=${Uri.encode(g.id)}&name=${Uri.encode(g.name)}&exact=${g.isPole}") }
                 }
                 composable("stop?id={id}&name={name}&exact={exact}") { e ->
                     val a = e.arguments
-                    StopScreen(client, a?.getString("id").orEmpty(), a?.getString("name").orEmpty(), a?.getString("exact") == "true", onBack = { nav.popBackStack() },
-                        onOpenTrip = { st -> openTrip(TripTarget(st, a?.getString("name").orEmpty())) })
+                    StopScreen(client, favorites, a?.getString("id").orEmpty(), a?.getString("name").orEmpty(), a?.getString("exact") == "true", onBack = { nav.popBackStack() },
+                        onOpenTrip = { st -> openTrip(TripTarget(st, a?.getString("name").orEmpty(), a?.getString("id").orEmpty(), st.place.coordinate)) })
                 }
                 composable("stationmap") {
                     StationMapScreen(client, vm.state.value.fix?.coordinate, onBack = { nav.popBackStack() }) { id, name, exact ->
@@ -114,14 +117,30 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                 composable("trip") {
                     val t = tripTarget
                     if (t == null) LaunchedEffect(Unit) { nav.popBackStack() } else
-                    TripScreen(client, t, onBack = { nav.popBackStack() }) { from, to ->
+                    TripScreen(client, favorites, t, onBack = { nav.popBackStack() }) { from, to ->
                         fun ep(p: io.github.elija7580.publit.data.Place) = Endpoint.At(p.name, p.coordinate)
                         plan.route(from?.let(::ep) ?: Endpoint.Here, to?.let(::ep))
                         nav.navigate("plan") { popUpTo("nearby"); launchSingleTop = true }
                     }
                 }
                 composable("plan") { PlanScreen(plan) }
-                composable("saved") { Placeholder(L10n.t("Saved")) }
+                composable("saved") {
+                    val pick = pickFor
+                    if (pick != null) PlaceSearch(plan, allowHere = false, onBack = { pickFor = null },
+                        onMatch = { m -> pick.second(io.github.elija7580.publit.data.SavedPlace.of(m)); pickFor = null }) { }
+                    else SavedScreen(favorites,
+                        onRoute = { p -> plan.route(Endpoint.Here, Endpoint.At(p.name, p.coordinate)); nav.navigate("plan") { popUpTo("nearby"); launchSingleTop = true } },
+                        onOpenStop = { p -> nav.navigate("stop?id=${Uri.encode(p.stopId ?: p.id)}&name=${Uri.encode(p.name)}&exact=${p.exact == true}") },
+                        onOpenLine = { l -> savedLine = l; nav.navigate("line") },
+                        onSearch = { title, done -> pickFor = title to done },
+                        onSettings = { nav.navigate("settings") })
+                }
+                composable("line") {
+                    val l = savedLine
+                    if (l == null) LaunchedEffect(Unit) { nav.popBackStack() } else
+                    LineDeparturesScreen(client, l, onBack = { nav.popBackStack() }) { st -> openTrip(TripTarget(st, l.stopName, l.stopId, l.coordinate)) }
+                }
+                composable("settings") { Placeholder(L10n.t("Settings")) }
             }
         }
         CrashDialog(crashReport)

@@ -268,7 +268,8 @@ private fun StopLine(time: Instant, tz: String?, name: String, track: String?, d
 
 /** Search for a place or stop, as PlaceSearchView on iOS. */
 @Composable
-private fun PlaceSearch(vm: PlanViewModel, allowHere: Boolean, onBack: () -> Unit, onPick: (Endpoint) -> Unit) {
+fun PlaceSearch(vm: PlanViewModel, allowHere: Boolean, onBack: () -> Unit, onMatch: ((io.github.elija7580.publit.data.GeocodeMatch) -> Unit)? = null,
+                onPick: (Endpoint) -> Unit) {
     val ink = LocalInk.current
     BackHandler(onBack = onBack)
     var text by remember { mutableStateOf("") }
@@ -290,7 +291,7 @@ private fun PlaceSearch(vm: PlanViewModel, allowHere: Boolean, onBack: () -> Uni
                 }
             }
             items(matches, key = { it.id + it.lat + it.lon }) { m ->
-                Row(Modifier.fillMaxWidth().clickable { onPick(Endpoint.At(m.name, LatLon(m.lat, m.lon))) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                Row(Modifier.fillMaxWidth().clickable { if (onMatch != null) onMatch(m) else onPick(Endpoint.At(m.name, LatLon(m.lat, m.lon))) }.padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Icon(if (m.isStop) modeIcon("BUS") else Icons.Filled.Place, null, tint = ink.muted)
                     Spacer(Modifier.width(12.dp))
