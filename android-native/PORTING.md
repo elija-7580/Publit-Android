@@ -10,6 +10,7 @@ Old Skip port (`Android/`, `Sources/`) stays until the native app replaces it.
 - Architecture: `data/` (models, API, pure logic, unit-tested) → `ui/<screen>/` ViewModel (StateFlow) + Composables.
   Location/GPS only while a screen is resumed. No new libraries without need.
 - Build on GitHub Actions (local Maven downloads get rate-limited). Read only the error lines of the log.
+- Commit + push after every finished step (session limits end work without warning); WIP is pushed and marked in the status.
 - Each milestone ends with: tests green, APK on release `native-latest`, status below updated, commit + push.
 - Device: Huawei Mate 20 Lite (Android ≤10, slow). Test there; crash report is shown in-app at next start.
 
