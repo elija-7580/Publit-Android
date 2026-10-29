@@ -16,7 +16,7 @@ Old Skip port (`Android/`, `Sources/`) stays until the native app replaces it.
 ## Layout
 `app/src/main/java/io/github/elija7580/publit/`: `core/` (L10n, Fmt, Geo), `data/` (TransitModels, ModeStyle,
 LineColors, Alerts, StopGrouping, TransitousClient), `location/LocationRepository`, `ui/` (Theme, Components,
-NearbyViewModel, PublitApp), `CrashLog`, `PublitApplication`, `MainActivity`.
+NearbyViewModel, PublitApp, StopScreen, PlanScreen, TripScreen, PublitMap, StationMapScreen, SavedScreen, SettingsScreen), `CrashLog`, `PublitApplication`, `MainActivity`.
 Strings: `tools/strings.py` turns the iOS catalog into `assets/strings/<lang>.json` (CI step, not committed).
 Test APK arm64-v8a only (MapLibre native code). App ID `io.github.elija7580.publit.next` (installs next to the old app), fixed test key `app/publit-test.jks`.
 
@@ -29,7 +29,7 @@ Test APK arm64-v8a only (MapLibre native code). App ID `io.github.elija7580.publ
 | 4 | Place search + Plan (route search, results) | PlanView, PlaceSearchView, PlanModel, TransitousClient.plan, Reach | done (basic: no route options, fares, smart routing yet) |
 | 5 | Itinerary detail + trip view | ItineraryDetailView, TripView, TripStatus | done (trip view: stops, live progress, route here/from here; map follows in 6, save line in 7) |
 | 6 | Map (MapLibre) + station map | Views/Map, StationMapView, MapLayers | done (MapLibre/OpenFreeMap: trip + route map, station map with search and mode filter; open: live vehicles, line shapes, sharing, layers sheet, category search) |
-| 7 | Saved places/lines/trips, settings, onboarding | FavoritesView, FavoritesStore, SettingsView, OnboardingView | open |
+| 7 | Saved places/lines/trips, settings, onboarding | FavoritesView, FavoritesStore, SettingsView, OnboardingView | done (Home/Work, saved stops/places/lines, save stop + save line, line departures, settings: start screen/data/about, onboarding; open: saved trips (TripStore, SavedTripView), settings for map/route options/notifications/diagnostics as their features arrive) |
 | 8 | Live trip, notifications, reminders | LiveTripView, Notifications/* | open |
 | 9 | Live sources overlay, offline cache | LiveSources*, ResponseCache | open |
 | 10 | Tickets (optional), widget, Wear OS | Tickets/*, DroidWidget.kt | open |
