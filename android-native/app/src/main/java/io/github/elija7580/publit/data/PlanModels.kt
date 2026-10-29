@@ -32,6 +32,8 @@ data class Leg(
     val legGeometry: EncodedPolyline? = null,
 ) : RouteStyled {
     val isTransit: Boolean get() = ModeStyle.isTransit(mode)
+    val allStops: List<Place> get() = listOf(from) + intermediateStops.orEmpty() + listOf(to)
+    val scheduledEnd: Instant get() = scheduledEndTime ?: endTime
     val directionName: String? get() = TransitLabels.clean(headsign)
     val delayMinutes: Int
         get() = scheduledStartTime?.let { Math.round((startTime.epochSecond - it.epochSecond) / 60.0).toInt() } ?: 0

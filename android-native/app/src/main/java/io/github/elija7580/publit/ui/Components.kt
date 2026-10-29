@@ -3,6 +3,7 @@ package io.github.elija7580.publit.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -122,9 +123,9 @@ fun DepartureTime(st: StopTime, now: Instant, offline: Boolean = false) {
 }
 
 @Composable
-fun DepartureRow(st: StopTime, now: Instant) {
+fun DepartureRow(st: StopTime, now: Instant, onClick: (() -> Unit)? = null) {
     val ink = LocalInk.current
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row((if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LineBadge(st)

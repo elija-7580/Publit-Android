@@ -60,6 +60,8 @@ class PlanViewModel(
 
     fun setFrom(e: Endpoint) { _state.update { it.copy(from = e) }; plan() }
     fun setTo(e: Endpoint) { _state.update { it.copy(to = e) }; plan() }
+    /** Opens Plan with these endpoints (from a stop of a line: "Route here" / "Route from here"). */
+    fun route(from: Endpoint, to: Endpoint?) { _state.update { it.copy(from = from, to = to, opened = null) }; plan() }
     fun swap() { _state.update { s -> s.copy(from = s.to ?: Endpoint.Here, to = s.from) }; plan() }
     fun setTime(time: Instant?, arriveBy: Boolean) { _state.update { it.copy(time = time, arriveBy = arriveBy) }; plan() }
     fun open(it: Itinerary?) { _state.update { s -> s.copy(opened = it) } }

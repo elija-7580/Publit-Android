@@ -70,6 +70,8 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         val nav = androidx.navigation.compose.rememberNavController()
         val entry by nav.currentBackStackEntryAsState()
         val route = entry?.destination?.route ?: "nearby"
+        var tripTarget by remember { mutableStateOf<TripTarget?>(null) }
+        val openTrip = { t: TripTarget -> tripTarget = t; nav.navigate("trip") }
         val tabs = listOf(
             Triple("nearby", L10n.t("Nearby"), androidx.compose.material.icons.Icons.Filled.NearMe),
             Triple("plan", L10n.t("Plan"), androidx.compose.material.icons.Icons.Filled.Route),
@@ -81,7 +83,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
             bottomBar = {
                 androidx.compose.material3.NavigationBar(containerColor = ink.surface, tonalElevation = 0.dp) {
                     tabs.forEach { (r, title, icon) ->
-                        val selected = route == r || (r == "nearby" && route.startsWith("stop"))
+                        val selected = route == r || (r == "nearby" && (route.startsWith("stop") || route == "trip"))
                         NavigationBarItem(
                             selected = selected,
                             onClick = { if (!selected || route != r) nav.navigate(r) { popUpTo("nearby") { saveState = true }; launchSingleTop = true; restoreState = true } },
@@ -96,11 +98,21 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         ) { padding ->
             androidx.navigation.compose.NavHost(nav, startDestination = "nearby", modifier = Modifier.padding(padding)) {
                 composable("nearby") {
-                    NearbyScreen(vm) { g -> nav.navigate("stop?id=${Uri.encode(g.id)}&name=${Uri.encode(g.name)}&exact=${g.isPole}") }
+                    NearbyScreen(vm, onOpenTrip = { st, g -> openTrip(TripTarget(st, g.name)) }) { g -> nav.navigate("stop?id=${Uri.encode(g.id)}&name=${Uri.encode(g.name)}&exact=${g.isPole}") }
                 }
                 composable("stop?id={id}&name={name}&exact={exact}") { e ->
                     val a = e.arguments
-                    StopScreen(client, a?.getString("id").orEmpty(), a?.getString("name").orEmpty(), a?.getString("exact") == "true") { nav.popBackStack() }
+                    StopScreen(client, a?.getString("id").orEmpty(), a?.getString("name").orEmpty(), a?.getString("exact") == "true", onBack = { nav.popBackStack() },
+                        onOpenTrip = { st -> openTrip(TripTarget(st, a?.getString("name").orEmpty())) })
+                }
+                composable("trip") {
+                    val t = tripTarget
+                    if (t == null) LaunchedEffect(Unit) { nav.popBackStack() } else
+                    TripScreen(client, t, onBack = { nav.popBackStack() }) { from, to ->
+                        fun ep(p: io.github.elija7580.publit.data.Place) = Endpoint.At(p.name, p.coordinate)
+                        plan.route(from?.let(::ep) ?: Endpoint.Here, to?.let(::ep))
+                        nav.navigate("plan") { popUpTo("nearby"); launchSingleTop = true }
+                    }
                 }
                 composable("plan") { PlanScreen(plan) }
                 composable("saved") { Placeholder(L10n.t("Saved")) }
@@ -142,7 +154,7 @@ private fun CrashDialog(report: String?) {
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun NearbyScreen(vm: NearbyViewModel, onOpenStop: (io.github.elija7580.publit.data.StopGroup) -> Unit) {
+fun NearbyScreen(vm: NearbyViewModel, onOpenTrip: (io.github.elija7580.publit.data.StopTime, io.github.elija7580.publit.data.StopGroup) -> Unit = { _, _ -> }, onOpenStop: (io.github.elija7580.publit.data.StopGroup) -> Unit) {
     val ink = LocalInk.current
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -197,7 +209,7 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenStop: (io.github.elija7580.publit.da
                                 }
                                 group.departures.take(5).forEachIndexed { i, st ->
                                     HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
-                                    DepartureRow(st, now)
+                                    DepartureRow(st, now) { onOpenTrip(st, group) }
                                 }
                                 HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
                                 Text(L10n.t("All departures"), fontWeight = FontWeight.Medium, fontSize = 15.sp,

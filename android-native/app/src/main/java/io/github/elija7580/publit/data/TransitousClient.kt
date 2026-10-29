@@ -67,6 +67,10 @@ class TransitousClient(
         return json.decodeFromString(PlanResponse.serializer(), get("/api/v6/plan", q, if (time == null) 20 else 60))
     }
 
+    /** One vehicle's whole trip, with live stop times. */
+    suspend fun trip(id: String): Itinerary =
+        json.decodeFromString(Itinerary.serializer(), get("/api/v6/trip", listOf("tripId" to id), 15))
+
     @Serializable
     private data class LastNearby(val lat: Double, val lon: Double, val modes: String? = null, val at: Long, val body: String)
 

@@ -10,6 +10,7 @@ import io.github.elija7580.publit.data.StopGrouping
 import io.github.elija7580.publit.data.StopTime
 import io.github.elija7580.publit.data.StopTimesResponse
 import io.github.elija7580.publit.data.TransitousClient
+import io.github.elija7580.publit.data.TripProgress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -106,5 +107,15 @@ class CoreLogicTest {
     @Test fun latLonApiValue() {
         assertEquals("48.13715,11.5", LatLon(48.137154, 11.5).apiValue)
         assertEquals(LatLon(48.1, 16.2), LatLon.fromApi("48.1,16.2"))
+    }
+
+    @Test fun tripProgress() {
+        fun p(n: String, a: Long?, d: Long?) = Place(n, lat = 48.0, lon = a?.let { 11.0 + it / 1000.0 } ?: 11.0,
+            arrival = a?.let { Instant.ofEpochSecond(it) }, departure = d?.let { Instant.ofEpochSecond(it) })
+        val stops = listOf(p("A", null, 100), p("B", 200, 220), p("C", 300, null))
+        assertEquals(TripProgress.NotStarted, TripProgress.at(Instant.ofEpochSecond(50), stops))
+        assertEquals(TripProgress.Between(0, 0.5), TripProgress.at(Instant.ofEpochSecond(150), stops))
+        assertEquals(TripProgress.AtStop(1), TripProgress.at(Instant.ofEpochSecond(210), stops))
+        assertEquals(TripProgress.Finished, TripProgress.at(Instant.ofEpochSecond(300), stops))
     }
 }

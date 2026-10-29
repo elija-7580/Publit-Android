@@ -56,7 +56,8 @@ import java.time.Instant
 
 /** A station's departures, as StopDeparturesView on iOS: refreshed every 30 s while visible. */
 @Composable
-fun StopScreen(client: TransitousClient, stopId: String, name: String, exact: Boolean, onBack: () -> Unit) {
+fun StopScreen(client: TransitousClient, stopId: String, name: String, exact: Boolean, onBack: () -> Unit,
+               onOpenTrip: (StopTime) -> Unit = {}) {
     val ink = LocalInk.current
     var departures by remember { mutableStateOf<List<StopTime>>(emptyList()) }
     var alerts by remember { mutableStateOf(emptyList<io.github.elija7580.publit.data.Alert>()) }
@@ -131,7 +132,7 @@ fun StopScreen(client: TransitousClient, stopId: String, name: String, exact: Bo
                         } else {
                             shown.forEachIndexed { i, st ->
                                 if (i > 0) HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
-                                DepartureRow(st, now)
+                                DepartureRow(st, now) { onOpenTrip(st) }
                             }
                         }
                     }
