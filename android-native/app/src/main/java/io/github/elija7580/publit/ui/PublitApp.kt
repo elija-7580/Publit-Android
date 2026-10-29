@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.composable
+import androidx.compose.material3.NavigationBarItem
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Route
@@ -81,7 +82,7 @@ fun PublitApp(vm: NearbyViewModel, client: io.github.elija7580.publit.data.Trans
                 androidx.compose.material3.NavigationBar(containerColor = ink.surface, tonalElevation = 0.dp) {
                     tabs.forEach { (r, title, icon) ->
                         val selected = route == r || (r == "nearby" && route.startsWith("stop"))
-                        androidx.compose.material3.NavigationBarItem(
+                        NavigationBarItem(
                             selected = selected,
                             onClick = { if (!selected || route != r) nav.navigate(r) { popUpTo("nearby") { saveState = true }; launchSingleTop = true; restoreState = true } },
                             icon = { androidx.compose.material3.Icon(icon, null) }, label = { Text(title) },
