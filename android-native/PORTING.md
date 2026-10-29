@@ -18,7 +18,7 @@ Old Skip port (`Android/`, `Sources/`) stays until the native app replaces it.
 LineColors, Alerts, StopGrouping, TransitousClient), `location/LocationRepository`, `ui/` (Theme, Components,
 NearbyViewModel, PublitApp), `CrashLog`, `PublitApplication`, `MainActivity`.
 Strings: `tools/strings.py` turns the iOS catalog into `assets/strings/<lang>.json` (CI step, not committed).
-App ID `io.github.elija7580.publit.next` (installs next to the old app), fixed test key `app/publit-test.jks`.
+Test APK arm64-v8a only (MapLibre native code). App ID `io.github.elija7580.publit.next` (installs next to the old app), fixed test key `app/publit-test.jks`.
 
 ## Milestones
 | # | Milestone | iOS sources | Status |
@@ -28,7 +28,7 @@ App ID `io.github.elija7580.publit.next` (installs next to the old app), fixed t
 | 3 | Stop departures + lines view, bottom tabs, navigation | NearbyView (StopDeparturesView), LineGrouping | done |
 | 4 | Place search + Plan (route search, results) | PlanView, PlaceSearchView, PlanModel, TransitousClient.plan, Reach | done (basic: no route options, fares, smart routing yet) |
 | 5 | Itinerary detail + trip view | ItineraryDetailView, TripView, TripStatus | done (trip view: stops, live progress, route here/from here; map follows in 6, save line in 7) |
-| 6 | Map (MapLibre) + station map | Views/Map, StationMapView, MapLayers | open |
+| 6 | Map (MapLibre) + station map | Views/Map, StationMapView, MapLayers | done (MapLibre/OpenFreeMap: trip + route map, station map with search and mode filter; open: live vehicles, line shapes, sharing, layers sheet, category search) |
 | 7 | Saved places/lines/trips, settings, onboarding | FavoritesView, FavoritesStore, SettingsView, OnboardingView | open |
 | 8 | Live trip, notifications, reminders | LiveTripView, Notifications/* | open |
 | 9 | Live sources overlay, offline cache | LiveSources*, ResponseCache | open |
