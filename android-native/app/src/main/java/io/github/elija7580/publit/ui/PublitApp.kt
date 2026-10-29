@@ -50,6 +50,7 @@ import androidx.navigation.compose.composable
 import androidx.compose.material3.NavigationBarItem
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.material.icons.filled.NearMe
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.foundation.clickable
@@ -83,7 +84,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
             bottomBar = {
                 androidx.compose.material3.NavigationBar(containerColor = ink.surface, tonalElevation = 0.dp) {
                     tabs.forEach { (r, title, icon) ->
-                        val selected = route == r || (r == "nearby" && (route.startsWith("stop") || route == "trip"))
+                        val selected = route == r || (r == "nearby" && (route.startsWith("stop") || route == "trip" || route == "stationmap"))
                         NavigationBarItem(
                             selected = selected,
                             onClick = { if (!selected || route != r) nav.navigate(r) { popUpTo("nearby") { saveState = true }; launchSingleTop = true; restoreState = true } },
@@ -98,12 +99,17 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         ) { padding ->
             androidx.navigation.compose.NavHost(nav, startDestination = "nearby", modifier = Modifier.padding(padding)) {
                 composable("nearby") {
-                    NearbyScreen(vm, onOpenTrip = { st, g -> openTrip(TripTarget(st, g.name)) }) { g -> nav.navigate("stop?id=${Uri.encode(g.id)}&name=${Uri.encode(g.name)}&exact=${g.isPole}") }
+                    NearbyScreen(vm, onOpenMap = { nav.navigate("stationmap") }, onOpenTrip = { st, g -> openTrip(TripTarget(st, g.name)) }) { g -> nav.navigate("stop?id=${Uri.encode(g.id)}&name=${Uri.encode(g.name)}&exact=${g.isPole}") }
                 }
                 composable("stop?id={id}&name={name}&exact={exact}") { e ->
                     val a = e.arguments
                     StopScreen(client, a?.getString("id").orEmpty(), a?.getString("name").orEmpty(), a?.getString("exact") == "true", onBack = { nav.popBackStack() },
                         onOpenTrip = { st -> openTrip(TripTarget(st, a?.getString("name").orEmpty())) })
+                }
+                composable("stationmap") {
+                    StationMapScreen(client, vm.state.value.fix?.coordinate, onBack = { nav.popBackStack() }) { id, name, exact ->
+                        nav.navigate("stop?id=${Uri.encode(id)}&name=${Uri.encode(name)}&exact=$exact")
+                    }
                 }
                 composable("trip") {
                     val t = tripTarget
@@ -154,7 +160,7 @@ private fun CrashDialog(report: String?) {
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun NearbyScreen(vm: NearbyViewModel, onOpenTrip: (io.github.elija7580.publit.data.StopTime, io.github.elija7580.publit.data.StopGroup) -> Unit = { _, _ -> }, onOpenStop: (io.github.elija7580.publit.data.StopGroup) -> Unit) {
+fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onOpenTrip: (io.github.elija7580.publit.data.StopTime, io.github.elija7580.publit.data.StopGroup) -> Unit = { _, _ -> }, onOpenStop: (io.github.elija7580.publit.data.StopGroup) -> Unit) {
     val ink = LocalInk.current
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -169,7 +175,12 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenTrip: (io.github.elija7580.publit.da
     }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Text(L10n.t("Nearby"), fontWeight = FontWeight.Bold, fontSize = 32.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(L10n.t("Nearby"), fontWeight = FontWeight.Bold, fontSize = 32.sp, modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp))
+            androidx.compose.material3.IconButton(onClick = onOpenMap, modifier = Modifier.padding(end = 8.dp)) {
+                androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Map, L10n.t("Station map"))
+            }
+        }
         when {
             state.access == LocationAccess.NOT_ASKED -> Message(
                 title = L10n.t("Allow location"),

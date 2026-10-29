@@ -144,3 +144,17 @@ data class StopTimesResponse(
     val place: Place? = null,
     val nextPageCursor: String? = null,
 )
+
+@Serializable
+data class MapStop(
+    val name: String,
+    val stopId: String,
+    val parentId: String? = null,
+    val lat: Double,
+    val lon: Double,
+    val importance: Double? = null,
+    val modes: List<String>? = null,
+) {
+    val coordinate get() = LatLon(lat, lon)
+    val stationId get() = parentId ?: stopId
+}

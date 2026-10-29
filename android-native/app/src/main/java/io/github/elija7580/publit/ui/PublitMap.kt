@@ -41,8 +41,12 @@ import kotlin.math.max
 data class MapContent(val lines: List<Line> = emptyList(), val dots: List<Dot> = emptyList()) {
     data class Line(val points: List<LatLon>, val color: Color, val width: Float)
     /** A round dot: stop, vehicle, start, destination. */
-    data class Dot(val at: LatLon, val fill: Color, val border: Color, val size: Float, val borderWidth: Float)
+    data class Dot(val at: LatLon, val fill: Color, val border: Color, val size: Float, val borderWidth: Float,
+                   val id: String? = null, val label: String? = null)
 }
+
+/** The visible area: centre, size in degrees latitude/longitude. */
+data class MapRegion(val center: LatLon, val latSpan: Double, val lonSpan: Double)
 
 /** Where a map looks (GoogleCamera on iOS). */
 sealed class MapCamera {
@@ -55,7 +59,8 @@ sealed class MapCamera {
  * (pale streets) is the default, as MapBase.muted on iOS. Runs only while the screen is resumed.
  */
 @Composable
-fun PublitMap(content: MapContent, camera: MapCamera, modifier: Modifier = Modifier, description: String? = null) {
+fun PublitMap(content: MapContent, camera: MapCamera, modifier: Modifier = Modifier, description: String? = null,
+              onTap: ((String?) -> Unit)? = null, onRegion: ((MapRegion) -> Unit)? = null) {
     val context = LocalContext.current
     val dark = LocalInk.current.dark
     val holder = remember { MapHolder(context) }
@@ -66,6 +71,7 @@ fun PublitMap(content: MapContent, camera: MapCamera, modifier: Modifier = Modif
         onDispose { lifecycle.removeObserver(observer); holder.destroy() }
     }
     AndroidView({ holder.view }, modifier.then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)) {
+        holder.onTap = onTap; holder.onRegion = onRegion
         holder.update(content, camera, dark)
     }
 }
@@ -81,6 +87,8 @@ private class MapHolder(ctx: Context) {
     private var dark = false
     private var destroyed = false
     private val density = ctx.resources.displayMetrics.density
+    var onTap: ((String?) -> Unit)? = null
+    var onRegion: ((MapRegion) -> Unit)? = null
 
     init {
         MapLibre.getInstance(ctx)
@@ -94,6 +102,17 @@ private class MapHolder(ctx: Context) {
                 m.uiSettings.isAttributionEnabled = true
                 m.uiSettings.isTiltGesturesEnabled = false
                 m.uiSettings.isCompassEnabled = true
+                m.addOnCameraIdleListener { region(m)?.let { r -> onRegion?.invoke(r) } }
+                m.addOnMapClickListener { p ->
+                    val tap = onTap ?: return@addOnMapClickListener false
+                    val pt = m.projection.toScreenLocation(p)
+                    val r = 14 * density
+                    val hit = runCatching {
+                        m.queryRenderedFeatures(android.graphics.RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r), "pub-dots")
+                            .firstNotNullOfOrNull { f -> f.getStringProperty("id") }
+                    }.getOrNull()
+                    tap(hit); true
+                }
             }
             refresh()
         }
@@ -149,6 +168,11 @@ private class MapHolder(ctx: Context) {
         }
     }
 
+    private fun region(m: MapLibreMap): MapRegion? = runCatching {
+        val b = m.projection.visibleRegion.latLngBounds
+        MapRegion(LatLon(b.center.latitude, b.center.longitude), b.latitudeSpan, b.longitudeSpan)
+    }.getOrNull()
+
     private fun setup(s: Style) {
         s.addSource(GeoJsonSource("pub-lines"))
         s.addSource(GeoJsonSource("pub-dots"))
@@ -158,6 +182,10 @@ private class MapHolder(ctx: Context) {
         s.addLayer(CircleLayer("pub-dots", "pub-dots").withProperties(
             P.circleColor(toColor(get("fill"))), P.circleRadius(get("radius")),
             P.circleStrokeColor(toColor(get("border"))), P.circleStrokeWidth(get("stroke"))))
+        s.addLayer(org.maplibre.android.style.layers.SymbolLayer("pub-labels", "pub-dots").withProperties(
+            P.textField(get("label")), P.textSize(11f), P.textFont(arrayOf("Noto Sans Regular")),
+            P.textAnchor(Property.TEXT_ANCHOR_TOP), P.textOffset(arrayOf(0f, 0.9f)), P.textOptional(true),
+            P.textColor(toColor(get("textColor"))), P.textHaloColor(toColor(get("halo"))), P.textHaloWidth(1.5f)))
     }
 
     private fun rgba(c: Color): String {
@@ -175,6 +203,10 @@ private class MapHolder(ctx: Context) {
             Feature.fromGeometry(Point.fromLngLat(d.at.lon, d.at.lat)).apply {
                 addStringProperty("fill", rgba(d.fill)); addStringProperty("border", rgba(d.border))
                 addNumberProperty("radius", d.size / 2); addNumberProperty("stroke", d.borderWidth)
+                d.id?.let { addStringProperty("id", it) }
+                addStringProperty("label", d.label ?: "")
+                addStringProperty("textColor", if (dark) "rgba(244,244,242,1)" else "rgba(17,17,17,1)")
+                addStringProperty("halo", if (dark) "rgba(11,11,12,0.9)" else "rgba(255,255,255,0.9)")
             }
         }
         s.getSourceAs<GeoJsonSource>("pub-lines")?.setGeoJson(FeatureCollection.fromFeatures(lines))

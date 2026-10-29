@@ -67,6 +67,11 @@ class TransitousClient(
         return json.decodeFromString(PlanResponse.serializer(), get("/api/v6/plan", q, if (time == null) 20 else 60))
     }
 
+    /** Stops in a box, for the station map. */
+    suspend fun mapStops(min: LatLon, max: LatLon, zoom: Int): List<MapStop> =
+        json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(MapStop.serializer()),
+            get("/api/v6/map/stops", listOf("min" to min.apiValue, "max" to max.apiValue, "zoom" to zoom.toString()), 3600))
+
     /** One vehicle's whole trip, with live stop times. */
     suspend fun trip(id: String): Itinerary =
         json.decodeFromString(Itinerary.serializer(), get("/api/v6/trip", listOf("tripId" to id), 15))
