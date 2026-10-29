@@ -27,7 +27,7 @@ App ID `io.github.elija7580.publit.next` (installs next to the old app), fixed t
 | 2 | CI build + release `native-latest`, compile fixes, unit tests | – | done (`.github/workflows/android-native.yml`, 1.8 MB APK) |
 | 3 | Stop departures + lines view, bottom tabs, navigation | NearbyView (StopDeparturesView), LineGrouping | done |
 | 4 | Place search + Plan (route search, results) | PlanView, PlaceSearchView, PlanModel, TransitousClient.plan, Reach | done (basic: no route options, fares, smart routing yet) |
-| 5 | Itinerary detail + trip view | ItineraryDetailView, TripView, TripStatus | itinerary detail basic done; trip view (tap a departure) open |
+| 5 | Itinerary detail + trip view | ItineraryDetailView, TripView, TripStatus | done (trip view: stops, live progress, route here/from here; map follows in 6, save line in 7) |
 | 6 | Map (MapLibre) + station map | Views/Map, StationMapView, MapLayers | open |
 | 7 | Saved places/lines/trips, settings, onboarding | FavoritesView, FavoritesStore, SettingsView, OnboardingView | open |
 | 8 | Live trip, notifications, reminders | LiveTripView, Notifications/* | open |
