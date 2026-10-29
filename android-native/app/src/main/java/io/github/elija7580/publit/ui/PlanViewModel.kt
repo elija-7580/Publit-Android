@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 
@@ -42,14 +43,22 @@ data class PlanState(
     val searched: Boolean = false,
     val opened: Itinerary? = null,
     val nextCursor: String? = null,
-)
+    val options: io.github.elija7580.publit.data.RouteOptions = io.github.elija7580.publit.data.RouteOptions(),
+    /** Walking, cycling and driving the whole way, for comparison. */
+    val street: List<io.github.elija7580.publit.data.StreetComparison> = emptyList(),
+    val badges: Map<String, List<io.github.elija7580.publit.data.SmartRouting.Badge>> = emptyMap(),
+) {
+    /** The routes in the chosen order. */
+    val sorted: List<Itinerary> get() = options.sort.apply(routes, arriveBy)
+}
 
 class PlanViewModel(
     private val client: TransitousClient,
     private val location: LocationRepository,
     private val log: CrashLog,
+    private val prefs: android.content.SharedPreferences,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(PlanState())
+    private val _state = MutableStateFlow(PlanState(options = io.github.elija7580.publit.data.RouteOptions.load(prefs)))
     val state = _state.asStateFlow()
     private var search: Job? = null
 
@@ -64,6 +73,13 @@ class PlanViewModel(
     fun route(from: Endpoint, to: Endpoint?) { _state.update { it.copy(from = from, to = to, opened = null) }; plan() }
     fun swap() { _state.update { s -> s.copy(from = s.to ?: Endpoint.Here, to = s.from) }; plan() }
     fun setTime(time: Instant?, arriveBy: Boolean) { _state.update { it.copy(time = time, arriveBy = arriveBy) }; plan() }
+    fun setOptions(o: io.github.elija7580.publit.data.RouteOptions) {
+        val old = _state.value.options
+        io.github.elija7580.publit.data.RouteOptions.save(prefs, o)
+        _state.update { it.copy(options = o) }
+        // Only the order changed: the same routes, sorted again.
+        if (old.copy(sort = o.sort) != o) plan()
+    }
     fun open(it: Itinerary?) { _state.update { s -> s.copy(opened = it) } }
 
     /** Search as you type, 300 ms after the last key. */
@@ -90,7 +106,7 @@ class PlanViewModel(
         val to = s.to ?: return
         search?.cancel()
         search = viewModelScope.launch {
-            _state.update { it.copy(loading = true, error = null, routes = emptyList(), walkOnly = null, searched = true) }
+            _state.update { it.copy(loading = true, error = null, routes = emptyList(), walkOnly = null, searched = true, street = emptyList(), badges = emptyMap()) }
             try {
                 val a = point(s.from)
                 val b = point(to)
@@ -101,14 +117,24 @@ class PlanViewModel(
                 // Longer walks only when nothing is found (as Reach.walkSteps on iOS).
                 var found = emptyList<Itinerary>()
                 var res: io.github.elija7580.publit.data.PlanResponse? = null
-                for (walk in listOf(1800, 2700, 7200)) {
-                    res = client.plan(a, b, s.time, s.arriveBy, walk)
-                    found = res.itineraries.filter { !it.isDetour }.distinctBy { it.routeKey }
+                val o = s.options
+                val street = o.comparisonModes.map { m -> async { runCatching { client.streetRoutes(a, b, s.time, s.arriveBy, m) }.getOrDefault(emptyList()) } }
+                val firstWalk = o.maxWalkMinutes * 60
+                for (walk in listOf(firstWalk, maxOf(firstWalk, 2700), maxOf(firstWalk, 7200)).distinct()) {
+                    res = client.plan(a, b, s.time, s.arriveBy, walk, options = o)
+                    found = io.github.elija7580.publit.data.SmartRouting.run { if (isEnabled) pruned(res.itineraries) else res.itineraries }
+                        .filter { !it.isDetour }.distinctBy { it.routeKey }
                     if (found.isNotEmpty()) break
                 }
+                io.github.elija7580.publit.data.SmartRouting.offered = found
+                io.github.elija7580.publit.data.SmartRouting.offeredArriveBy = s.arriveBy
+                val best = found.filter { !it.isDirect }.minOfOrNull { it.duration }
+                val comparisons = io.github.elija7580.publit.data.StreetComparison.from(res?.direct.orEmpty() + street.flatMap { it.await() })
+                    .filter { it.isRealistic(best) }
                 log.note("plan: ${found.size} routes")
                 _state.update {
-                    it.copy(loading = false, routes = found, walkOnly = res?.direct?.firstOrNull(), nextCursor = res?.nextPageCursor,
+                    it.copy(loading = false, routes = found, walkOnly = res?.direct?.firstOrNull(), nextCursor = res?.nextPageCursor, street = comparisons,
+                        badges = if (io.github.elija7580.publit.data.SmartRouting.isEnabled) io.github.elija7580.publit.data.SmartRouting.badges(found, s.arriveBy) else emptyMap(),
                         error = if (found.isEmpty() && res?.direct.isNullOrEmpty()) L10n.t("No connections found.") else null)
                 }
             } catch (e: CancellationException) { throw e } catch (e: Exception) {
@@ -126,7 +152,7 @@ class PlanViewModel(
             try {
                 val a = point(s.from) ?: return@launch
                 val b = point(to) ?: return@launch
-                val res = client.plan(a, b, s.time, s.arriveBy, 1800, cursor)
+                val res = client.plan(a, b, s.time, s.arriveBy, s.options.maxWalkMinutes * 60, cursor, s.options)
                 _state.update { st ->
                     st.copy(routes = (st.routes + res.itineraries.filter { !it.isDetour }).distinctBy { it.routeKey }, nextCursor = res.nextPageCursor)
                 }

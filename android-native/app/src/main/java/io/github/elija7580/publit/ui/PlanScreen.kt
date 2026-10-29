@@ -1,5 +1,14 @@
 package io.github.elija7580.publit.ui
 
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Tune
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -73,20 +82,22 @@ private enum class Field { FROM, TO }
 fun PlanScreen(vm: PlanViewModel, actions: @Composable (Itinerary, String, String) -> Unit = { _, _, _ -> }) {
     val state by vm.state.collectAsStateWithLifecycle()
     var searching by remember { mutableStateOf<Field?>(null) }
+    var options by remember { mutableStateOf(false) }
     val opened = state.opened
     when {
+        options -> { BackHandler { options = false }; RouteOptionsScreen(state.options, onDone = { vm.setOptions(it); options = false }) }
         searching != null -> PlaceSearch(vm, allowHere = searching == Field.FROM, onBack = { searching = null }) { e ->
             if (searching == Field.FROM) vm.setFrom(e) else vm.setTo(e)
             searching = null
         }
         opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }) { actions(opened, state.from.title, state.to?.title ?: "") } }
-        else -> PlanForm(state, vm, onPick = { searching = it })
+        else -> PlanForm(state, vm, onPick = { searching = it }, onOptions = { options = true })
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Unit) {
+private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Unit, onOptions: () -> Unit) {
     val ink = LocalInk.current
     var picking by remember { mutableStateOf<Boolean?>(null) } // arriveBy?
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -112,12 +123,61 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
                     label = { Text(if (state.time != null && state.arriveBy) L10n.t("Arrive") + " " + Fmt.time(state.time) else L10n.t("Arrive")) })
             }
         }
+        item("options") {
+            Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(onClick = onOptions, shape = RoundedCornerShape(50), color = ink.fill, modifier = Modifier.weight(1f)) {
+                    Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Tune, null, Modifier.size(18.dp), tint = if (state.options.isDefault) ink.muted else ink.ink)
+                        Spacer(Modifier.width(8.dp))
+                        Text(L10n.t("Route options"), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(state.options.summary ?: L10n.t("All modes"), color = if (state.options.isDefault) ink.muted else ink.ink, fontSize = 14.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    }
+                }
+                var sortMenu by remember { mutableStateOf(false) }
+                Box {
+                    Surface(onClick = { sortMenu = true }, shape = RoundedCornerShape(50), color = ink.fill) {
+                        Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.AutoMirrored.Filled.Sort, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                            Text(state.options.sort.effective.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    DropdownMenu(sortMenu, { sortMenu = false }) {
+                        io.github.elija7580.publit.data.RouteSort.offered.forEach { o ->
+                            DropdownMenuItem({ Text(o.title) }, { sortMenu = false; vm.setOptions(state.options.copy(sort = o)) })
+                        }
+                    }
+                }
+            }
+        }
         when {
             state.loading -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = ink.ink) } }
             state.error != null -> item { Text(state.error, color = ink.muted, modifier = Modifier.padding(horizontal = 16.dp)) }
         }
-        items(state.routes, key = { it.routeKey }) { RouteCard(it) { vm.open(it) } }
-        state.walkOnly?.let { w -> item("walk") {
+        val rec = state.badges.entries.firstOrNull { io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED in it.value }?.key
+        items(state.sorted, key = { it.routeKey }) { r ->
+            RouteCard(r, state.badges[r.routeKey].orEmpty(),
+                if (r.routeKey == rec) io.github.elija7580.publit.data.SmartRouting.reason(r, state.routes) else null) { vm.open(r) }
+        }
+        if (state.street.isNotEmpty()) item("street") {
+            Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+                Column {
+                    state.street.forEachIndexed { i, c ->
+                        if (i > 0) HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                        Row(Modifier.fillMaxWidth().clickable { vm.open(c.itinerary) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(when (c.mode) { "BIKE" -> Icons.AutoMirrored.Filled.DirectionsBike; "CAR" -> Icons.Filled.DirectionsCar; else -> Icons.AutoMirrored.Filled.DirectionsWalk }, null, tint = ink.muted)
+                            Spacer(Modifier.width(10.dp))
+                            Text(L10n.t(when (c.mode) { "BIKE" -> "Bike"; "CAR" -> "Car"; else -> "Walk" }), modifier = Modifier.weight(1f))
+                            Text(Fmt.duration(c.duration) + (c.distance?.let { " · " + Fmt.distance(it) } ?: ""), color = ink.muted)
+                        }
+                    }
+                }
+            }
+            if (state.street.any { it.mode == "CAR" }) Text(L10n.t("Driving times are without traffic and parking."), color = ink.muted, fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp))
+        }
+        if (state.street.isEmpty()) state.walkOnly?.let { w -> item("walk") {
             Row(Modifier.fillMaxWidth().clickable { vm.open(w) }.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null, tint = ink.muted)
                 Spacer(Modifier.width(8.dp))
@@ -155,11 +215,19 @@ private fun EndpointRow(label: String, value: String, placeholder: Boolean = fal
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun RouteCard(it: Itinerary, onClick: () -> Unit) {
+private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.data.SmartRouting.Badge>, reason: String?, onClick: () -> Unit) {
     val ink = LocalInk.current
     val tz = it.legs.firstOrNull()?.from?.tz
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable(onClick = onClick), shape = RoundedCornerShape(14.dp), color = ink.surface) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (badges.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                badges.forEach { b ->
+                    val main = b == io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED
+                    Text(b.title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (main) ink.onInk else ink.ink,
+                        modifier = Modifier.background(if (main) ink.ink else ink.fill, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 3.dp))
+                }
+                reason?.let { r -> Text(r, fontSize = 12.sp, color = ink.muted) }
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(Fmt.time(it.startTime, tz) + " – " + Fmt.time(it.endTime, it.legs.lastOrNull()?.to?.tz),
                     fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f),
@@ -174,6 +242,7 @@ private fun RouteCard(it: Itinerary, onClick: () -> Unit) {
                 if (it.transfers == 0) L10n.t("Direct") else if (it.transfers == 1) L10n.t("1 change") else L10n.f("%lld changes", it.transfers),
                 first?.let { f -> L10n.f("%@ from %@", f.lineName, f.from.name) },
                 if (it.isCancelled) L10n.t("Connection cancelled") else null,
+                io.github.elija7580.publit.data.Fares.estimate(it)?.formattedAmount,
             ).joinToString(" · "), color = if (it.isCancelled) ink.danger else ink.muted, fontSize = 13.sp, maxLines = 2)
         }
     }
@@ -220,6 +289,8 @@ fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, to
                 }
             }
         }
+        val changes = io.github.elija7580.publit.data.SmartRouting.changes(it)
+        if (changes.isNotEmpty()) item("changes") { ChangesCard(changes) }
         items(it.legs.size) { i ->
             val leg = it.legs[i]
             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
@@ -230,6 +301,182 @@ fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, to
                     Text(L10n.f("%@ walk", Fmt.duration(leg.duration)) + dist + " → " + leg.to.name, color = ink.muted, fontSize = 14.sp)
                 }
             }
+        }
+        val products = io.github.elija7580.publit.data.Fares.products(it)
+        if (products.isNotEmpty()) item("fares") { FareCard(it, products) }
+    }
+}
+
+@Composable
+private fun FareCard(it: Itinerary, products: List<io.github.elija7580.publit.data.FareProduct>) {
+    val ink = LocalInk.current
+    Column(Modifier.padding(horizontal = 12.dp)) {
+        Text(L10n.t("Fare information"), color = ink.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, bottom = 6.dp))
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                io.github.elija7580.publit.data.Fares.estimate(it)?.let { e ->
+                    Row { Text(L10n.t("Fare estimate"), Modifier.weight(1f), fontWeight = FontWeight.SemiBold); Text(e.formattedAmount, fontWeight = FontWeight.SemiBold) }
+                }
+                products.take(6).forEach { p ->
+                    Column {
+                        Row { Text(p.name, Modifier.weight(1f)); Text(p.formattedAmount) }
+                        p.riderCategory?.let { c -> Text(c.riderCategoryName, color = ink.muted, fontSize = 12.sp) }
+                        p.media?.fareMediaName?.let { m -> Text(m, color = ink.muted, fontSize = 12.sp) }
+                    }
+                }
+            }
+        }
+        Text(L10n.t("Experimental operator fare data, not a binding quote. Product options are not necessarily the total trip price. Check eligibility and the operator's price before buying."),
+            color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp))
+    }
+}
+
+@Composable
+private fun ChangesCard(changes: List<io.github.elija7580.publit.data.SmartRouting.Change>) {
+    val ink = LocalInk.current
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            changes.forEachIndexed { i, c ->
+                val L = io.github.elija7580.publit.data.SmartRouting.Change.Level
+                val color = when (c.level) { L.SAFE -> ink.live; L.LIKELY -> ink.delay; L.RISKY -> ink.danger }
+                val verdict = L10n.t(when (c.level) { L.SAFE -> "Safe change"; L.LIKELY -> "Change should work"; L.RISKY -> "Risky change" })
+                val spare = if (c.spareMinutes >= 1) L10n.f("%@ to spare", Fmt.duration((c.spareMinutes * 60).toInt())) else L10n.t("Very tight change")
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(L10n.f("Change at %@", c.stopName), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${c.percent} %", color = color, fontWeight = FontWeight.Bold)
+                    }
+                    Text("$verdict · $spare", color = ink.muted, fontSize = 12.sp)
+                    val b = io.github.elija7580.publit.data.SmartRouting.backup(c.outgoing)
+                    if (b != null) {
+                        val then = if (i == changes.lastIndex) L10n.f("Arrive %@", Fmt.time(b.arrival, c.outgoing.to.tz)) else L10n.t("still makes the next change")
+                        Text(L10n.f("If missed: %@ at %@", b.leg.lineName, Fmt.time(b.leg.startTime, b.leg.from.tz)) + " · " + then, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    } else if (c.level != L.SAFE) Text(L10n.t("No backup found if you miss it."), color = ink.muted, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+/** Route options (RouteOptionsView on iOS): modes, first mile, changes, walking, step-free, sharing, comparison. */
+@Composable
+fun RouteOptionsScreen(initial: io.github.elija7580.publit.data.RouteOptions, onDone: (io.github.elija7580.publit.data.RouteOptions) -> Unit) {
+    val ink = LocalInk.current
+    var o by remember { mutableStateOf(initial) }
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton({ o = io.github.elija7580.publit.data.RouteOptions(compareStreetModes = o.compareStreetModes, sort = o.sort) }, enabled = !o.isDefault) { Text(L10n.t("Reset")) }
+            Text(L10n.t("Route options"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            TextButton({ onDone(o) }) { Text(L10n.t("Done"), fontWeight = FontWeight.SemiBold, color = ink.ink) }
+        }
+        LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            item {
+                OptionGroup(L10n.t("Transport modes"), L10n.t("Routes only use the modes that are switched on.")) {
+                    val f = o.filter
+                    io.github.elija7580.publit.data.ModeGroup.entries.forEach { g ->
+                        val on = f.allows(g)
+                        val last = f.isActive && f.included == setOf(g)
+                        SwitchRow(g.title, on, enabled = !last) { v ->
+                            val base = if (f.isActive) f.included else io.github.elija7580.publit.data.ModeGroup.entries.toSet()
+                            val next = if (v) base + g else base - g
+                            o = o.copy(modes = if (next.size == io.github.elija7580.publit.data.ModeGroup.entries.size) emptyList() else next.map { it.raw })
+                        }
+                    }
+                }
+            }
+            item {
+                OptionGroup(L10n.t("To the first stop"), L10n.t("Bike & Ride: cycle to a station and park there. Park & Ride: drive to a car park at a station; this search can take up to half a minute. Walking routes stay in the list for comparison; buses, trams and trains are always included.")) {
+                    io.github.elija7580.publit.data.FirstMile.entries.forEach { m ->
+                        Row(Modifier.fillMaxWidth().clickable { o = o.copy(firstMile = m) }.padding(16.dp)) {
+                            Text(m.summary, Modifier.weight(1f)); if (o.firstMile == m) Text("✓", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+            item { SmartRoutingSettings() }
+            item {
+                OptionGroup(L10n.t("Changes"), null) {
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(12.dp)) {
+                        io.github.elija7580.publit.data.RouteOptions.transferChoices.forEachIndexed { i, n ->
+                            SegmentedButton(o.maxTransfers == n, { o = o.copy(maxTransfers = n) }, SegmentedButtonDefaults.itemShape(i, 4)) {
+                                Text(io.github.elija7580.publit.data.RouteOptions.transferTitle(n), maxLines = 1, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                OptionGroup(null, L10n.t("Step-free routes avoid stairs where the data allows it. With sharing, routes can start or end on a rented bike or e-scooter; the search takes a little longer.")) {
+                    Text(L10n.t("Walk to and from stops"), modifier = Modifier.padding(start = 16.dp, top = 12.dp))
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(12.dp)) {
+                        io.github.elija7580.publit.data.RouteOptions.walkChoices.forEachIndexed { i, m ->
+                            SegmentedButton(o.maxWalkMinutes == m, { o = o.copy(maxWalkMinutes = m) }, SegmentedButtonDefaults.itemShape(i, 5)) { Text("$m", fontSize = 12.sp) }
+                        }
+                    }
+                    SwitchRow(L10n.t("Step-free (wheelchair)"), o.wheelchair) { o = o.copy(wheelchair = it) }
+                    SwitchRow(L10n.t("Shared bikes and e-scooters"), o.sharing) { o = o.copy(sharing = it) }
+                }
+            }
+            item {
+                OptionGroup(null, L10n.t("Driving times are without traffic and parking.")) {
+                    SwitchRow(L10n.t("Compare with walking, cycling and driving"), o.compareStreetModes) { o = o.copy(compareStreetModes = it) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OptionGroup(title: String?, footer: String?, content: @Composable () -> Unit) {
+    val ink = LocalInk.current
+    Column {
+        title?.let { Text(it, color = ink.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, bottom = 6.dp)) }
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = ink.surface) { Column { content() } }
+        footer?.let { Text(it, color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp)) }
+    }
+}
+
+@Composable
+fun SwitchRow(title: String, on: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f))
+        androidx.compose.material3.Switch(on, onChange, enabled = enabled, colors = androidx.compose.material3.SwitchDefaults.colors(
+            checkedTrackColor = LocalInk.current.ink, checkedThumbColor = LocalInk.current.onInk))
+    }
+}
+
+/** Settings → Smart routing (SmartRoutingSettingsSection on iOS). Walking speed from the step counter is not on Android yet. */
+@Composable
+fun SmartRoutingSettings() {
+    val S = io.github.elija7580.publit.data.SmartRouting
+    val p = S.prefs ?: return
+    var enabled by remember { mutableStateOf(S.isEnabled) }
+    var minutes by remember { mutableStateOf(S.weights.transferMinutes.toFloat()) }
+    var extra by remember { mutableStateOf(p.getInt(S.EXTRA_TRANSFER, 0)) }
+    var flat by remember { mutableStateOf(p.getBoolean(S.FLAT_WALKS, false)) }
+    var learn by remember { mutableStateOf(S.learns) }
+    OptionGroup(L10n.t("Smart routing"), L10n.t(if (enabled)
+        "Routes stay in time order. The one that feels shortest is marked “Recommended”: waiting, walking and changes count more than riding. Each change shows how likely it works and what to take if you miss it. Your choices tune this on your iPhone only."
+        else "Routes are listed by departure, as the planner returns them.").replace("iPhone", "Android")) {
+        SwitchRow(L10n.t("Smart routing"), enabled) { enabled = it; p.edit().putBoolean(S.ENABLED, it).apply() }
+        if (enabled) {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                Row { Text(L10n.t("Faster"), fontSize = 13.sp); Spacer(Modifier.weight(1f)); Text(L10n.t("Fewer changes"), fontSize = 13.sp) }
+                androidx.compose.material3.Slider(minutes, { minutes = it }, valueRange = 3f..30f,
+                    onValueChangeFinished = { p.edit().putFloat(S.TRANSFER_MINUTES, minutes).apply() })
+                Text(L10n.f("A change counts like %lld extra minutes.", minutes.toInt()), color = LocalInk.current.muted, fontSize = 12.sp)
+            }
+            Text(L10n.t("Extra time for changes"), modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(12.dp)) {
+                S.extraTransferChoices.forEachIndexed { i, m ->
+                    SegmentedButton(extra == m, { extra = m; p.edit().putInt(S.EXTRA_TRANSFER, m).apply() }, SegmentedButtonDefaults.itemShape(i, S.extraTransferChoices.size)) {
+                        Text(if (m == 0) L10n.t("None") else L10n.f("+%lld min", m), fontSize = 12.sp)
+                    }
+                }
+            }
+            SwitchRow(L10n.t("Avoid steep walks"), flat) { flat = it; p.edit().putBoolean(S.FLAT_WALKS, it).apply() }
+            SwitchRow(L10n.t("Learn from my choices"), learn) { learn = it; p.edit().putBoolean(S.LEARN, it).apply() }
+            TextButton({ S.resetLearning(); minutes = S.DEFAULT_TRANSFER_MINUTES.toFloat() }, Modifier.padding(horizontal = 4.dp)) { Text(L10n.t("Reset learned preferences")) }
         }
     }
 }

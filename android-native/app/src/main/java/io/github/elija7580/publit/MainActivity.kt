@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 val app = application as PublitApplication
-                return PlanViewModel(app.client, app.location, app.crashLog) as T
+                return PlanViewModel(app.client, app.location, app.crashLog, getSharedPreferences("publit", MODE_PRIVATE)) as T
             }
         }
     }

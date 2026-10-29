@@ -37,6 +37,10 @@ data class Leg(
     val legGeometry: EncodedPolyline? = null,
     /** Extra live source that corrected this ride ("ÖBB"). */
     val liveSource: String? = null,
+    val fareTransferIndex: Int? = null,
+    val effectiveFareLegIndex: Int? = null,
+    /** Other vehicles for this ride (numLegAlternatives), for the backup of a change. */
+    val alternatives: List<List<Leg>>? = null,
 ) : RouteStyled {
     val isTransit: Boolean get() = ModeStyle.isTransit(mode)
     val allStops: List<Place> get() = listOf(from) + intermediateStops.orEmpty() + listOf(to)
@@ -66,6 +70,7 @@ data class Itinerary(
     val endTime: ApiInstant,
     val transfers: Int = 0,
     val legs: List<Leg>,
+    val fareTransfers: List<FareTransfer>? = null,
 ) {
     val transitLegs: List<Leg> get() = legs.filter { it.isTransit }
     val isDirect: Boolean get() = transitLegs.isEmpty()

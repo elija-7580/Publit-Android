@@ -57,22 +57,31 @@ class TransitousClient(
 
     /** Routes; `maxWalk` (s) to the first and from the last stop. `time` null = now. */
     suspend fun plan(from: LatLon, to: LatLon, time: java.time.Instant?, arriveBy: Boolean, maxWalk: Int = 1800,
-                     pageCursor: String? = null): PlanResponse {
+                     pageCursor: String? = null, options: RouteOptions = RouteOptions()): PlanResponse {
         val q = mutableListOf(
             "fromPlace" to from.apiValue, "toPlace" to to.apiValue, "arriveBy" to arriveBy.toString(),
-            "useRoutedTransfers" to "true", "maxPreTransitTime" to maxWalk.toString(),
+            "useRoutedTransfers" to "true", "maxPreTransitTime" to maxWalk.toString(), "withFares" to "true",
             "maxPostTransitTime" to maxWalk.toString(), "maxDirectTime" to "3600", "directModes" to "WALK",
         )
+        if (options.preTransitModes != listOf("WALK")) q += "preTransitModes" to options.preTransitModes.joinToString(",")
+        if (options.postTransitModes != listOf("WALK")) q += "postTransitModes" to options.postTransitModes.joinToString(",")
+        options.filter.apiValue?.let { q += "transitModes" to it }
+        options.maxTransfers?.let { q += "maxTransfers" to it.toString() }
+        if (options.wheelchair) q += "pedestrianProfile" to "WHEELCHAIR"
         time?.let { q += "time" to it.toString() }
         pageCursor?.let { q += "pageCursor" to it }
-        val res = json.decodeFromString(PlanResponse.serializer(), get("/api/v6/plan", q, if (time == null) 20 else 60))
+        q += SmartRouting.queryItems()
+        val res = json.decodeFromString(PlanResponse.serializer(), get("/api/v6/plan", q, if (time == null) 20 else 60, if (options.isSlowSearch) 45_000 else 20_000))
         return res.copy(itineraries = io.github.elija7580.publit.live.LiveOverlay.apply(res.itineraries))
     }
 
-    /** Stops in a box, for the station map. */
-    suspend fun mapStops(min: LatLon, max: LatLon, zoom: Int): List<MapStop> =
-        json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(MapStop.serializer()),
-            get("/api/v6/map/stops", listOf("min" to min.apiValue, "max" to max.apiValue, "zoom" to zoom.toString()), 3600))
+    /** Cycling or driving the whole way, for the comparison under the routes (reused for 15 min). */
+    suspend fun streetRoutes(from: LatLon, to: LatLon, time: java.time.Instant?, arriveBy: Boolean, mode: String): List<Itinerary> {
+        val q = mutableListOf("fromPlace" to from.apiValue, "toPlace" to to.apiValue, "arriveBy" to arriveBy.toString(),
+            "transitModes" to "", "directModes" to mode, "maxDirectTime" to "21600")
+        time?.let { q += "time" to it.toString() }
+        return json.decodeFromString(PlanResponse.serializer(), get("/api/v6/plan", q, 900)).direct
+    }
 
     /** New live times for a planned route (refresh-itinerary). */
     suspend fun refresh(itineraryId: String): Itinerary =
@@ -125,13 +134,13 @@ class TransitousClient(
         for (f in files) { total += f.length(); if (total > 60L * 1024 * 1024 || f.lastModified() < weekAgo) f.delete() }
     }
 
-    private suspend fun get(path: String, query: List<Pair<String, String>>, maxAgeSeconds: Long): String = withContext(Dispatchers.IO) {
+    private suspend fun get(path: String, query: List<Pair<String, String>>, maxAgeSeconds: Long, readTimeoutMs: Int = 20_000): String = withContext(Dispatchers.IO) {
         val qs = query.joinToString("&") { (k, v) -> k + "=" + URLEncoder.encode(v, "UTF-8") }
         val url = "$base$path?$qs"
         memory[url]?.let { if (System.currentTimeMillis() - it.at < maxAgeSeconds * 1000) return@withContext it.body }
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000
-            readTimeout = 20_000
+            readTimeout = readTimeoutMs
             setRequestProperty("User-Agent", BuildConfigInfo.userAgent)
             setRequestProperty("Accept", "application/json")
         }

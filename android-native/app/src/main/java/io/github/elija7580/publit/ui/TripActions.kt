@@ -89,7 +89,7 @@ fun TripActions(store: TripStore, it: Itinerary, fromName: String, toName: Strin
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Action(if (saved != null) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
                     L10n.t(if (saved != null) "Saved" else "Save trip"), Modifier.weight(1f)) {
-                    if (saved != null) { TripSession.forget(ctx, store, saved) } else store.save(it, fromName, toName)
+                    if (saved != null) { TripSession.forget(ctx, store, saved) } else { store.save(it, fromName, toName); io.github.elija7580.publit.data.SmartRouting.learn(it) }
                 }
                 Action(Icons.Filled.CalendarMonth, L10n.t("Add to Calendar"), Modifier.weight(1f)) { openCalendar(ctx, ensureSaved()) }
             }

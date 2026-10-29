@@ -25,6 +25,7 @@ class PublitApplication : Application() {
         crashLog = CrashLog(this).also { it.install() }
         runCatching { version()?.let { BuildConfigInfo.version = it } }
         runCatching { loadStrings() }
+        io.github.elija7580.publit.data.SmartRouting.prefs = getSharedPreferences("publit", MODE_PRIVATE)
         runCatching { io.github.elija7580.publit.notify.TripNotifications.channels(this) }
         Fmt.timePattern = if (DateFormat.is24HourFormat(this)) "HH:mm" else "h:mm a"
         client = TransitousClient(cacheDir = cacheDir)
