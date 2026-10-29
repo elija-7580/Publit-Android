@@ -6,8 +6,12 @@ pluginManagement {
     // overriding outputs for an Android IDE can be done by un-commenting and setting the Xcode path:
     //System.setProperty("BUILT_PRODUCTS_DIR", "${System.getProperty("user.home")}/Library/Developer/Xcode/DerivedData/MySkipProject-HASH/Build/Products/Debug-iphonesimulator")
 
+    // apk.sh has already compiled Swift for Android and generated Kotlin. Repeating a
+    // host (macOS/iOS) pre-build on Linux fails on CoreGraphics and invalidates outputs.
+    // Keep Android Studio's normal pre-build unless the completed CLI pipeline opts out.
+    val prebuildFlag = if (System.getenv("PUBLIT_SKIP_HOST_PREBUILD") == "1") "--no-prebuild" else "--prebuild"
     val skipPluginResult = providers.exec {
-        commandLine("/bin/sh", "-c", "skip plugin --prebuild --package-path '${settings.rootDir.parent}' --plugin-ref '${pluginPath.absolutePath}'")
+        commandLine("/bin/sh", "-c", "skip plugin ${prebuildFlag} --package-path '${settings.rootDir.parent}' --plugin-ref '${pluginPath.absolutePath}'")
         environment("PATH", "${System.getenv("PATH")}:/opt/homebrew/bin")
     }
     val skipPluginOutput = skipPluginResult.standardOutput.asText.get()

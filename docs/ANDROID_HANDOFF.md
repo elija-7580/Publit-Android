@@ -51,18 +51,35 @@
 - Mac (Android Studio) prerequisites, in this order: `brew install skiptools/skip/skip`, `skip android sdk install`,
   Android Studio → SDK Tools → NDK 28.2.13676358 + Command-line Tools. Then sync and Run.
 
+## Latest verification — 2026-10-29
+
+See [the detailed QA report](ANDROID_QA_2026-10-29.md).
+
+- ARM64 and x86_64 phone debug APKs and Wear debug APK built successfully with the current app code.
+- Fixed the observed `NoSuchMethodError`: SkipBridge resolves companion objects, not `object Droid`'s
+  `@JvmStatic` methods. `Droid` now uses a companion; production JVM bridge tests pass **2/2**.
+- Seven live backend contract checks and four Wallet signer tests passed. Deterministic local OSM regression
+  checks passed. Public Overpass providers all failed in this continuation; no claim of working category search.
+- Category search has sequential fallback, cancellation handling and a visible retry state. Old category requests
+  cannot overwrite newer requests. Material typography uses neutral letter spacing.
+- Linux CLI opts out of the redundant/failing Apple host pre-build after generating native/Kotlin outputs,
+  targets phone/Wear assembly directly and accepts `GRADLE_XMX`.
+- Debug APK ABI filters checked: phone ARM64 contains only `arm64-v8a`; emulator APK only `x86_64`.
+- No upload key was generated or changed. No iOS repository edits.
+
 ## Remaining work
 
-1. Finish x86_64 debug build with the latest source; fix compiler/manifest/resource failures if present.
-2. Install on emulator, test first launch/location, Nearby, Plan, Tickets, Saved, Settings and Map; inspect actual screenshots.
-3. Use debug demo scenarios (`route`, `live`, `pass`, `pass-editor`, `passes`) for additional deterministic UI checks;
-   explicitly label fixture screenshots as demo data. Test real application flows too.
-4. Build and test Wear OS. A real watch is still required for hardware-specific validation.
-5. Build signed arm64 phone APK/AAB and signed Wear AAB; verify certificates and packaged ABIs.
-6. Replace README/checkpoint status with actual results and save screenshots/test evidence.
-7. Before enabling Wallet in a public build: issuer account, approved class, authorized service account, deployed signer,
-   rate limit/budget, privacy policy and Play Data Safety review. An offline signer test is not a real Google Wallet end-to-end test.
-8. Rolling-digit number animation remains unsupported; search scopes remain a segmented control rather than an iOS native bar.
+1. Verify the new bridge and the latest typography on a running Android app: location permission + fresh location,
+   Nearby live departures, Plan search/results, Tickets import, Saved, Settings and Map, light/dark and large text.
+   Prior onboarding screenshots are not approval of this new build.
+2. Category search: verify provider recovery and the retry UI on a device; all public Overpass providers can be down.
+3. Use debug fixture scenarios (`route`, `live`, `pass`, `pass-editor`, `passes`) for additional UI checks,
+   explicitly labelling demo data. They do not replace real backend/permission flows.
+4. Test on a real Wear OS watch. A successful Wear debug build is not hardware validation.
+5. Signed release APK/AAB using the user's existing upload key, Play Console screenshots/policies and Data Safety.
+   Do not replace the upload key. Keep the Overpass fallback providers in the privacy review.
+6. Before public Wallet enablement: real issuer/class/service-account setup, deployed signer and end-to-end validation.
+7. Rolling-digit animation remains unsupported; search scopes remain a segmented control.
 
 ## Sandbox recovery
 

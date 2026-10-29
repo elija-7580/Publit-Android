@@ -7,9 +7,11 @@
 ![Swift](https://img.shields.io/badge/Swift-SwiftUI%20%E2%86%92%20Compose-orange)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](upstream/LICENSE)
 
-> **Status: Android port under active validation.** Earlier phone debug/release builds worked, but the latest
-> Wear OS/UI/Wallet additions are not yet fully build- or device-verified. Emulator UI QA and screenshots are in progress.
-> See [the saved handoff](docs/ANDROID_HANDOFF.md) for tested facts, remaining work and recovery steps.
+> **Status: debug builds pass; runtime/UI QA is not complete.** Current ARM64 and x86_64 phone APKs
+> and the Wear OS debug APK build successfully. The native-services bridge regression tests pass (2/2),
+> as do seven live backend smoke checks. Public Overpass category search remains unreliable; failures now
+> show a retry state instead of zero results. These are test builds, not a release approval.
+> See [the QA report](docs/ANDROID_QA_2026-10-29.md) and [handoff](docs/ANDROID_HANDOFF.md).
 
 ## What this is
 
@@ -50,7 +52,7 @@ updates and nearly all views are the same Swift source as on iOS. Where Android 
 
 ### Latest additions and remaining platform differences
 
-- A standalone [Wear OS app](Android/wear) implements nearby departures; latest build and watch testing are still pending.
+- A standalone [Wear OS app](Android/wear) implements nearby departures; its debug build passes. Real-watch testing is still pending.
 - Google Wallet export is optional and hidden by default. It needs your issuer account and deployed
   [signing service](services/google-wallet-signer), and asks before sending ticket details. Binary ticket codes stay in Publit.
 - Native text selection and pressed feedback are implemented; latest app UI validation is pending.
@@ -58,6 +60,18 @@ updates and nearly all views are the same Swift source as on iOS. Where Android 
 - The departures widget advertises lock-screen support only where the Android device/launcher supports widgets there.
   There is no universal 1:1 replacement for Apple's lock-screen/live-trip widgets.
 - Rolling-digit number transitions remain unsupported. Search scopes are a segmented control over the map, not an iOS bar.
+
+## Automated checks
+
+```sh
+bash scripts/qa/bridge-regression.sh   # pinned SkipBridge reflection, JVM fixture regression
+python3 scripts/qa/osm-regression.py   # real OSM source, local test server/model stubs
+python3 scripts/qa/backend-smoke.py    # live APIs, fixed public Vienna coordinates
+node --test services/google-wallet-signer/worker.test.mjs
+```
+
+The production-class bridge tests live in `Android/app/src/test/kotlin/publit/module/DroidBridgeTest.kt`.
+See the QA report for the Gradle command and the limits of these checks.
 
 ## Building
 
@@ -86,7 +100,7 @@ GRADLE_EXTRA=bundleRelease scripts/linux/apk.sh release   # signed release APK +
 
 `apk.sh` runs the three steps: `skip android build` (Swift for Android), skipstone again without `SKIP_BRIDGE`
 so the Kotlin side is generated (Xcode does this on macOS, `scripts/linux/kotlinize.sh`), then Gradle.
-`ARCHS=x86_64` builds for the emulator. Outputs: `.build/Android/app/outputs/apk/…` and `…/bundle/release/app-release.aab`.
+`ARCHS=x86_64` builds for the emulator. On a 4 GB builder, use `GRADLE_XMX=2g GRADLE_WORKERS=1`. Outputs: `.build/Android/app/outputs/apk/…` and `…/bundle/release/app-release.aab`.
 
 ### Release signing
 

@@ -18,7 +18,7 @@ Swift can use the existing static reflector. Service state remains singleton sta
 
 - Exact pinned Reflector + old/new JVM fixtures: failure reproduced for the old form;
   String, Void(Boolean), Boolean and Double calls pass with the companion form.
-- Production-class Android unit tests cover the companion/method surface and reflective TTS no-op calls.
+- Production-class Android unit tests: **2/2 passed, 0 skipped**, covering the companion/method surface and reflective TTS no-op calls.
 - JVM fixture tests do not establish GPS, permission dialogs, notifications or TTS hardware functionality.
 
 ## Live backend checks
@@ -65,7 +65,22 @@ bounding box/category is sent to each attempted Overpass provider; reflect these
 - Material text styles now use neutral letter spacing, preserving the existing type sizes and weights.
   Visual approval is separate from compilation.
 - Linux APK build supports `GRADLE_XMX=2g` for a 4 GB builder.
+- **62 Android source XML files** parsed successfully.
 - `git diff --check` passed before the build.
+
+## Build results
+
+- Latest native Swift + Kotlin + Gradle **ARM64 and x86_64 phone debug APKs and Wear debug APK built successfully**.
+- ARM64 final Gradle run: **BUILD SUCCESSFUL in 1m 1s**, 6 tasks executed / 217 up-to-date, no Apple host pre-build.
+- Phone package `io.github.elija7580.publit`, version 0.6.0 (59), min SDK 26, target SDK 36 checked with `aapt`.
+- ARM64 APK signature verified successfully with `apksigner` (v2 signing, one debug signer).
+- Packaged native ABIs checked: ARM64 APK only `arm64-v8a`; emulator APK only `x86_64`; `libPublit.so` present.
+- `:app:testDebugUnitTest --tests publit.module.DroidBridgeTest`: **2 tests, 0 failures, 0 errors, 0 skipped**.
+- Linux host-prebuild failures mentioning `CoreGraphics` in the earlier log belong to Skip's macOS/iOS host
+  pre-build; the subsequent Android build and tests succeeded. The CLI pipeline now opts out with
+  `PUBLIT_SKIP_HOST_PREBUILD=1` after native/Kotlin generation. Android Studio retains its default pre-build.
+- The CLI now targets phone/Wear app assembly rather than every library's root `assembleDebug` task.
+- Build success and JVM tests do not establish screen-by-screen UI or device-hardware approval.
 
 ## Reproduction
 
@@ -78,7 +93,20 @@ python3 scripts/qa/osm-regression.py
 node --test services/google-wallet-signer/worker.test.mjs
 ARCHS=x86_64 GRADLE_XMX=2g GRADLE_WORKERS=1 bash scripts/linux/apk.sh debug
 # After building, from Android/ with scripts/linux/env.sh sourced:
-# SKIP_BRIDGE_ANDROID_BUILD_DISABLED=1 SKIP_BRIDGE_ROBOLECTRIC_BUILD_DISABLED=1 \
+# PUBLIT_SKIP_HOST_PREBUILD=1 SKIP_BRIDGE_ANDROID_BUILD_DISABLED=1 SKIP_BRIDGE_ROBOLECTRIC_BUILD_DISABLED=1 \
 # PUBLIT_ABIS=x86_64 gradle --no-daemon -Dorg.gradle.jvmargs=-Xmx2g \
 # -Dorg.gradle.workers.max=1 :app:testDebugUnitTest --tests publit.module.DroidBridgeTest
 ```
+
+## Device test artifacts
+
+Debug artifacts, not store/release builds:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| ARM64 phone APK | `7f76164b10aaf6d6f326ee63f35a4460874989f75c824c3aa873e2cdf707002c` |
+| Wear APK | `c59cb4180fc5125020c1c03f17782a8f87050f96cbcab2bb99a6188cdf628a96` |
+
+A debug signing key may differ from an already installed build's key. Do not automatically uninstall the
+existing app on a signing conflict: local tickets and saved data may be lost. Use a separate test device/profile
+or export/backup data before deciding how to replace an existing installation.
