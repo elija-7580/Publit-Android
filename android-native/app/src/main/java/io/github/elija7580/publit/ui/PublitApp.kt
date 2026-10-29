@@ -1,0 +1,199 @@
+package io.github.elija7580.publit.ui
+
+import android.Manifest
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.elija7580.publit.core.Fmt
+import io.github.elija7580.publit.core.L10n
+import io.github.elija7580.publit.data.ModeFilter
+import io.github.elija7580.publit.data.Reach
+import io.github.elija7580.publit.location.LocationAccess
+import kotlinx.coroutines.delay
+import java.time.Instant
+
+@Composable
+fun PublitApp(vm: NearbyViewModel, crashReport: String?) {
+    PublitTheme {
+        val ink = LocalInk.current
+        Surface(Modifier.fillMaxSize(), color = ink.ground) {
+            NearbyScreen(vm)
+            CrashDialog(crashReport)
+        }
+    }
+}
+
+@Composable
+private fun CrashDialog(report: String?) {
+    var shown by remember { mutableStateOf(report != null) }
+    if (!shown || report == null) return
+    val clipboard = LocalClipboardManager.current
+    AlertDialog(
+        onDismissRequest = { shown = false },
+        title = { Text("Publit ist abgestürzt") },
+        text = {
+            Column {
+                Text("Kopiere den Bericht und schick ihn dem Entwickler.", fontSize = 14.sp)
+                Spacer(Modifier.height(8.dp))
+                Text(report.take(1200), fontSize = 10.sp, lineHeight = 12.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    modifier = Modifier.height(220.dp).verticalScroll(rememberScrollState()))
+            }
+        },
+        confirmButton = { TextButton(onClick = { clipboard.setText(AnnotatedString(report)); shown = false }) { Text("Kopieren") } },
+        dismissButton = { TextButton(onClick = { shown = false }) { Text("Schließen") } },
+    )
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun NearbyScreen(vm: NearbyViewModel) {
+    val ink = LocalInk.current
+    val state by vm.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val now by produceState(Instant.now()) { while (true) { value = Instant.now(); delay(15_000) } }
+
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { vm.permissionResult() }
+
+    // Position and board run only while the screen is in front.
+    LifecycleResumeEffect(Unit) {
+        vm.setActive(true)
+        onPauseOrDispose { vm.setActive(false) }
+    }
+
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Text(L10n.t("Nearby"), fontWeight = FontWeight.Bold, fontSize = 32.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+        when {
+            state.access == LocationAccess.NOT_ASKED -> Message(
+                title = L10n.t("Allow location"),
+                text = L10n.t("Allow location access in Settings to see departures near you. Trip planning works without it."),
+                button = L10n.t("Allow location"),
+            ) { permission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }
+
+            !state.servicesOn -> Message(
+                title = L10n.t("Location is off"),
+                text = "Schalte den Standort in den Schnelleinstellungen ein.",
+                button = L10n.t("Settings"),
+            ) { context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+
+            else -> PullToRefreshBox(isRefreshing = false, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
+                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
+                    if (state.available.size > 1 || state.filter.isActive) item("chips") {
+                        ModeChips(state.available, state.filter.included, state.filter.isActive) { vm.setFilter(state.filter.toggleOnly(it)) }
+                    }
+                    if (state.groups.isEmpty()) item("status") {
+                        Status(state, onShowAll = { vm.setFilter(ModeFilter()) }, onSettings = {
+                            context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        })
+                    }
+                    state.farDistance?.let { d -> if (state.groups.isNotEmpty()) item("far") {
+                        Text(Reach.farNote(d), color = ink.muted, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 16.dp))
+                    } }
+                    if (state.groups.isNotEmpty() && state.error != null) item("stale") {
+                        Text(L10n.t("Couldn't refresh. Times may be out of date."), color = ink.muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+                    items(state.groups, key = { it.id }) { group ->
+                        Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+                            Column {
+                                StationHeader(group, nearest = group.id == state.groups.first().id)
+                                group.departures.take(5).forEachIndexed { i, st ->
+                                    HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                                    DepartureRow(st, now)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Status(state: NearbyState, onShowAll: () -> Unit, onSettings: () -> Unit) {
+    val ink = LocalInk.current
+    Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        when {
+            state.error != null && !state.loading -> {
+                Text(L10n.t("Departures unavailable"), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                Text(state.error, color = ink.muted, textAlign = TextAlign.Center)
+            }
+            state.fix == null -> {
+                CircularProgressIndicator(color = ink.ink, modifier = Modifier.height(32.dp))
+                Text(L10n.t("Waiting for your location…"), color = ink.muted)
+                if (state.locatingSeconds >= 15) {
+                    Text("Das dauert ungewöhnlich lange. Gehe ans Fenster oder nach draußen und prüfe, dass der Standort auf „Genau“ steht.",
+                        color = ink.muted, textAlign = TextAlign.Center, fontSize = 13.sp)
+                    TextButton(onClick = onSettings) { Text(L10n.t("Settings")) }
+                }
+            }
+            state.loading -> CircularProgressIndicator(color = ink.ink, modifier = Modifier.height(32.dp))
+            state.filter.isActive -> {
+                Text(L10n.t("No departures for these modes"), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                state.filter.summary?.let { Text(it, color = ink.muted) }
+                TextButton(onClick = onShowAll) { Text(L10n.t("Show all modes")) }
+            }
+            else -> {
+                Text(L10n.t("No departures nearby"), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                Text(L10n.t("No departures within 5 km. The station map shows stops further away."), color = ink.muted, textAlign = TextAlign.Center)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Message(title: String, text: String, button: String, onClick: () -> Unit) {
+    val ink = LocalInk.current
+    Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Text(title, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+        Spacer(Modifier.height(8.dp))
+        Text(text, color = ink.muted, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(20.dp))
+        Button(onClick = onClick, colors = ButtonDefaults.buttonColors(containerColor = ink.ink, contentColor = ink.onInk)) { Text(button) }
+    }
+}
