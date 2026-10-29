@@ -118,4 +118,11 @@ class CoreLogicTest {
         assertEquals(TripProgress.AtStop(1), TripProgress.at(Instant.ofEpochSecond(210), stops))
         assertEquals(TripProgress.Finished, TripProgress.at(Instant.ofEpochSecond(300), stops))
     }
+
+    @Test fun polylineDecode() {
+        val pts = io.github.elija7580.publit.core.Polyline.decode("_p~iF~ps|U_ulLnnqC_mqNvxq`@", 5)
+        assertEquals(3, pts.size)
+        assertEquals(38.5, pts[0].lat, 1e-6); assertEquals(-120.2, pts[0].lon, 1e-6)
+        assertEquals(43.252, pts[2].lat, 1e-6)
+    }
 }

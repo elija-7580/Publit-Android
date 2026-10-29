@@ -201,6 +201,23 @@ private fun ItineraryDetail(it: Itinerary, onBack: () -> Unit) {
                     fontWeight = FontWeight.Bold, fontSize = 20.sp)
             }
         }
+        item("map") {
+            var full by remember { mutableStateOf(false) }
+            Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+                Box(Modifier.height(200.dp)) {
+                    RouteMap(it, Modifier.fillMaxSize())
+                    Box(Modifier.matchParentSize().clickable { full = true })
+                }
+            }
+            if (full) androidx.compose.ui.window.Dialog(onDismissRequest = { full = false },
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+                Box(Modifier.fillMaxSize()) {
+                    RouteMap(it, Modifier.fillMaxSize())
+                    androidx.compose.material3.TextButton(onClick = { full = false },
+                        modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(8.dp)) { Text(L10n.t("Done"), fontWeight = FontWeight.SemiBold) }
+                }
+            }
+        }
         items(it.legs.size) { i ->
             val leg = it.legs[i]
             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {

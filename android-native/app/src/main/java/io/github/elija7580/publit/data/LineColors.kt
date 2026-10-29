@@ -64,4 +64,18 @@ object LineColors {
         val c = RGB.parse(hex) ?: return false
         return contrast(c, if (dark) darkSurface else lightSurface) < MINIMUM_SURFACE_CONTRAST
     }
+
+    /** Line colour on a map or route line: too pale (or too dark) colours are moved towards black (white). */
+    fun strokeHex(hex: String, dark: Boolean): String {
+        val c = RGB.parse(hex) ?: return normalized(hex)
+        val surface = if (dark) darkSurface else lightSurface
+        if (contrast(c, surface) >= MINIMUM_SURFACE_CONTRAST) return normalized(hex)
+        val target = if (dark) RGB(1.0, 1.0, 1.0) else RGB(0.0, 0.0, 0.0)
+        for (step in 1..20) {
+            val a = step / 20.0
+            val m = RGB(c.r + (target.r - c.r) * a, c.g + (target.g - c.g) * a, c.b + (target.b - c.b) * a)
+            if (contrast(m, surface) >= MINIMUM_SURFACE_CONTRAST) return m.hex
+        }
+        return target.hex
+    }
 }

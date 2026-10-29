@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -63,7 +65,7 @@ data class TripTarget(val stopTime: StopTime, val stationName: String)
 
 /**
  * One vehicle's whole trip, as TripView on iOS: every stop with live times and the estimated position.
- * Map (milestone 6) and "Save line" (milestone 7) follow.
+ * "Save line" follows with milestone 7.
  */
 @Composable
 fun TripScreen(client: TransitousClient, target: TripTarget, onBack: () -> Unit,
@@ -122,6 +124,18 @@ fun TripScreen(client: TransitousClient, target: TripTarget, onBack: () -> Unit,
                 val progress = TripProgress.at(now, stops)
                 item("status") {
                     Card {
+                        val dark = ink.dark
+                        val stroke = lineStroke(leg, dark)
+                        val textColor = hexColor(leg.lineColors.text)
+                        val shape = remember(stops.map { it.coordinate }, leg.legGeometry?.points) { leg.legGeometry?.mapPoints.orEmpty() }
+                        val stopPoints = stops.map { it.coordinate }
+                        val vehicle = TripProgress.position(progress, stops)
+                        PublitMap(
+                            MapContent(listOf(MapContent.Line(shape, stroke, 5f)),
+                                stopPoints.map { MapContent.Dot(it, Color.White, stroke, 8f, 2f) } +
+                                    listOfNotNull(vehicle?.let { MapContent.Dot(it, stroke, textColor, 22f, 3f) })),
+                            MapCamera.Fit(shape.ifEmpty { stopPoints }),
+                            Modifier.fillMaxWidth().height(240.dp), L10n.t("Estimated vehicle position"))
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(if (leg.realTime) Icons.Filled.Sensors else Icons.Filled.CalendarMonth, null,

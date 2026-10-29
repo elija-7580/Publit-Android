@@ -4,7 +4,12 @@ import kotlinx.serialization.Serializable
 import java.time.Instant
 
 @Serializable
-data class EncodedPolyline(val points: String = "", val precision: Int = 6, val length: Int = 0)
+data class EncodedPolyline(val points: String = "", val precision: Int = 6, val length: Int = 0) {
+    /** Decoded and thinned for drawing. */
+    val mapPoints: List<io.github.elija7580.publit.core.LatLon> by lazy {
+        io.github.elija7580.publit.core.Polyline.run { simplify(decode(points, precision)) }
+    }
+}
 
 @Serializable
 data class Leg(
@@ -34,6 +39,13 @@ data class Leg(
     val isTransit: Boolean get() = ModeStyle.isTransit(mode)
     val allStops: List<Place> get() = listOf(from) + intermediateStops.orEmpty() + listOf(to)
     val scheduledEnd: Instant get() = scheduledEndTime ?: endTime
+    /** The leg's shape for maps, or a straight line between its ends. */
+    val mapPath: List<io.github.elija7580.publit.core.LatLon>
+        get() {
+            val pts = legGeometry?.mapPoints.orEmpty()
+            if (pts.size > 1) return pts
+            return if (from.coordinate == to.coordinate) emptyList() else listOf(from.coordinate, to.coordinate)
+        }
     val directionName: String? get() = TransitLabels.clean(headsign)
     val delayMinutes: Int
         get() = scheduledStartTime?.let { Math.round((startTime.epochSecond - it.epochSecond) / 60.0).toInt() } ?: 0

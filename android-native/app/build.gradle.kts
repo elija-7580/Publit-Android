@@ -16,6 +16,8 @@ android {
         targetSdk = 36
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "0.7.0-native"
+        // MapLibre ships native code: only the ARM builds phones use (keeps the APK small).
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
     signingConfigs {
@@ -68,6 +70,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.play.services.location)
+    implementation(libs.maplibre)
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
 }
