@@ -64,7 +64,7 @@ import kotlinx.coroutines.delay
 import java.time.Instant
 
 @Composable
-fun PublitApp(vm: NearbyViewModel, client: io.github.elija7580.publit.data.TransitousClient, crashReport: String?) {
+fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7580.publit.data.TransitousClient, crashReport: String?) {
     PublitTheme {
         val ink = LocalInk.current
         val nav = androidx.navigation.compose.rememberNavController()
@@ -102,7 +102,7 @@ fun PublitApp(vm: NearbyViewModel, client: io.github.elija7580.publit.data.Trans
                     val a = e.arguments
                     StopScreen(client, a?.getString("id").orEmpty(), a?.getString("name").orEmpty(), a?.getString("exact") == "true") { nav.popBackStack() }
                 }
-                composable("plan") { Placeholder(L10n.t("Plan")) }
+                composable("plan") { PlanScreen(plan) }
                 composable("saved") { Placeholder(L10n.t("Saved")) }
             }
         }

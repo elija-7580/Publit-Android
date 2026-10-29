@@ -47,6 +47,26 @@ class TransitousClient(
         return json.decodeFromString(StopTimesResponse.serializer(), get("/api/v6/stoptimes", q, maxAgeSeconds = 15))
     }
 
+    /** Places and stops for a search text, nearby ones first. */
+    suspend fun geocode(text: String, near: LatLon?, language: String): List<GeocodeMatch> {
+        val q = mutableListOf("text" to text, "numResults" to "15", "language" to language)
+        near?.let { q += "place" to LatLon.format(it.lat, 2) + "," + LatLon.format(it.lon, 2); q += "placeBias" to "5" }
+        return json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(GeocodeMatch.serializer()), get("/api/v1/geocode", q, 3600))
+    }
+
+    /** Routes; `maxWalk` (s) to the first and from the last stop. `time` null = now. */
+    suspend fun plan(from: LatLon, to: LatLon, time: java.time.Instant?, arriveBy: Boolean, maxWalk: Int = 1800,
+                     pageCursor: String? = null): PlanResponse {
+        val q = mutableListOf(
+            "fromPlace" to from.apiValue, "toPlace" to to.apiValue, "arriveBy" to arriveBy.toString(),
+            "useRoutedTransfers" to "true", "maxPreTransitTime" to maxWalk.toString(),
+            "maxPostTransitTime" to maxWalk.toString(), "maxDirectTime" to "3600", "directModes" to "WALK",
+        )
+        time?.let { q += "time" to it.toString() }
+        pageCursor?.let { q += "pageCursor" to it }
+        return json.decodeFromString(PlanResponse.serializer(), get("/api/v6/plan", q, if (time == null) 20 else 60))
+    }
+
     @Serializable
     private data class LastNearby(val lat: Double, val lon: Double, val modes: String? = null, val at: Long, val body: String)
 
