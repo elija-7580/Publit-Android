@@ -110,3 +110,22 @@ Debug artifacts, not store/release builds:
 A debug signing key may differ from an already installed build's key. Do not automatically uninstall the
 existing app on a signing conflict: local tickets and saved data may be lost. Use a separate test device/profile
 or export/backup data before deciding how to replace an existing installation.
+
+## Runtime attempt in this continuation — blocked
+
+A fresh API 35 x86_64 emulator was started without KVM on the 2-core/4 GB host. The Android boot-completed
+flag did not become set during the installation attempts. The package service initially rejected the APK
+(`Zip: EOCD not found`), then a normal streamed install failed with `service package: Broken pipe (32)`.
+The emulator was stopped rather than repeating the same failing loop.
+
+The host and device copies of the x86 APK had the same SHA-256
+`935f3fe8cc74fd5160082c7c15eeb29673eaae988f88e72fd4e3d58d3d2f1132`, including identical ZIP end records;
+its APK signature verification also succeeded on the host. These checks do not resolve the emulator failure
+or establish installability on a real device. No successful installation/launch of this latest build was
+confirmed here, and no new screen passed visual inspection. In particular, real GPS-to-Nearby departures,
+route planning in the app, ticket import, large-text/dark-mode UI and the typography/retry-state changes
+remain runtime/device QA work. Earlier onboarding observations apply to an earlier build only.
+
+Only regenerable build outputs were removed to make emulator disk space; source, toolchains, API 35 image,
+APK artifacts and test reports were retained. The APKs were downloaded as session attachments so they do not
+depend on this sandbox surviving.
