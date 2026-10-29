@@ -1,0 +1,49 @@
+name: Android native
+
+# Native Kotlin/Compose app (android-native/). Publishes the release APK as release "native-latest".
+on:
+  push:
+    branches: [native-android]
+    paths: ['android-native/**', '.github/workflows/android-native.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.14.3' }
+      - name: Strings from the iOS catalog
+        run: |
+          bash scripts/fetch-ios-strings.sh
+          python3 android-native/tools/strings.py Sources/Publit/Resources/Localizable.xcstrings android-native/app/src/main/assets/strings
+      - name: Unit tests and release APK
+        working-directory: android-native
+        run: gradle --no-daemon :app:testReleaseUnitTest :app:assembleRelease 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+      - name: Errors only
+        if: failure()
+        run: grep -E "^e: |error:|FAILED|What went wrong" -A3 android-native/build.log | head -120 > errors.txt; cat errors.txt
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: errors, path: errors.txt }
+      - name: Publish
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          APK=android-native/app/build/outputs/apk/release/app-release.apk
+          cp $APK Publit-native.apk; ls -lh Publit-native.apk
+          TAG=native-latest
+          NOTES="Native Kotlin build of $(git rev-parse --short HEAD). Installs next to the old Publit (own app ID)."
+          gh release view $TAG >/dev/null 2>&1 || gh release create $TAG --title "Publit native (test build)" --notes "$NOTES" --prerelease --target "$GITHUB_SHA"
+          gh release edit $TAG --notes "$NOTES"
+          gh release upload $TAG Publit-native.apk --clobber
