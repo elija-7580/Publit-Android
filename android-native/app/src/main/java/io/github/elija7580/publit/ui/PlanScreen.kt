@@ -1,5 +1,6 @@
 package io.github.elija7580.publit.ui
 
+import io.github.elija7580.publit.data.SmartRouting.Change.Level as ChangeLevel
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SegmentedButton
@@ -337,9 +338,8 @@ private fun ChangesCard(changes: List<io.github.elija7580.publit.data.SmartRouti
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             changes.forEachIndexed { i, c ->
-                val L = io.github.elija7580.publit.data.SmartRouting.Change.Level
-                val color = when (c.level) { L.SAFE -> ink.live; L.LIKELY -> ink.delay; L.RISKY -> ink.danger }
-                val verdict = L10n.t(when (c.level) { L.SAFE -> "Safe change"; L.LIKELY -> "Change should work"; L.RISKY -> "Risky change" })
+                val color = when (c.level) { ChangeLevel.SAFE -> ink.live; ChangeLevel.LIKELY -> ink.delay; ChangeLevel.RISKY -> ink.danger }
+                val verdict = L10n.t(when (c.level) { ChangeLevel.SAFE -> "Safe change"; ChangeLevel.LIKELY -> "Change should work"; ChangeLevel.RISKY -> "Risky change" })
                 val spare = if (c.spareMinutes >= 1) L10n.f("%@ to spare", Fmt.duration((c.spareMinutes * 60).toInt())) else L10n.t("Very tight change")
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -351,7 +351,7 @@ private fun ChangesCard(changes: List<io.github.elija7580.publit.data.SmartRouti
                     if (b != null) {
                         val then = if (i == changes.lastIndex) L10n.f("Arrive %@", Fmt.time(b.arrival, c.outgoing.to.tz)) else L10n.t("still makes the next change")
                         Text(L10n.f("If missed: %@ at %@", b.leg.lineName, Fmt.time(b.leg.startTime, b.leg.from.tz)) + " · " + then, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    } else if (c.level != L.SAFE) Text(L10n.t("No backup found if you miss it."), color = ink.muted, fontSize = 12.sp)
+                    } else if (c.level != ChangeLevel.SAFE) Text(L10n.t("No backup found if you miss it."), color = ink.muted, fontSize = 12.sp)
                 }
             }
         }

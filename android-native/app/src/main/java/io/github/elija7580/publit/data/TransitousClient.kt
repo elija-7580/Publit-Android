@@ -83,6 +83,11 @@ class TransitousClient(
         return json.decodeFromString(PlanResponse.serializer(), get("/api/v6/plan", q, 900)).direct
     }
 
+    /** Stops in a box, for the station map. */
+    suspend fun mapStops(min: LatLon, max: LatLon, zoom: Int): List<MapStop> =
+        json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(MapStop.serializer()),
+            get("/api/v6/map/stops", listOf("min" to min.apiValue, "max" to max.apiValue, "zoom" to zoom.toString()), 3600))
+
     /** New live times for a planned route (refresh-itinerary). */
     suspend fun refresh(itineraryId: String): Itinerary =
         io.github.elija7580.publit.live.LiveOverlay.apply(json.decodeFromString(Itinerary.serializer(), get("/api/v6/refresh-itinerary",
