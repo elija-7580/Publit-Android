@@ -1,0 +1,99 @@
+name: Android APK
+
+# Builds the phone and Wear debug APKs (debug-signed, installable directly) and publishes them as a
+# GitHub Release, so the APK can be downloaded on the phone from the Releases page.
+# Needs no secrets. If the iOS repository is private, add a read-only token as the secret IOS_REPO_TOKEN
+# (used only to fetch the shared string catalog).
+
+on:
+  push:
+    branches: [main, fix/android-device-crashes]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          sudo mkdir -p /data && sudo chown "$USER" /data
+          df -h /
+
+      - name: System libraries for the Swift toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip curl python3 libncurses6 libedit2 libcurl4 libxml2
+          # the Swift toolchain links against libxml2.so.2 on some images
+          lib=$(ls /usr/lib/x86_64-linux-gnu/libxml2.so.* 2>/dev/null | head -1)
+          [ -e /usr/lib/x86_64-linux-gnu/libxml2.so.2 ] || sudo ln -s "$lib" /usr/lib/x86_64-linux-gnu/libxml2.so.2
+
+      - name: Shared string catalog from the iOS app
+        env:
+          IOS_REPO_TOKEN: ${{ secrets.IOS_REPO_TOKEN }}
+        run: |
+          if ! bash scripts/fetch-ios-strings.sh; then
+            [ -n "$IOS_REPO_TOKEN" ] || { echo "::error::Could not fetch Localizable.xcstrings. If the iOS repo is private, add the secret IOS_REPO_TOKEN."; exit 1; }
+            REF=$(cat upstream/IOS_COMMIT)
+            curl -fsSL -H "Authorization: Bearer $IOS_REPO_TOKEN" \
+              "https://raw.githubusercontent.com/elija-7580/Publit/$REF/Sources/Shared/Localizable.xcstrings" \
+              -o Sources/Publit/Resources/Localizable.xcstrings
+          fi
+
+      - name: Cache build tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            /data/tools
+            ~/.swiftpm/swift-sdks
+          key: publit-tools-${{ hashFiles('scripts/linux/install.sh') }}
+
+      - name: Install JDK, Gradle, Skip, Android SDK/NDK, Swift for Android
+        run: bash scripts/linux/install.sh
+
+      - name: Build APKs (arm64)
+        run: ARCHS=aarch64 GRADLE_XMX=5g bash scripts/linux/apk.sh debug
+
+      - name: Collect APKs
+        run: |
+          mkdir -p dist
+          APP=$(find .build Android/app -name 'app-debug.apk' -type f 2>/dev/null | head -1)
+          WEAR=$(find Android/wear -name 'wear-debug.apk' -type f 2>/dev/null | head -1)
+          [ -n "$APP" ] || { echo "::error::app-debug.apk not found"; tail -80 /data/apk.log; exit 1; }
+          cp "$APP" dist/Publit-android-debug.apk
+          [ -z "$WEAR" ] || cp "$WEAR" dist/Publit-wear-debug.apk
+          ls -lh dist
+
+      - name: Build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: /data/apk.log
+          if-no-files-found: ignore
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="android-latest"
+          SHA=$(git rev-parse --short HEAD)
+          NOTES="Debug-signed build of ${SHA} (${GITHUB_REF_NAME}). Install Publit-android-debug.apk directly on the phone; allow installs from this source when Android asks. Publit-wear-debug.apk is for Wear OS."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes "$NOTES" --prerelease
+          else
+            gh release create "$TAG" --title "Publit for Android (latest build)" --notes "$NOTES" --prerelease --target "$GITHUB_SHA"
+          fi
+          gh release upload "$TAG" dist/*.apk --clobber
+          echo "### Download" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}" >> "$GITHUB_STEP_SUMMARY"
