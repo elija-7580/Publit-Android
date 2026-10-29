@@ -10,12 +10,12 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        // Own ID while the native app is tested: it installs next to the current Publit.
-        applicationId = "io.github.elija7580.publit.next"
+        // The real app ID: the native app replaces the old Skip build (uninstall that once: other signing key).
+        applicationId = "io.github.elija7580.publit"
         minSdk = 26
         targetSdk = 36
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-        versionName = "0.7.0-native"
+        versionName = "0.8.0"
     }
 
     signingConfigs {
