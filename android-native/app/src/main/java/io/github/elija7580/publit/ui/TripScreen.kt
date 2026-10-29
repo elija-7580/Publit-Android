@@ -119,6 +119,7 @@ fun TripScreen(client: TransitousClient, favorites: io.github.elija7580.publit.d
             }
         }
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+            item("offline") { OfflineNote(client) }
             item("head") {
                 Card {
                     DepartureRow(stopTime, now)

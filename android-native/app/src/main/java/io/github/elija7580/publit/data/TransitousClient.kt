@@ -103,6 +103,26 @@ class TransitousClient(
         }
     }
 
+    /** Set while screens show a disk copy because the network failed (OfflineNote). */
+    val offlineFrom = kotlinx.coroutines.flow.MutableStateFlow<Long?>(null)
+    private val diskDir: File? = cacheDir?.let { File(it, "responses").apply { mkdirs() } }
+    private val diskWritten = ConcurrentHashMap<String, Long>()
+
+    /** Stable short file name for a key (FNV-1a, 64 bit), as ResponseCache on iOS. */
+    private fun fileName(key: String): String {
+        var h = -0x340d631b7bdddcdbL
+        for (b in key.toByteArray()) { h = h xor (b.toLong() and 0xff); h *= 0x100000001b3L }
+        return java.lang.Long.toHexString(h)
+    }
+
+    /** Disk copies older than a week go, and the oldest above 60 MB (called at launch). */
+    fun pruneDisk() {
+        val files = diskDir?.listFiles()?.sortedByDescending { it.lastModified() } ?: return
+        var total = 0L
+        val weekAgo = System.currentTimeMillis() - 7 * 24 * 3600_000L
+        for (f in files) { total += f.length(); if (total > 60L * 1024 * 1024 || f.lastModified() < weekAgo) f.delete() }
+    }
+
     private suspend fun get(path: String, query: List<Pair<String, String>>, maxAgeSeconds: Long): String = withContext(Dispatchers.IO) {
         val qs = query.joinToString("&") { (k, v) -> k + "=" + URLEncoder.encode(v, "UTF-8") }
         val url = "$base$path?$qs"
@@ -113,6 +133,7 @@ class TransitousClient(
             setRequestProperty("User-Agent", BuildConfigInfo.userAgent)
             setRequestProperty("Accept", "application/json")
         }
+        val disk = diskDir?.takeIf { maxAgeSeconds > 0 }?.let { File(it, fileName(url)) }
         try {
             val status = conn.responseCode
             val stream = if (status in 200..299) conn.inputStream else conn.errorStream
@@ -122,8 +143,21 @@ class TransitousClient(
                 throw ApiException(message ?: L10n.f("Server error (HTTP %lld).", status))
             }
             if (memory.size > 40) memory.clear()
-            memory[url] = Entry(url, body, System.currentTimeMillis())
+            val now = System.currentTimeMillis()
+            memory[url] = Entry(url, body, now)
+            offlineFrom.value = null
+            // Offline copy, at most every 2 min per request (live boards change every few seconds).
+            if (disk != null && now - (diskWritten[url] ?: 0) > 120_000) {
+                diskWritten[url] = now
+                runCatching { val tmp = File(disk.path + ".tmp"); tmp.writeText(body); tmp.renameTo(disk) }
+            }
             body
+        } catch (e: IOException) {
+            if (e is ApiException) throw e
+            // No connection: the last copy on disk, however old, with a note on screen.
+            val copy = disk?.takeIf { it.exists() } ?: throw e
+            offlineFrom.value = copy.lastModified()
+            copy.readText()
         } finally {
             conn.disconnect()
         }

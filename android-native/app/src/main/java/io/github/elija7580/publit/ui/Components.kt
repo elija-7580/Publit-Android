@@ -1,5 +1,8 @@
 package io.github.elija7580.publit.ui
 
+import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -186,5 +189,17 @@ fun ModeChips(available: List<ModeGroup>, selected: Set<ModeGroup>, active: Bool
             FilterChip(selected = active && g in selected, onClick = { onToggle(g) },
                 label = { Text(g.title) }, leadingIcon = { Icon(modeIcon(g.mode), null, Modifier.size(18.dp)) })
         }
+    }
+}
+
+/** "Offline. Showing data from 14:05." while screens show a disk copy (OfflineNote on iOS). */
+@Composable
+fun OfflineNote(client: io.github.elija7580.publit.data.TransitousClient) {
+    val from by client.offlineFrom.collectAsState()
+    val at = from ?: return
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Filled.WifiOff, null, Modifier.size(14.dp), tint = LocalInk.current.muted)
+        Text(" " + L10n.f("Offline. Showing data from %@.", io.github.elija7580.publit.core.Fmt.time(Instant.ofEpochMilli(at))),
+            color = LocalInk.current.muted, fontSize = 13.sp)
     }
 }

@@ -89,6 +89,7 @@ fun SavedTripScreen(client: TransitousClient, store: TripStore, tripId: String, 
     if (state.activeId == tripId) { LiveTripScreen(store, trip, error, onBack); return }
     ItineraryDetail(trip.itinerary, onBack, title = trip.toName) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            OfflineNote(client)
             StatusCard(trip, error)
             TripActions(store, trip.itinerary, trip.fromName, trip.toName) { }
         }

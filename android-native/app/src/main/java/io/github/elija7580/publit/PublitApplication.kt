@@ -28,6 +28,7 @@ class PublitApplication : Application() {
         Fmt.timePattern = if (DateFormat.is24HourFormat(this)) "HH:mm" else "h:mm a"
         client = TransitousClient(cacheDir = cacheDir)
         location = LocationRepository(this)
+        Thread { runCatching { client.pruneDisk() } }.start()
     }
 
     private fun version(): String? = packageManager.getPackageInfo(packageName, 0).versionName

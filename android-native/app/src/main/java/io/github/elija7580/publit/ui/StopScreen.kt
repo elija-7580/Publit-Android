@@ -107,6 +107,7 @@ fun StopScreen(client: TransitousClient, favorites: io.github.elija7580.publit.d
             }
         }
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+            item("offline") { OfflineNote(client) }
             if (alerts.isNotEmpty()) item("alerts") {
                 Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
