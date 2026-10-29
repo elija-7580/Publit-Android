@@ -67,6 +67,32 @@ See [the detailed QA report](ANDROID_QA_2026-10-29.md).
 - Debug APK ABI filters checked: phone ARM64 contains only `arm64-v8a`; emulator APK only `x86_64`.
 - No upload key was generated or changed. No iOS repository edits.
 
+## Device feedback round — 2026-10-29 (first real-device report)
+
+Reported on a phone (Android 16, 16 KB page-size compat mode): crash opening the map, crash opening Plan,
+no location, crash when switching location off/on, Settings not covering the screen underneath.
+The attached crash report contained only the tombstone's memory map, so the exact native frame is unknown.
+
+- Crash reports: Android 12+ native tombstones are protobuf. `CrashRecorder` now decodes signal, abort
+  message, cause, crashing thread frames, page size and the last log lines (`TombstoneReader`, JVM test added).
+- Maps: MapLibre in TextureView mode; lifecycle events applied once; the view is destroyed in
+  `AndroidView(onRelease)` after Compose detached it (was: destroyed while still attached); every map
+  callback guarded. Location layer was enabled without checking permission (`"denied"` vs `"0"/"1"/"2"`);
+  it now uses the app's own fixes (`forceLocationUpdate`) instead of MapLibre's location engine.
+- Swift: no `try!` around Kotlin reflection (map, FlowRow, StyledText, selection, pressed feedback);
+  a failed call now shows a fallback instead of a native abort. Layer versions use `Int32(truncatingIfNeeded:)`.
+- Location: listener implements all callbacks (lambda listeners crash on Android < 11 when location is
+  toggled); fused + GPS + network, GPS only with precise permission; each provider requested separately;
+  restarts on `PROVIDERS_CHANGED_ACTION`; no exception reaches Swift; coarse fixes do not replace fresh good ones.
+- `@Observable` models in StationMapView, LiveTripView and Ticker now import SkipFuse; without it their
+  changes never reached Compose (map layers, live trip, minute ticks did not redraw).
+- Settings opens as a full-screen cover on Android.
+- Release R8: keep `kotlin.Metadata` (Kotlin reflection used by SkipBridge).
+
+Not verified on a device in this round (no Android toolchain/emulator in the sandbox). Kotlin edits were
+syntax-checked with kotlinc; the tombstone reader ran against a synthetic tombstone. Next step: build, install,
+reproduce the four reports, and if anything still crashes send the new crash report (now readable).
+
 ## Remaining work
 
 1. Verify the new bridge and the latest typography on a running Android app: location permission + fresh location,

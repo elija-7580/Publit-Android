@@ -255,7 +255,13 @@ struct SettingsButton: View {
 
     var body: some View {
         Button { showing = true } label: { Label("Settings", systemImage: "gearshape") }
+            #if os(Android)
+            // A Compose bottom sheet leaves the tab's own bars and rows visible above and around it.
+            // Full screen, Settings covers them completely; Done and the back gesture close it.
+            .fullScreenCover(isPresented: $showing) { SettingsView().environment(\.liveBarInset, 0) }
+            #else
             .sheet(isPresented: $showing) { SettingsView().environment(\.liveBarInset, 0) }
+            #endif
             .onChange(of: app.dismissToken) { showing = false }
     }
 }

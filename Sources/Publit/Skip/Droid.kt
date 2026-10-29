@@ -118,45 +118,118 @@ class Droid private constructor() {
 
     /** From MainActivity.onRequestPermissionsResult and onResume (the answer may come from Settings). */
     @JvmStatic fun permissionsChanged() {
-        DroidEvents.shared.locationPermission(locationPermission().toInt())
+        val code = locationPermission().toInt()
+        // Permission taken away in the system settings: stop listening (the next request would throw).
+        if (code != 2) stopLocationUpdates()
+        try { DroidEvents.shared.locationPermission(code) } catch (t: Throwable) { android.util.Log.w("Publit", "location permission event", t) }
     }
 
+    /** True while the system location switch (GPS/network) is on. */
+    @JvmStatic fun locationServicesOn(): Boolean = try {
+        val lm = context().getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        if (Build.VERSION.SDK_INT >= 28) lm.isLocationEnabled
+        else lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+    } catch (_: Throwable) { false }
+
+    private var preciseUpdates = false
+    private var lastFix: Location? = null
+    private var providersReceiver: android.content.BroadcastReceiver? = null
+    /** The maps show the same fixes (their own MapLibre location engine stays off). */
+    internal val fixObservers = mutableSetOf<(Location) -> Unit>()
+
+    /** The newest fix Swift got, for the maps' location puck. */
+    internal fun currentFix(): Location? = lastFix
+
     @JvmStatic fun startLocation(precise: Boolean) {
+        preciseUpdates = precise
+        // Never let a platform exception travel back into Swift: there it would end the app.
+        try { requestLocationUpdates(precise) } catch (t: Throwable) { android.util.Log.w("Publit", "startLocation", t) }
+        watchLocationSwitch()
+    }
+
+    private fun requestLocationUpdates(precise: Boolean) {
         if (!hasLocationPermission()) return
         val lm = context().getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        locationListener?.let { lm.removeUpdates(it) }
-        val listener = LocationListener { l -> report(l) }
+        locationListener?.let { try { lm.removeUpdates(it) } catch (_: Throwable) {} }
+        // All four callbacks implemented: before Android 11 the provider callbacks have no default
+        // body, and switching location off or on then crashed a lambda listener (AbstractMethodError).
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) { report(location) }
+            override fun onProviderEnabled(provider: String) {}
+            override fun onProviderDisabled(provider: String) {}
+            @Deprecated("Deprecated in Java")
+            override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
+        }
         locationListener = listener
         val minTime = if (precise) 1000L else 5000L
         val minDistance = if (precise) 5f else 50f
-        try {
-            val providers = mutableListOf<String>()
-            if (Build.VERSION.SDK_INT >= 31 && lm.allProviders.contains(LocationManager.FUSED_PROVIDER)) {
-                providers.add(LocationManager.FUSED_PROVIDER)
-            } else {
-                if (lm.allProviders.contains(LocationManager.GPS_PROVIDER)) providers.add(LocationManager.GPS_PROVIDER)
-                if (lm.allProviders.contains(LocationManager.NETWORK_PROVIDER)) providers.add(LocationManager.NETWORK_PROVIDER)
-            }
-            // The last fix right away: departures can load before GPS answers.
-            providers.mapNotNull { lm.getLastKnownLocation(it) }.maxByOrNull { it.time }?.let { report(it) }
-            for (p in providers) lm.requestLocationUpdates(p, minTime, minDistance, listener, Looper.getMainLooper())
-        } catch (e: SecurityException) {
-            DroidEvents.shared.locationPermission(1)
+        val all = lm.allProviders
+        val fine = ContextCompat.checkSelfPermission(context(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        // Fused where the system has it, plus GPS and network: some devices' fused provider stays
+        // silent without Google services, and a network fix arrives in seconds indoors.
+        // GPS only with precise permission ("approximate only" would throw a SecurityException).
+        val providers = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= 31 && all.contains(LocationManager.FUSED_PROVIDER)) providers.add(LocationManager.FUSED_PROVIDER)
+        if (fine && all.contains(LocationManager.GPS_PROVIDER)) providers.add(LocationManager.GPS_PROVIDER)
+        if (all.contains(LocationManager.NETWORK_PROVIDER)) providers.add(LocationManager.NETWORK_PROVIDER)
+        // The last fix right away: departures can load before GPS answers (Swift checks its age).
+        providers.mapNotNull { p -> try { lm.getLastKnownLocation(p) } catch (_: Throwable) { null } }
+            .maxByOrNull { it.time }?.let { report(it) }
+        var listening = 0
+        for (p in providers) {
+            try { lm.requestLocationUpdates(p, minTime, minDistance, listener, Looper.getMainLooper()); listening++ }
+            catch (e: Exception) { android.util.Log.w("Publit", "provider $p", e) }
+        }
+        if (listening == 0 && !hasLocationPermission()) {
+            try { DroidEvents.shared.locationPermission(1) } catch (_: Throwable) {}
         }
     }
 
-    private fun report(l: Location) {
-        DroidEvents.shared.location(l.latitude, l.longitude,
-            if (l.hasAccuracy()) l.accuracy.toDouble() else -1.0,
-            if (l.hasSpeed()) l.speed.toDouble() else -1.0,
-            if (l.hasBearing()) l.bearing.toDouble() else -1.0,
-            l.time.toDouble())
+    /// Location switched off or on in quick settings: listen again, so fixes come as soon as it is back.
+    private fun watchLocationSwitch() {
+        if (providersReceiver != null) return
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context, intent: android.content.Intent) {
+                if (locationListener == null) return
+                try { requestLocationUpdates(preciseUpdates) } catch (t: Throwable) { android.util.Log.w("Publit", "location switch", t) }
+            }
+        }
+        try {
+            ContextCompat.registerReceiver(context(), receiver,
+                android.content.IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION), ContextCompat.RECEIVER_NOT_EXPORTED)
+            providersReceiver = receiver
+        } catch (t: Throwable) { android.util.Log.w("Publit", "location switch receiver", t) }
     }
 
-    @JvmStatic fun stopLocation() {
-        val lm = context().getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        locationListener?.let { lm.removeUpdates(it) }
+    private fun report(l: Location) {
+        // Several providers answer: a coarse network fix must not replace a good GPS fix of a moment ago.
+        // Compared on the monotonic clock: a GPS fix carries satellite time, which can differ from the phone's.
+        val last = lastFix
+        val age = if (last != null) (l.elapsedRealtimeNanos - last.elapsedRealtimeNanos) / 1_000_000 else Long.MAX_VALUE
+        if (age < 0) return
+        if (last != null && age < 15_000 && last.hasAccuracy() &&
+            (!l.hasAccuracy() || l.accuracy > last.accuracy * 2 + 10)) return
+        lastFix = l
+        for (o in fixObservers.toList()) try { o(l) } catch (_: Throwable) {}
+        try {
+            DroidEvents.shared.location(l.latitude, l.longitude,
+                if (l.hasAccuracy()) l.accuracy.toDouble() else -1.0,
+                if (l.hasSpeed()) l.speed.toDouble() else -1.0,
+                if (l.hasBearing()) l.bearing.toDouble() else -1.0,
+                l.time.toDouble())
+        } catch (t: Throwable) { android.util.Log.w("Publit", "location event", t) }
+    }
+
+    @JvmStatic fun stopLocation() = stopLocationUpdates()
+
+    private fun stopLocationUpdates() {
+        try {
+            val lm = context().getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            locationListener?.let { lm.removeUpdates(it) }
+        } catch (_: Throwable) {}
         locationListener = null
+        providersReceiver?.let { r -> try { context().unregisterReceiver(r) } catch (_: Throwable) {} }
+        providersReceiver = null
     }
 
     // MARK: Compass
@@ -164,6 +237,10 @@ class Droid private constructor() {
     private var headingListener: SensorEventListener? = null
 
     @JvmStatic fun setHeading(on: Boolean) {
+        try { setHeadingNow(on) } catch (t: Throwable) { android.util.Log.w("Publit", "setHeading", t) }
+    }
+
+    private fun setHeadingNow(on: Boolean) {
         val sm = context().getSystemService(Context.SENSOR_SERVICE) as SensorManager
         headingListener?.let { sm.unregisterListener(it) }
         headingListener = null
@@ -177,7 +254,7 @@ class Droid private constructor() {
                 SensorManager.getOrientation(r, o)
                 val deg = (Math.toDegrees(o[0].toDouble()) + 360.0) % 360.0
                 // About every 8° (as the iOS heading filter).
-                if (Math.abs(deg - last) >= 8 || last < 0) { last = deg; DroidEvents.shared.heading(deg) }
+                if (Math.abs(deg - last) >= 8 || last < 0) { last = deg; try { DroidEvents.shared.heading(deg) } catch (_: Throwable) {} }
             }
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }

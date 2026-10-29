@@ -84,11 +84,16 @@ struct StyledText: View {
             items.append(item)
         }
         let json = (try? JSONSerialization.data(withJSONObject: items)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
-        let colors = palette
-        return ComposeView {
-            var args: [Any?] = [json]
-            for i in 0..<4 { args.append(i < colors.count ? colors[i].Java_view as? JConvertible : nil) }
-            return try! AnyDynamicObject(className: "publit.module.StyledTextComposer", arguments: args)
+        var args: [Any?] = [json]
+        for i in 0..<4 { args.append(i < palette.count ? palette[i].Java_view as? JConvertible : nil) }
+        // No `try!`: if the Kotlin side cannot be reached the parts show as one plain text.
+        let composer = try? AnyDynamicObject(className: "publit.module.StyledTextComposer", arguments: args)
+        return Group {
+            if let composer {
+                ComposeView { composer }
+            } else {
+                Text(verbatim: runs.map(\.text).joined())
+            }
         }
     }
 }
@@ -128,9 +133,11 @@ extension View {
     func accessibilityAction(named name: Text, _ handler: @escaping () -> Void) -> some View { self }
     func accessibilityActions<Content: View>(@ViewBuilder _ content: () -> Content) -> some View { self }
     /// The surrounding container enables Android's native copy/select handles.
-    func textSelection(_ selectability: TextSelectability) -> some View {
-        composeModifier {
-            try! AnyDynamicObject(className: "publit.module.SelectionModifier", arguments: [type(of: selectability).allowsSelection])
+    @ViewBuilder func textSelection(_ selectability: TextSelectability) -> some View {
+        if let modifier = try? AnyDynamicObject(className: "publit.module.SelectionModifier", arguments: [type(of: selectability).allowsSelection]) {
+            composeModifier { modifier }
+        } else {
+            self
         }
     }
     /// Numbers change without the rolling-digit animation.
@@ -420,8 +427,12 @@ struct EnabledOpacity: ViewModifier {
 }
 
 extension View {
-    private func pressedFeedback() -> some View {
-        composeModifier { try! AnyDynamicObject(className: "publit.module.PressFeedbackModifier", arguments: []) }
+    @ViewBuilder private func pressedFeedback() -> some View {
+        if let modifier = try? AnyDynamicObject(className: "publit.module.PressFeedbackModifier", arguments: []) {
+            composeModifier { modifier }
+        } else {
+            self
+        }
     }
 
     func buttonStyle(_ style: InkButtonStyle) -> some View {

@@ -1,5 +1,7 @@
 import SwiftUI
 import Observation
+// Android: @Observable needs SkipFuse in this file, or the ticks never reach the Compose UI.
+import SkipFuse
 
 /// A clock that changes on whole interval boundaries (e.g. every full minute), as a plain
 /// observable value instead of a `TimelineView`. Only views that read `now` redraw on a tick.

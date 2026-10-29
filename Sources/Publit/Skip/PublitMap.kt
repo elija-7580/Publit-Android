@@ -42,6 +42,7 @@ import org.maplibre.android.location.LocationComponentActivationOptions
 import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
@@ -82,24 +83,26 @@ class MapComposer(val mapId: String, val base: String, val spec: MapSpec) : skip
         val holder = remember(mapId) { PublitMapHolder(mapId, ctx) }
         val lifecycle = LocalLifecycleOwner.current.lifecycle
         DisposableEffect(lifecycle, holder) {
-            val observer = LifecycleEventObserver { _, event ->
-                when (event) {
-                    Lifecycle.Event.ON_START -> holder.view.onStart()
-                    Lifecycle.Event.ON_RESUME -> holder.view.onResume()
-                    Lifecycle.Event.ON_PAUSE -> holder.view.onPause()
-                    Lifecycle.Event.ON_STOP -> holder.view.onStop()
-                    else -> {}
-                }
-            }
+            // addObserver replays the events up to the current state (create, start, resume),
+            // so the map is started exactly once; the holder ignores repeated events.
+            val observer = LifecycleEventObserver { _, event -> holder.lifecycle(event) }
             lifecycle.addObserver(observer)
-            holder.view.onStart(); holder.view.onResume()
             onDispose {
                 lifecycle.removeObserver(observer)
-                holder.destroy()
+                holder.pause()
             }
         }
-        AndroidView(factory = { holder.view }, modifier = context.modifier.fillMaxSize(),
-                    update = { holder.apply(base, spec.layers, palette) })
+        AndroidView(
+            factory = {
+                // A recomposition can hand the same view to a new AndroidView node: detach it first.
+                (holder.view.parent as? android.view.ViewGroup)?.removeView(holder.view)
+                holder.view
+            },
+            modifier = context.modifier.fillMaxSize(),
+            // MapLibre's view is destroyed only once Compose has taken it out of the window:
+            // destroying it while still attached ended in a native crash in the renderer.
+            onRelease = { holder.destroy() },
+            update = { holder.apply(base, spec.layers, palette) })
     }
 }
 
@@ -126,35 +129,81 @@ class PublitMapHolder(val mapId: String, val ctx: Context) {
     private var vehicleFeatures: List<JSONObject> = emptyList()
     private var locationOn = false
 
+    private var started = false
+    private var resumed = false
+    private val fixObserver: (android.location.Location) -> Unit = { l -> showFix(l) }
+
     init {
         MapLibre.getInstance(ctx)
-        view = MapView(ctx)
+        // A TextureView, not a SurfaceView: it moves, clips and fades with the Compose screens
+        // (sheets, full-screen covers) instead of being punched through on top of or under them.
+        val options = MapLibreMapOptions.createFromAttributes(ctx).textureMode(true)
+        view = MapView(ctx, options)
         view.onCreate(null)
         view.getMapAsync { m ->
+            if (destroyed) return@getMapAsync
             map = m
-            m.uiSettings.isCompassEnabled = true
-            m.uiSettings.isAttributionEnabled = true
-            m.uiSettings.isLogoEnabled = false
-            m.uiSettings.isTiltGesturesEnabled = true
-            m.addOnCameraIdleListener { reportRegion() }
-            m.addOnMapClickListener { p -> tapped(p); true }
-            m.addOnMapLongClickListener { p -> longPressed(p); true }
-            refresh()
+            try {
+                m.uiSettings.isCompassEnabled = true
+                m.uiSettings.isAttributionEnabled = true
+                m.uiSettings.isLogoEnabled = false
+                m.uiSettings.isTiltGesturesEnabled = true
+                m.addOnCameraIdleListener { guard { reportRegion() } }
+                m.addOnMapClickListener { p -> guard { tapped(p) }; true }
+                m.addOnMapLongClickListener { p -> guard { longPressed(p) }; true }
+            } catch (t: Throwable) { android.util.Log.w("PublitMap", "setup", t) }
+            guard { refresh() }
         }
+    }
+
+    /// Map work never throws into Compose or Swift: one failed layer must not end the app.
+    private inline fun guard(block: () -> Unit) {
+        try { block() } catch (t: Throwable) { android.util.Log.w("PublitMap", "map $mapId", t) }
+    }
+
+    /// The screen's lifecycle, applied once per state (repeated events are ignored).
+    fun lifecycle(event: Lifecycle.Event) {
+        if (destroyed) return
+        guard {
+            when (event) {
+                Lifecycle.Event.ON_START -> if (!started) { started = true; view.onStart() }
+                Lifecycle.Event.ON_RESUME -> {
+                    if (!started) { started = true; view.onStart() }
+                    if (!resumed) { resumed = true; view.onResume() }
+                }
+                Lifecycle.Event.ON_PAUSE -> if (resumed) { resumed = false; view.onPause() }
+                Lifecycle.Event.ON_STOP -> {
+                    if (resumed) { resumed = false; view.onPause() }
+                    if (started) { started = false; view.onStop() }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    /// The composable left the screen; the view itself goes in `destroy` once Compose releases it.
+    fun pause() {
+        vehicleAnimator?.cancel()
+        lifecycle(Lifecycle.Event.ON_STOP)
     }
 
     fun destroy() {
         if (destroyed) return
+        pause()
+        Droid.fixObservers.remove(fixObserver)
         destroyed = true
-        vehicleAnimator?.cancel()
-        try { view.onPause(); view.onStop(); view.onDestroy() } catch (_: Throwable) {}
+        main.removeCallbacksAndMessages(null)
+        try { view.onDestroy() } catch (t: Throwable) { android.util.Log.w("PublitMap", "destroy", t) }
+        map = null
+        style = null
     }
 
     fun apply(baseJson: String, layers: Map<String, Pair<Int, String>>, palette: List<Int>) {
+        if (destroyed) return
         this.base = try { JSONObject(baseJson) } catch (_: Throwable) { JSONObject() }
         this.layers = HashMap(layers)
         this.palette = palette
-        refresh()
+        guard { refresh() }
     }
 
     private fun refresh() {
@@ -167,10 +216,10 @@ class PublitMapHolder(val mapId: String, val ctx: Context) {
             applied.clear(); poiShown = null; locationOn = false
             val builder = if (key.startsWith("{")) Style.Builder().fromJson(key) else Style.Builder().fromUri(key)
             m.setStyle(builder) { s ->
-                if (styleKey != key) return@setStyle
+                if (destroyed || styleKey != key) return@setStyle
                 style = s
-                setupLayers(s)
-                refresh()
+                guard { setupLayers(s) }
+                guard { refresh() }
             }
             return
         }
@@ -501,7 +550,7 @@ class PublitMapHolder(val mapId: String, val ctx: Context) {
             val t = a.animatedValue as Float
             if (t < 1f && now - last < 60) return@addUpdateListener
             last = now
-            if (!destroyed) frame(t)
+            if (!destroyed) guard { frame(t) }
         }
         vehicleAnimator = anim
         anim.start()
@@ -534,7 +583,7 @@ class PublitMapHolder(val mapId: String, val ctx: Context) {
 
     private fun moveCamera(m: MapLibreMap, cam: JSONObject, animated: Boolean) {
         if (view.width == 0 || view.height == 0) {
-            view.post { if (!destroyed) moveCamera(m, cam, animated) }
+            view.post { if (!destroyed) guard { moveCamera(m, cam, animated) } }
             return
         }
         val pad = (cam.optDouble("padding", 48.0) * density).toInt()
@@ -580,18 +629,28 @@ class PublitMapHolder(val mapId: String, val ctx: Context) {
     }
 
     private fun enableLocation(m: MapLibreMap, s: Style) {
-        if (locationOn || !base.optBoolean("showsUser", true)) return
-        if (Droid.locationPermission() == "denied" || Droid.locationPermission() == "notDetermined") return
+        if (locationOn || destroyed || !base.optBoolean("showsUser", true)) return
+        // "2" is "allowed" (Droid.locationPermission); without it the location layer stays off.
+        if (Droid.locationPermission() != "2") return
         try {
             val lc = m.locationComponent
-            lc.activateLocationComponent(LocationComponentActivationOptions.builder(ctx, s).useDefaultLocationEngine(true).build())
+            // The app's own fixes (Droid.kt) instead of MapLibre's location engine: one source of
+            // positions, and nothing of MapLibre's reacts when location is switched off or on.
+            lc.activateLocationComponent(LocationComponentActivationOptions.builder(ctx, s).useDefaultLocationEngine(false).build())
             lc.isLocationComponentEnabled = true
             lc.renderMode = RenderMode.COMPASS
             locationOn = true
+            Droid.fixObservers.add(fixObserver)
+            Droid.currentFix()?.let { lc.forceLocationUpdate(it) }
             if (base.optJSONObject("camera")?.optString("type") == "follow" || base.optBoolean("followAtStart", false)) {
                 follow(m, base.optJSONObject("camera")?.optBoolean("heading", false) ?: false)
             }
         } catch (t: Throwable) { android.util.Log.w("PublitMap", "location", t) }
+    }
+
+    private fun showFix(l: android.location.Location) {
+        if (destroyed || !locationOn) return
+        guard { map?.locationComponent?.forceLocationUpdate(l) }
     }
 
     // MARK: Events
@@ -602,6 +661,7 @@ class PublitMapHolder(val mapId: String, val ctx: Context) {
 
     private fun reportRegion() {
         val m = map ?: return
+        if (destroyed || view.width == 0 || view.height == 0) return
         val b = m.projection.visibleRegion.latLngBounds
         val o = JSONObject()
         o.put("t", "region")
@@ -658,7 +718,7 @@ class PublitMapHolder(val mapId: String, val ctx: Context) {
                 a.subThoroughfare?.let { r.put("houseNumber", it) }
                 a.locality?.let { r.put("locality", it) }
                 a.countryCode?.let { r.put("country", it) }
-                main.post { if (!destroyed) send(r) }
+                main.post { if (!destroyed) guard { send(r) } }
             } catch (_: Throwable) {}
         }.start()
     }

@@ -14,10 +14,13 @@ struct FlowRow<Content: View>: View {
         self.content = content()
     }
 
-    var body: some View {
-        ComposeView {
-            let child = content.Java_viewOrEmpty as? JConvertible
-            return try! AnyDynamicObject(className: "publit.module.FlowComposer", arguments: [Double(spacing), 0.0, child])
+    @ViewBuilder var body: some View {
+        // No `try!`: a failed reflective call would end the app; a plain stack still shows everything.
+        if let flow = try? AnyDynamicObject(className: "publit.module.FlowComposer",
+                                            arguments: [Double(spacing), 0.0, content.Java_viewOrEmpty as? JConvertible]) {
+            ComposeView { flow }
+        } else {
+            VStack(alignment: .leading, spacing: spacing) { content }
         }
     }
 }
@@ -35,10 +38,12 @@ struct EqualColumns<Content: View>: View {
         self.content = content()
     }
 
-    var body: some View {
-        ComposeView {
-            let child = content.Java_viewOrEmpty as? JConvertible
-            return try! AnyDynamicObject(className: "publit.module.FlowComposer", arguments: [Double(spacing), Double(max(1, columns)), child])
+    @ViewBuilder var body: some View {
+        if let flow = try? AnyDynamicObject(className: "publit.module.FlowComposer",
+                                            arguments: [Double(spacing), Double(max(1, columns)), content.Java_viewOrEmpty as? JConvertible]) {
+            ComposeView { flow }
+        } else {
+            VStack(spacing: spacing) { content }
         }
     }
 }

@@ -81,12 +81,20 @@ struct DroidMap: View {
     let layers: [(name: String, version: Int, make: () -> String)]
     var colors: [Color] = []
 
-    var body: some View {
-        ComposeView { composer() }
+    @ViewBuilder var body: some View {
+        // A map that cannot be set up stays an empty area: `try!` here ended the whole app
+        // (a native Swift crash) when one reflective call into Kotlin failed.
+        if let map = composer() {
+            ComposeView { map }
+        } else {
+            Color.inkFill
+        }
     }
 
-    private func composer() -> any JConvertible {
-        let spec = try! AnyDynamicObject(className: "publit.module.MapSpec", arguments: [])
+    private func composer() -> (any JConvertible)? {
+        let spec: AnyDynamicObject
+        do { spec = try AnyDynamicObject(className: "publit.module.MapSpec", arguments: []) }
+        catch { logger.error("map spec: \(error)"); return nil }
         for c in colors {
             if let java = c.Java_view as? JConvertible {
                 do { try spec.color(java) as Void } catch { logger.error("map color: \(error)") }
@@ -94,9 +102,11 @@ struct DroidMap: View {
         }
         for l in layers {
             let json = AndroidMapEvents.shared.payload(mapId, l.name, version: l.version, make: l.make)
-            do { try spec.layer(l.name, Int32(l.version), json) as Void } catch { logger.error("map layer: \(error)") }
+            // Versions are counters; truncating keeps a (never expected) huge one from trapping.
+            do { try spec.layer(l.name, Int32(truncatingIfNeeded: l.version), json) as Void } catch { logger.error("map layer: \(error)") }
         }
-        return try! AnyDynamicObject(className: "publit.module.MapComposer", arguments: [mapId, MapJSON.encode(base), spec])
+        do { return try AnyDynamicObject(className: "publit.module.MapComposer", arguments: [mapId, MapJSON.encode(base), spec]) }
+        catch { logger.error("map composer: \(error)"); return nil }
     }
 }
 

@@ -1,4 +1,7 @@
 import SwiftUI
+// Android: @Observable needs SkipFuse in this file, or model changes never reach the Compose UI.
+import Observation
+import SkipFuse
 #if canImport(MapKit)
 import MapKit
 #endif
