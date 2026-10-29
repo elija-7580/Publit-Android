@@ -1,0 +1,15 @@
+<resources>
+    <string name="nearby">A közelben</string>
+    <string name="refresh">Frissítés</string>
+    <string name="waiting_location">Várakozás a helyzetedre…</string>
+    <string name="location_off">A helymeghatározás ki van kapcsolva</string>
+    <string name="no_departures">Nincs indulás a közelben</string>
+    <string name="try_again">Próbáld újra</string>
+    <string name="updated">Frissítve: %1$s</string>
+    <string name="now">most</string>
+    <string name="min">perc</string>
+    <string name="live">Élő</string>
+    <string name="cancelled">Elmarad</string>
+    <string name="allow_location">Helyzet engedélyezése</string>
+    <string name="far_note">A legközelebbi indulások %1$s távolságra vannak, gyalog kb. %2$d perc.</string>
+</resources>

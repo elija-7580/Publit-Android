@@ -1,0 +1,15 @@
+<resources>
+    <string name="nearby">V okolí</string>
+    <string name="refresh">Obnovit</string>
+    <string name="waiting_location">Čekám na vaši polohu…</string>
+    <string name="location_off">Poloha je vypnutá</string>
+    <string name="no_departures">Žádné odjezdy v okolí</string>
+    <string name="try_again">Zkusit znovu</string>
+    <string name="updated">Aktualizováno %1$s</string>
+    <string name="now">teď</string>
+    <string name="min">min</string>
+    <string name="live">Živě</string>
+    <string name="cancelled">Zrušeno</string>
+    <string name="allow_location">Povolit polohu</string>
+    <string name="far_note">Nejbližší odjezdy jsou %1$s daleko, asi %2$d min pěšky.</string>
+</resources>

@@ -1,0 +1,15 @@
+<resources>
+    <string name="nearby">Κοντά</string>
+    <string name="refresh">Ανανέωση</string>
+    <string name="waiting_location">Αναμονή για την τοποθεσία σας…</string>
+    <string name="location_off">Η τοποθεσία είναι απενεργοποιημένη</string>
+    <string name="no_departures">Καμία αναχώρηση κοντά</string>
+    <string name="try_again">Δοκιμάστε ξανά</string>
+    <string name="updated">Ενημερώθηκε %1$s</string>
+    <string name="now">τώρα</string>
+    <string name="min">λ.</string>
+    <string name="live">Ζωντανά</string>
+    <string name="cancelled">Ακυρώθηκε</string>
+    <string name="allow_location">Να επιτρέπεται η τοποθεσία</string>
+    <string name="far_note">Οι πλησιέστερες αναχωρήσεις απέχουν %1$s, περίπου %2$d λεπτά με τα πόδια.</string>
+</resources>

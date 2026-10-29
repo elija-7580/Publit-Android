@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "PublitNative"
 include(":app")
+include(":wear")

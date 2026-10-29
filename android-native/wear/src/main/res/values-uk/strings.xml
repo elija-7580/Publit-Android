@@ -1,0 +1,15 @@
+<resources>
+    <string name="nearby">Поруч</string>
+    <string name="refresh">Оновити</string>
+    <string name="waiting_location">Очікуємо вашу геопозицію…</string>
+    <string name="location_off">Геопозицію вимкнено</string>
+    <string name="no_departures">Поруч немає відправлень</string>
+    <string name="try_again">Спробувати ще раз</string>
+    <string name="updated">Оновлено %1$s</string>
+    <string name="now">зараз</string>
+    <string name="min">хв</string>
+    <string name="live">Наживо</string>
+    <string name="cancelled">Скасовано</string>
+    <string name="allow_location">Дозволити геопозицію</string>
+    <string name="far_note">Найближчі відправлення за %1$s, приблизно %2$d хв пішки.</string>
+</resources>

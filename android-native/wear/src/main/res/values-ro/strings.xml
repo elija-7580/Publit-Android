@@ -1,0 +1,15 @@
+<resources>
+    <string name="nearby">În apropiere</string>
+    <string name="refresh">Reîmprospătează</string>
+    <string name="waiting_location">Se așteaptă locația dvs.…</string>
+    <string name="location_off">Localizarea este dezactivată</string>
+    <string name="no_departures">Nicio plecare în apropiere</string>
+    <string name="try_again">Încearcă din nou</string>
+    <string name="updated">Actualizat %1$s</string>
+    <string name="now">acum</string>
+    <string name="min">min</string>
+    <string name="live">În timp real</string>
+    <string name="cancelled">Anulat</string>
+    <string name="allow_location">Permite locația</string>
+    <string name="far_note">Cele mai apropiate plecări sunt la %1$s, cam %2$d min pe jos.</string>
+</resources>
