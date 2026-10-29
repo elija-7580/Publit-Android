@@ -92,3 +92,8 @@ android {
         }
     }
 }
+
+// Regression tests for the reflection boundary used by native Swift.
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+}

@@ -10,6 +10,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /// Publit's own palette (Module.xcassets `Palette-*`) as the Material 3 colour scheme.
 ///
@@ -91,5 +92,26 @@ internal fun publitNavigationBar(options: Material3NavigationBarOptions, dark: B
             disabledIconColor = muted.copy(alpha = 0.4f),
             disabledTextColor = muted.copy(alpha = 0.4f),
         ),
+    )
+}
+
+/// Avoid Material's extra tracking; Publit's SwiftUI text uses neutral letter spacing.
+internal fun publitTypography(base: androidx.compose.material3.Typography): androidx.compose.material3.Typography {
+    return androidx.compose.material3.Typography(
+        displayLarge = base.displayLarge.copy(letterSpacing = 0.sp),
+        displayMedium = base.displayMedium.copy(letterSpacing = 0.sp),
+        displaySmall = base.displaySmall.copy(letterSpacing = 0.sp),
+        headlineLarge = base.headlineLarge.copy(letterSpacing = 0.sp),
+        headlineMedium = base.headlineMedium.copy(letterSpacing = 0.sp),
+        headlineSmall = base.headlineSmall.copy(letterSpacing = 0.sp),
+        titleLarge = base.titleLarge.copy(letterSpacing = 0.sp),
+        titleMedium = base.titleMedium.copy(letterSpacing = 0.sp),
+        titleSmall = base.titleSmall.copy(letterSpacing = 0.sp),
+        bodyLarge = base.bodyLarge.copy(letterSpacing = 0.sp),
+        bodyMedium = base.bodyMedium.copy(letterSpacing = 0.sp),
+        bodySmall = base.bodySmall.copy(letterSpacing = 0.sp),
+        labelLarge = base.labelLarge.copy(letterSpacing = 0.sp),
+        labelMedium = base.labelMedium.copy(letterSpacing = 0.sp),
+        labelSmall = base.labelSmall.copy(letterSpacing = 0.sp),
     )
 }

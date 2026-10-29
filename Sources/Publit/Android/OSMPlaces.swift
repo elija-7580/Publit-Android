@@ -8,7 +8,13 @@ import FoundationNetworking
 /// (Overpass API) for the visible area. Free-text search needs no second source here:
 /// the Transitous geocoder already finds OSM places and addresses.
 enum OSMPlaces {
-    static let endpoint = URL(string: "https://overpass-api.de/api/interpreter")!
+    // Public instances can be overloaded. Try a bounded fallback rather than silently
+    // turning one provider outage into an empty "Find nearby" result.
+    static let endpoints = [
+        URL(string: "https://overpass-api.de/api/interpreter")!,
+        URL(string: "https://maps.mail.ru/osm/tools/overpass/api/interpreter")!,
+        URL(string: "https://overpass.private.coffee/api/interpreter")!,
+    ]
 
     /// Overpass filters for each category, matching Apple's categories as closely as OSM allows.
     static func filters(_ c: PlaceCategory) -> [String] {
@@ -38,22 +44,37 @@ enum OSMPlaces {
         return "[out:json][timeout:20];(\(parts));out center 60;"
     }
 
-    static func places(in area: MKCoordinateRegion, category: PlaceCategory) async -> [GeocodeMatch] {
+    static func places(in area: MKCoordinateRegion, category: PlaceCategory) async throws -> [GeocodeMatch] {
         let dLat = min(area.span.latitudeDelta * 1.1, 0.25) / 2
         let dLon = min(area.span.longitudeDelta * 1.1, 0.35) / 2
         let c = area.center
         let q = query(category, south: c.latitude - dLat, west: c.longitude - dLon, north: c.latitude + dLat, east: c.longitude + dLon)
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 25
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.setValue(AppInfo.userAgent, forHTTPHeaderField: "User-Agent")
         var allowed = CharacterSet.alphanumerics
         allowed.insert(charactersIn: "-._*")
-        request.httpBody = ("data=" + (q.addingPercentEncoding(withAllowedCharacters: allowed) ?? q)).data(using: .utf8)
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              (response as? HTTPURLResponse)?.statusCode == 200,
-              let result = try? JSONDecoder().decode(Response.self, from: data) else { return [] }
+        let body = ("data=" + (q.addingPercentEncoding(withAllowedCharacters: allowed) ?? q)).data(using: .utf8)
+        for endpoint in endpoints {
+            try Task.checkCancellation()
+            var request = URLRequest(url: endpoint)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 15
+            request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+            request.setValue(AppInfo.userAgent, forHTTPHeaderField: "User-Agent")
+            request.httpBody = body
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                try Task.checkCancellation()
+                guard (response as? HTTPURLResponse)?.statusCode == 200,
+                      let result = try? JSONDecoder().decode(Response.self, from: data) else { continue }
+                return matches(result, category: category)
+            } catch {
+                try Task.checkCancellation()
+            }
+        }
+        // An outage is not a successful search with zero places.
+        throw URLError(.cannotConnectToHost)
+    }
+
+    private static func matches(_ result: Response, category: PlaceCategory) -> [GeocodeMatch] {
         return result.elements.prefix(60).compactMap { e in
             guard let lat = e.lat ?? e.center?.lat, let lon = e.lon ?? e.center?.lon else { return nil }
             let point = LatLon(lat: lat, lon: lon)

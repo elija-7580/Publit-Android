@@ -204,14 +204,16 @@ internal fun PresentationRootView(context: ComposeContext) {
     // Publit's palette instead of the wallpaper-derived dynamic colours (see PublitTheme.kt).
     Material3ColorScheme({ scheme, dark -> publitColorScheme(scheme, dark) }) {
         PresentationRoot(defaultColorScheme = colorScheme, context = context) { ctx ->
-            SyncSystemBarsWithTheme()
-            val contentContext = ctx.content()
-            Box(modifier = ctx.modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                AppRootView()
-                    .material3NavigationBar { options ->
-                        publitNavigationBar(options, MaterialTheme.colorScheme.background.luminance() < 0.5f)
-                    }
-                    .Compose(context = contentContext)
+            MaterialTheme(typography = publitTypography(MaterialTheme.typography)) {
+                SyncSystemBarsWithTheme()
+                val contentContext = ctx.content()
+                Box(modifier = ctx.modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    AppRootView()
+                        .material3NavigationBar { options ->
+                            publitNavigationBar(options, MaterialTheme.colorScheme.background.luminance() < 0.5f)
+                        }
+                        .Compose(context = contentContext)
+                }
             }
         }
     }

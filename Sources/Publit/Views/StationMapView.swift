@@ -323,6 +323,8 @@ struct StationMapView: View {
     @State var categoryVersion = 0
     @State var categorySearchedIn: MKCoordinateRegion?
     @State var categoryLoading = false
+    @State var categoryFailed = false
+    @State var categoryRequest = 0
     @State var region: MKCoordinateRegion?
     @AppStorage("mapModes") var storedModes = ""
     @AppStorage("mapStations") var showStations = true
@@ -485,6 +487,8 @@ struct StationMapView: View {
                 Text(c.title).font(.subheadline.weight(.semibold)).lineLimit(1)
                 if categoryLoading {
                     ProgressView().controlSize(.mini)
+                } else if categoryFailed {
+                    Image(systemName: "exclamationmark.triangle").foregroundStyle(.secondary)
                 } else {
                     Text(verbatim: "\(categoryHits.count)").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
                 }
@@ -498,9 +502,9 @@ struct StationMapView: View {
             .padding(.leading, 6).padding(.trailing, 4).padding(.vertical, 4)
             .matteSurface(in: Capsule())
             .mapShadow()
-            if movedSinceCategorySearch {
+            if movedSinceCategorySearch || categoryFailed {
                 Button { browse(c) } label: {
-                    Label("Search this area", systemImage: "arrow.clockwise")
+                    Label(categoryFailed ? L10n.t("Try again") : L10n.t("Search this area"), systemImage: "arrow.clockwise")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.ink)
                         .floatingCapsule()
@@ -615,26 +619,39 @@ struct StationMapView: View {
                                                 latitudinalMeters: 2500, longitudinalMeters: 2500)
         categorySearchedIn = area
         categoryLoading = true
+        categoryFailed = false
+        categoryHits = []
+        categoryVersion += 1
+        categoryRequest += 1
+        let request = categoryRequest
         Task {
-            let hits = await Self.applePlaces(in: area, category: c)
-            guard category == c else { return }
-            categoryHits = hits
-            categoryVersion += 1
-            categoryLoading = false
+            do {
+                let hits = try await Self.applePlaces(in: area, category: c)
+                guard categoryRequest == request, category == c else { return }
+                categoryHits = hits
+                categoryVersion += 1
+                categoryLoading = false
+            } catch {
+                guard categoryRequest == request, category == c else { return }
+                categoryLoading = false
+                categoryFailed = !(error is CancellationError)
+            }
         }
     }
 
     private func clearCategory() {
+        categoryRequest += 1
         category = nil
         categoryHits = []
         categoryVersion += 1
         categorySearchedIn = nil
         categoryLoading = false
+        categoryFailed = false
     }
 
     #if canImport(MapKit)
     /// Apple's points of interest of one kind in an area (a little larger than the screen, at most ~25 km).
-    private static func applePlaces(in area: MKCoordinateRegion, category: PlaceCategory) async -> [GeocodeMatch] {
+    private static func applePlaces(in area: MKCoordinateRegion, category: PlaceCategory) async throws -> [GeocodeMatch] {
         var r = area
         r.span = MKCoordinateSpan(latitudeDelta: min(area.span.latitudeDelta * 1.1, 0.25),
                                   longitudeDelta: min(area.span.longitudeDelta * 1.1, 0.35))
@@ -662,8 +679,8 @@ struct StationMapView: View {
     }
     #else
     /// Android: the places of one kind from OpenStreetMap in the same area.
-    private static func applePlaces(in area: MKCoordinateRegion, category: PlaceCategory) async -> [GeocodeMatch] {
-        await OSMPlaces.places(in: area, category: category)
+    private static func applePlaces(in area: MKCoordinateRegion, category: PlaceCategory) async throws -> [GeocodeMatch] {
+        try await OSMPlaces.places(in: area, category: category)
     }
     #endif
 

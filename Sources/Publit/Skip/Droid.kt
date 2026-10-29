@@ -22,7 +22,11 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Tram
 
-object Droid {
+// SkipBridge Reflector resolves a class's companionObjectInstance, not a Kotlin object's
+// INSTANCE. @JvmStatic alone does not put object members into KClass.staticFunctions.
+// Keep the services in a companion so both Swift reflection and Kotlin Droid.foo() work.
+class Droid private constructor() {
+    companion object {
     const val LOCATION_REQUEST = 7580
 
     @JvmStatic fun context(): Context = skip.foundation.ProcessInfo.processInfo.androidContext
@@ -430,4 +434,5 @@ object Droid {
         }
         try { androidx.core.content.pm.ShortcutManagerCompat.setDynamicShortcuts(ctx, shortcuts) } catch (e: Exception) {}
     }
+}
 }

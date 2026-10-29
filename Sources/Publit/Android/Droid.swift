@@ -2,7 +2,7 @@
 import Foundation
 import SkipFuse
 
-/// Calls into the app's Kotlin side (`Sources/Publit/Skip/Droid.kt`, object `publit.module.Droid`):
+/// Calls into the app's Kotlin side (`Sources/Publit/Skip/Droid.kt`, companion of `publit.module.Droid`):
 /// Android services the iOS frameworks provided (location, notifications, speech, calendar, sharing …).
 /// Values cross as simple types or JSON strings.
 enum Droid {
