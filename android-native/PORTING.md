@@ -30,7 +30,7 @@ Two test APKs per release: arm64 (`Publit-native.apk`) and 32-bit ARM (`Publit-n
 | 5 | Itinerary detail + trip view | ItineraryDetailView, TripView, TripStatus | done (trip view: stops, live progress, route here/from here; map follows in 6, save line in 7) |
 | 6 | Map (MapLibre) + station map | Views/Map, StationMapView, MapLayers | done (MapLibre/OpenFreeMap: trip + route map, station map with search and mode filter; open: live vehicles, line shapes, sharing, layers sheet, category search) |
 | 7 | Saved places/lines/trips, settings, onboarding | FavoritesView, FavoritesStore, SettingsView, OnboardingView | done (Home/Work, saved stops/places/lines, save stop + save line, line departures, settings: start screen/data/about, onboarding; open: saved trips (TripStore, SavedTripView), settings for map/route options/notifications/diagnostics as their features arrive) |
-| 8 | Live trip, notifications, reminders | LiveTripView, Notifications/* | open |
+| 8 | Live trip, notifications, reminders | LiveTripView, Notifications/* | in progress (WIP, not yet wired into the UI or built: TripStore, TripNotifications, TripActions) |
 | 9 | Live sources overlay, offline cache | LiveSources*, ResponseCache | open |
 | 10 | Tickets (optional), widget, Wear OS | Tickets/*, DroidWidget.kt | open |
 | 11 | Switch app ID to `io.github.elija7580.publit`, release signing, remove Skip port | – | open |

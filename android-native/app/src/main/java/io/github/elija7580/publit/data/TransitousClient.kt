@@ -72,6 +72,11 @@ class TransitousClient(
         json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(MapStop.serializer()),
             get("/api/v6/map/stops", listOf("min" to min.apiValue, "max" to max.apiValue, "zoom" to zoom.toString()), 3600))
 
+    /** New live times for a planned route (refresh-itinerary). */
+    suspend fun refresh(itineraryId: String): Itinerary =
+        json.decodeFromString(Itinerary.serializer(), get("/api/v6/refresh-itinerary",
+            listOf("itineraryId" to itineraryId, "withFares" to "false"), 0))
+
     /** One vehicle's whole trip, with live stop times. */
     suspend fun trip(id: String): Itinerary =
         json.decodeFromString(Itinerary.serializer(), get("/api/v6/trip", listOf("tripId" to id), 15))

@@ -70,7 +70,7 @@ import java.time.ZoneId
 private enum class Field { FROM, TO }
 
 @Composable
-fun PlanScreen(vm: PlanViewModel) {
+fun PlanScreen(vm: PlanViewModel, actions: @Composable (Itinerary, String, String) -> Unit = { _, _, _ -> }) {
     val state by vm.state.collectAsStateWithLifecycle()
     var searching by remember { mutableStateOf<Field?>(null) }
     val opened = state.opened
@@ -79,7 +79,7 @@ fun PlanScreen(vm: PlanViewModel) {
             if (searching == Field.FROM) vm.setFrom(e) else vm.setTo(e)
             searching = null
         }
-        opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened) { vm.open(null) } }
+        opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }) { actions(opened, state.from.title, state.to?.title ?: "") } }
         else -> PlanForm(state, vm, onPick = { searching = it })
     }
 }
@@ -191,16 +191,18 @@ private fun LegBadge(leg: Leg) {
 }
 
 @Composable
-private fun ItineraryDetail(it: Itinerary, onBack: () -> Unit) {
+fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, top: @Composable () -> Unit = {}) {
     val ink = LocalInk.current
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
+                if (title != null) Text(title, fontWeight = FontWeight.Bold, fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) else
                 Text(Fmt.time(it.startTime, it.legs.firstOrNull()?.from?.tz) + " – " + Fmt.time(it.endTime, it.legs.lastOrNull()?.to?.tz) + " · " + Fmt.duration(it.duration),
                     fontWeight = FontWeight.Bold, fontSize = 20.sp)
             }
         }
+        item("top") { top() }
         item("map") {
             var full by remember { mutableStateOf(false) }
             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {

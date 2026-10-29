@@ -16,6 +16,7 @@ class PublitApplication : Application() {
     lateinit var client: TransitousClient
     lateinit var location: LocationRepository
     lateinit var crashLog: CrashLog
+    val trips by lazy { io.github.elija7580.publit.data.TripStore(filesDir) }
     val favorites by lazy { io.github.elija7580.publit.data.FavoritesStore(getSharedPreferences("publit", MODE_PRIVATE)) }
 
     override fun onCreate() {
@@ -23,6 +24,7 @@ class PublitApplication : Application() {
         crashLog = CrashLog(this).also { it.install() }
         runCatching { version()?.let { BuildConfigInfo.version = it } }
         runCatching { loadStrings() }
+        runCatching { io.github.elija7580.publit.notify.TripNotifications.channels(this) }
         Fmt.timePattern = if (DateFormat.is24HourFormat(this)) "HH:mm" else "h:mm a"
         client = TransitousClient(cacheDir = cacheDir)
         location = LocationRepository(this)
