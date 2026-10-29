@@ -64,7 +64,8 @@ import java.time.Instant
 /** The Saved tab (FavoritesView on iOS): Home and Work, lines, stops, places. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun SavedScreen(store: FavoritesStore, onRoute: (SavedPlace) -> Unit, onOpenStop: (SavedPlace) -> Unit,
+fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.TripStore, onOpenTrip: (String) -> Unit, onPastTrips: () -> Unit,
+                onRoute: (SavedPlace) -> Unit, onOpenStop: (SavedPlace) -> Unit,
                 onOpenLine: (SavedLine) -> Unit, onSearch: (title: String, (SavedPlace) -> Unit) -> Unit, onSettings: () -> Unit) {
     val ink = LocalInk.current
     val s by store.state.collectAsStateWithLifecycle()
@@ -98,6 +99,23 @@ fun SavedScreen(store: FavoritesStore, onRoute: (SavedPlace) -> Unit, onOpenStop
                     }
                 }
             }
+        }
+        item("trips") {
+            val ts by trips.state.collectAsStateWithLifecycle()
+            val upcoming = remember(ts) { trips.upcoming() }
+            val past = remember(ts) { trips.past() }
+            Section(L10n.t("Upcoming trips")) {
+                upcoming.forEachIndexed { i, t ->
+                    if (i > 0) Divider()
+                    RemovableRow(onClick = { onOpenTrip(t.id) }, onRemove = { trips.remove(t.id) }) { SavedTripRow(t) }
+                }
+                if (past.isNotEmpty()) {
+                    if (upcoming.isNotEmpty()) Divider()
+                    Text(L10n.t("Past trips"), fontSize = 16.sp, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onPastTrips).padding(16.dp))
+                }
+            }
+            if (upcoming.isEmpty()) Text(L10n.t("Save a route to see it here, add it to your calendar and get a reminder when to leave."),
+                color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 6.dp))
         }
         if (s.lines.isNotEmpty()) item("lines") {
             Section(L10n.t("Lines")) {
@@ -233,6 +251,32 @@ fun LineDeparturesScreen(client: TransitousClient, line: SavedLine, onBack: () -
                         departures.forEachIndexed { i, st ->
                             if (i > 0) Divider()
                             DepartureRow(st, now) { onOpenTrip(st) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Trips that are over, newest first (PastTripsView on iOS). */
+@Composable
+fun PastTripsScreen(trips: io.github.elija7580.publit.data.TripStore, onBack: () -> Unit, onOpenTrip: (String) -> Unit) {
+    val ink = LocalInk.current
+    val ts by trips.state.collectAsStateWithLifecycle()
+    val past = remember(ts) { trips.past().take(50) }
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, L10n.t("Back")) }
+            Text(L10n.t("Past trips"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+        }
+        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+            item {
+                Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+                    Column {
+                        past.forEachIndexed { i, t ->
+                            if (i > 0) Divider()
+                            RemovableRow(onClick = { onOpenTrip(t.id) }, onRemove = { trips.remove(t.id) }) { SavedTripRow(t, faded = true) }
                         }
                     }
                 }

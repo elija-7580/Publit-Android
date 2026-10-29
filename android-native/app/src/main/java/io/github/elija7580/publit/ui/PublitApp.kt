@@ -66,7 +66,8 @@ import java.time.Instant
 
 @Composable
 fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7580.publit.data.TransitousClient,
-              favorites: io.github.elija7580.publit.data.FavoritesStore, prefs: android.content.SharedPreferences, crashReport: String?) {
+              favorites: io.github.elija7580.publit.data.FavoritesStore, prefs: android.content.SharedPreferences, trips: io.github.elija7580.publit.data.TripStore,
+              openTrip: kotlinx.coroutines.flow.MutableStateFlow<String?>, crashReport: String?) {
     PublitTheme {
         val ink = LocalInk.current
         val nav = androidx.navigation.compose.rememberNavController()
@@ -77,6 +78,8 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         var onboarding by remember { mutableStateOf(!prefs.getBoolean(ONBOARDING_DONE_KEY, false)) }
         val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { vm.permissionResult() }
         LaunchedEffect(Unit) { if (prefs.getString(START_TAB_KEY, "nearby") == "plan") nav.navigate("plan") { popUpTo("nearby") { saveState = true }; launchSingleTop = true } }
+        val tripLink by openTrip.collectAsStateWithLifecycle()
+        LaunchedEffect(tripLink) { tripLink?.let { id -> openTrip.value = null; nav.navigate("savedtrip?id=$id") { launchSingleTop = true } } }
         var tripTarget by remember { mutableStateOf<TripTarget?>(null) }
         val openTrip = { t: TripTarget -> tripTarget = t; nav.navigate("trip") }
         val tabs = listOf(
@@ -90,7 +93,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
             bottomBar = {
                 androidx.compose.material3.NavigationBar(containerColor = ink.surface, tonalElevation = 0.dp) {
                     tabs.forEach { (r, title, icon) ->
-                        val selected = route == r || (r == "nearby" && (route.startsWith("stop") || route == "trip" || route == "stationmap")) || (r == "saved" && (route == "line" || route == "settings"))
+                        val selected = route == r || (r == "nearby" && (route.startsWith("stop") || route == "trip" || route == "stationmap")) || (r == "saved" && (route == "line" || route == "settings" || route == "pasttrips" || route.startsWith("savedtrip")))
                         NavigationBarItem(
                             selected = selected,
                             onClick = { if (!selected || route != r) nav.navigate(r) { popUpTo("nearby") { saveState = true }; launchSingleTop = true; restoreState = true } },
@@ -126,12 +129,20 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                         nav.navigate("plan") { popUpTo("nearby"); launchSingleTop = true }
                     }
                 }
-                composable("plan") { PlanScreen(plan) }
+                composable("plan") {
+                    PlanScreen(plan) { it, from, to -> TripActions(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
+                }
+                composable("savedtrip?id={id}") { e ->
+                    SavedTripScreen(client, trips, e.arguments?.getString("id").orEmpty()) { nav.popBackStack() }
+                }
+                composable("pasttrips") {
+                    PastTripsScreen(trips, onBack = { nav.popBackStack() }) { id -> nav.navigate("savedtrip?id=$id") }
+                }
                 composable("saved") {
                     val pick = pickFor
                     if (pick != null) PlaceSearch(plan, allowHere = false, onBack = { pickFor = null },
                         onMatch = { m -> pick.second(io.github.elija7580.publit.data.SavedPlace.of(m)); pickFor = null }) { }
-                    else SavedScreen(favorites,
+                    else SavedScreen(favorites, trips, onOpenTrip = { id -> nav.navigate("savedtrip?id=$id") }, onPastTrips = { nav.navigate("pasttrips") },
                         onRoute = { p -> plan.route(Endpoint.Here, Endpoint.At(p.name, p.coordinate)); nav.navigate("plan") { popUpTo("nearby"); launchSingleTop = true } },
                         onOpenStop = { p -> nav.navigate("stop?id=${Uri.encode(p.stopId ?: p.id)}&name=${Uri.encode(p.name)}&exact=${p.exact == true}") },
                         onOpenLine = { l -> savedLine = l; nav.navigate("line") },
