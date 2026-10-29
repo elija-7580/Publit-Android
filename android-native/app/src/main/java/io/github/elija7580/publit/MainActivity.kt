@@ -1,6 +1,8 @@
 package io.github.elija7580.publit
 
 import android.os.Bundle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -52,6 +54,7 @@ class MainActivity : ComponentActivity() {
         val crash = if (savedInstanceState == null) app.crashLog.take() else null
         intent?.getStringExtra(io.github.elija7580.publit.notify.TripNotifications.EXTRA_TRIP)?.let { openTrip.value = it }
         stopLink(intent)?.let { openTrip.value = it }
+        lifecycleScope.launch { runCatching { io.github.elija7580.publit.notify.LineAlerts.check(app); io.github.elija7580.publit.notify.LineAlerts.schedule(app) } }
         setContent { PublitApp(nearby, plan, app.client, app.favorites, getSharedPreferences("publit", MODE_PRIVATE), app.trips, app.passes, openTrip, crash) }
     }
 }

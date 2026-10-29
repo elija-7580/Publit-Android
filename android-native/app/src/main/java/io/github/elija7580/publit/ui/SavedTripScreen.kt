@@ -1,5 +1,8 @@
 package io.github.elija7580.publit.ui
 
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -86,7 +89,7 @@ fun SavedTripScreen(client: TransitousClient, store: TripStore, tripId: String, 
         }
         return
     }
-    if (state.activeId == tripId) { LiveTripScreen(store, trip, error, onBack); return }
+    if (state.activeId == tripId) { LiveTripScreen(client, store, trip, error, onBack); return }
     ItineraryDetail(trip.itinerary, onBack, title = trip.toName) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             OfflineNote(client)
@@ -115,28 +118,76 @@ private fun StatusCard(trip: SavedTrip, error: String?) {
     }
 }
 
-/** A started trip, step by step (LiveTripView on iOS, condensed): status, current ride, stops left, map. */
+/** A started trip, step by step (LiveTripView on iOS): stage, cues (vibration, spoken directions), current ride, alternatives. */
 @Composable
-fun LiveTripScreen(store: TripStore, trip: SavedTrip, error: String?, onBack: () -> Unit) {
+fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, error: String?, onBack: () -> Unit) {
     val ink = LocalInk.current
     val ctx = LocalContext.current
+    val app = ctx.applicationContext as io.github.elija7580.publit.PublitApplication
+    val prefs = remember { ctx.getSharedPreferences("publit", android.content.Context.MODE_PRIVATE) }
+    var voice by remember { mutableStateOf(prefs.getBoolean("guideVoice", false)) }
     val now by produceState(Instant.now()) { while (true) { value = Instant.now(); delay(5_000) } }
+    // Position only while this screen is in front.
+    var fix by remember { mutableStateOf<io.github.elija7580.publit.location.Fix?>(null) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(Unit) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            if (app.location.access() != io.github.elija7580.publit.location.LocationAccess.NOT_ASKED) app.location.fixes.collect { fix = it }
+        }
+    }
+    DisposableEffect(Unit) { onDispose { io.github.elija7580.publit.notify.GuideVoice.stop() } }
     val it = trip.itinerary
+    val here = fix?.coordinate
+    val steps = remember(it) { io.github.elija7580.publit.data.TripGuide.steps(it) }
+    val k = io.github.elija7580.publit.data.TripGuide.current(steps, it, now, here)
+    val step = steps.getOrNull(k)
     val s = TripStatus.at(now, it)
-    val legIndex = it.legs.indexOfFirst { l -> now < l.endTime }.let { i -> if (i < 0) it.legs.lastIndex else i }
+    val legIndex = step?.legIndex ?: it.legs.lastIndex
+    val leg = it.legs.getOrNull(legIndex)
+    val progress = if (leg != null && leg.isTransit) TripProgress.at(now, leg.allStops) else null
+    val check = step?.let { st -> io.github.elija7580.publit.data.TripGuide.check(st, it, now, here, fix?.accuracy?.toDouble() ?: 50.0) } ?: io.github.elija7580.publit.data.TripGuide.Check.FINE
+    val risk = io.github.elija7580.publit.data.SmartRouting.changeAtRisk(it, now)
+    // Each cue once: a short vibration, and the words when spoken directions are on.
+    val announced = remember { HashSet<String>() }
+    val cue = step?.let { st -> io.github.elija7580.publit.data.TripGuide.cue(st, it, now, progress) }
+    LaunchedEffect(cue?.key) {
+        val c = cue ?: return@LaunchedEffect
+        if (!announced.add(c.key)) return@LaunchedEffect
+        if (announced.size > 1) runCatching {
+            val v = ctx.getSystemService(android.os.Vibrator::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= 26) v?.vibrate(android.os.VibrationEffect.createOneShot(if (c.kind == io.github.elija7580.publit.data.GuideCue.Kind.GET_OFF) 400 else 150, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+        }
+        if (voice) io.github.elija7580.publit.notify.GuideVoice.say(ctx, c.text)
+    }
+    val wrong = when {
+        check == io.github.elija7580.publit.data.TripGuide.Check.OFF_ROUTE -> L10n.t("You seem to be off the route.")
+        check == io.github.elija7580.publit.data.TripGuide.Check.MISSED -> L10n.t("Missed it?")
+        it.isCancelled && it.endTime > now -> L10n.t("Connection cancelled")
+        risk != null -> L10n.f("Your change at %@ may not work (%lld %%).", risk.stopName, risk.percent) +
+            (io.github.elija7580.publit.data.SmartRouting.backup(risk.outgoing)?.let { b -> " " + L10n.f("Backup: %@ at %@", b.leg.lineName, Fmt.time(b.leg.startTime, b.leg.from.tz)) } ?: "")
+        else -> null
+    }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, L10n.t("Back")) }
-                Text(trip.toName, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(trip.toName, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                IconButton(onClick = {
+                    voice = !voice; prefs.edit().putBoolean("guideVoice", voice).apply()
+                    if (!voice) io.github.elija7580.publit.notify.GuideVoice.stop() else cue?.let { c -> io.github.elija7580.publit.notify.GuideVoice.say(ctx, c.text) }
+                }) {
+                    Icon(if (voice) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                        L10n.t(if (voice) "Turn off spoken directions" else "Turn on spoken directions"))
+                }
             }
         }
+        if (wrong != null) item("wrong") { AlternativesCard(client, store, trip, wrong, here) }
         item {
             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
                 Column {
                     RouteMap(it, Modifier.fillMaxWidth().height(220.dp))
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(s.headline, fontWeight = FontWeight.Bold, fontSize = 22.sp,
+                        Text(cue?.text ?: s.headline, fontWeight = FontWeight.Bold, fontSize = 22.sp,
                             color = if (s.phase == TripStatus.Phase.CANCELLED) ink.danger else ink.ink)
                         if (s.detail.isNotEmpty()) Text(s.detail, color = ink.muted, fontSize = 15.sp)
                         when {
@@ -149,18 +200,15 @@ fun LiveTripScreen(store: TripStore, trip: SavedTrip, error: String?, onBack: ()
                 }
             }
         }
-        val leg = it.legs.getOrNull(legIndex)
-        if (leg != null && leg.isTransit && s.phase == TripStatus.Phase.RIDING) item {
+        if (leg != null && leg.isTransit && step?.kind == io.github.elija7580.publit.data.GuideStep.Kind.RIDE && progress != null) item {
             val stops = leg.allStops
-            val progress = TripProgress.at(now, stops)
             val next = TripProgress.nextStopIndex(progress, stops.size)
             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
                 Column(Modifier.padding(vertical = 8.dp)) {
                     Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         LineBadge(leg); Spacer(Modifier.width(8.dp))
-                        val left = next?.let { n -> stops.size - 1 - n } ?: 0
-                        Text(if (left == 0) L10n.t("Next stop") else L10n.f("in %@", if (left == 1) L10n.t("1 stop") else L10n.f("%lld stops", left)),
-                            fontWeight = FontWeight.SemiBold)
+                        val left = io.github.elija7580.publit.data.TripGuide.stopsLeft(progress, stops.size)
+                        Text(if (left <= 1) L10n.t("Next stop") else L10n.f("in %@", L10n.f("%lld stops", left)), fontWeight = FontWeight.SemiBold)
                     }
                     stops.forEachIndexed { i, p ->
                         if (next != null && i < next) return@forEachIndexed
@@ -206,6 +254,53 @@ fun LiveTripScreen(store: TripStore, trip: SavedTrip, error: String?, onBack: ()
         }
     }
 }
+
+/** Missed, off the path or cancelled: the next connections from where you are, to switch in one tap. */
+@Composable
+private fun AlternativesCard(client: TransitousClient, store: TripStore, trip: SavedTrip, message: String, here: io.github.elija7580.publit.core.LatLon?) {
+    val ink = LocalInk.current
+    val ctx = LocalContext.current
+    var options by remember { mutableStateOf<List<io.github.elija7580.publit.data.Itinerary>?>(null) }
+    var showAll by remember { mutableStateOf(false) }
+    val dest = trip.itinerary.legs.lastOrNull()?.to
+    LaunchedEffect(here == null, trip.id) {
+        val from = here ?: return@LaunchedEffect
+        if (dest == null) return@LaunchedEffect
+        options = runCatching { client.plan(from, dest.coordinate, null, false).itineraries.filter { o -> !o.isCancelled } }.getOrDefault(emptyList())
+    }
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(message, fontWeight = FontWeight.SemiBold, color = ink.delay)
+            Text(L10n.f("Your trip: arrive %@", Fmt.time(trip.itinerary.endTime, dest?.tz)), color = ink.muted, fontSize = 13.sp)
+            val list = options
+            when {
+                here == null -> {}
+                list == null -> Text(L10n.t("Looking for the next connection…"), color = ink.muted, fontSize = 13.sp)
+                list.isEmpty() -> Text(L10n.t("No other connection found right now."), color = ink.muted, fontSize = 13.sp)
+                else -> {
+                    (if (showAll) list.take(5) else list.take(1)).forEach { o ->
+                        val first = o.transitLegs.firstOrNull()
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(first?.let { f -> f.lineName + " · " + Fmt.time(f.startTime, f.from.tz) } ?: L10n.t("Walk"), fontWeight = FontWeight.SemiBold)
+                                Text(listOfNotNull(first?.from?.name, L10n.f("Arrive %@", Fmt.time(o.endTime, o.legs.lastOrNull()?.to?.tz))).joinToString(" · "), color = ink.muted, fontSize = 13.sp)
+                            }
+                            androidx.compose.material3.TextButton({
+                                TripNotifications_cancel(ctx, trip)
+                                store.reroute(trip.id, o, L10n.t("Current location"))
+                                store.trip(trip.id)?.let { t -> TripSession.start(ctx, store, t) }
+                            }) { Text(L10n.t("Switch"), fontWeight = FontWeight.SemiBold, color = ink.ink) }
+                        }
+                    }
+                    if (list.size > 1) androidx.compose.material3.TextButton({ showAll = !showAll }) { Text(L10n.t(if (showAll) "Fewer connections" else "Other connections"), color = ink.ink) }
+                }
+            }
+        }
+    }
+}
+
+private fun TripNotifications_cancel(ctx: android.content.Context, trip: SavedTrip) =
+    io.github.elija7580.publit.notify.TripNotifications.cancelGetOff(ctx, trip.itinerary)
 
 /** One saved trip in a list (SavedTripRow on iOS). */
 @Composable

@@ -115,6 +115,20 @@ fun SettingsScreen(prefs: SharedPreferences, onBack: () -> Unit) {
             }
             item { Box(Modifier.padding(horizontal = 12.dp)) { SmartRoutingSettings() } }
             item {
+                var alerts by remember { mutableStateOf(io.github.elija7580.publit.notify.LineAlerts.enabled(context)) }
+                val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok ->
+                    alerts = ok; io.github.elija7580.publit.notify.LineAlerts.setEnabled(context, ok)
+                }
+                Box(Modifier.padding(horizontal = 12.dp)) {
+                    OptionGroup(L10n.t("Notifications"), L10n.t("Publit checks your saved lines when you open it and from time to time in the background (iOS decides when), and tells you about alerts and cancelled departures.").replace(" (iOS decides when)", "")) {
+                        SwitchRow(L10n.t("Disruptions on saved lines"), alerts) { on ->
+                            if (on && android.os.Build.VERSION.SDK_INT >= 33 && !io.github.elija7580.publit.notify.TripNotifications.allowed(context)) ask.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                            else { alerts = on; io.github.elija7580.publit.notify.LineAlerts.setEnabled(context, on) }
+                        }
+                    }
+                }
+            }
+            item {
                 Group(L10n.t("Data"), footer = listOf(
                     L10n.t("Times marked live come from the operator's real-time feed; all others are timetable times."),
                     L10n.t("All information without guarantee. Times, platforms and prices come from the operators' open data and can change at short notice."))) {

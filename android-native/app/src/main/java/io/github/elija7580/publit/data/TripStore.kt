@@ -100,6 +100,10 @@ class TripStore(dir: File) {
     /** Replace the stored route with a fresh real-time version. */
     fun update(id: String, with: Itinerary) = set(trips.map { if (it.id == id) it.copy(itinerary = with, refreshedAt = Instant.now()) else it })
 
+    /** A new connection for a trip under way (missed, cancelled, off the path): same trip, new route from where you are. */
+    fun reroute(id: String, with: Itinerary, from: String) =
+        set(trips.map { if (it.id == id) it.copy(itinerary = with, fromName = from, refreshedAt = Instant.now()) else it })
+
     private fun set(list: List<SavedTrip>) {
         _state.value = _state.value.copy(trips = list)
         runCatching {

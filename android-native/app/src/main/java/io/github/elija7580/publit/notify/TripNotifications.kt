@@ -198,6 +198,7 @@ class BootReceiver : BroadcastReceiver() {
             }
             app.trips.activeTrip?.let { TripNotifications.scheduleGetOff(context, it.itinerary, it.id) }
             TripNotifications.liveTick(context)
+            LineAlerts.schedule(context)
         }
     }
 }
