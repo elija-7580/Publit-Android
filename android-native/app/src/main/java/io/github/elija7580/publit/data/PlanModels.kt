@@ -35,6 +35,8 @@ data class Leg(
     val intermediateStops: List<Place>? = null,
     val alerts: List<Alert>? = null,
     val legGeometry: EncodedPolyline? = null,
+    /** Extra live source that corrected this ride ("ÖBB"). */
+    val liveSource: String? = null,
 ) : RouteStyled {
     val isTransit: Boolean get() = ModeStyle.isTransit(mode)
     val allStops: List<Place> get() = listOf(from) + intermediateStops.orEmpty() + listOf(to)

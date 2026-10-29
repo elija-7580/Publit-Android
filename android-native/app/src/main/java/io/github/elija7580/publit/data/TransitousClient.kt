@@ -36,7 +36,7 @@ class TransitousClient(
         val body = get("/api/v6/stoptimes", q, maxAgeSeconds = 20)
         val res = json.decodeFromString(StopTimesResponse.serializer(), body)
         if (res.stopTimes.isNotEmpty()) saveLastNearby(body, near, modes)
-        return res
+        return res.copy(stopTimes = io.github.elija7580.publit.live.LiveOverlay.applyStopTimes(res.stopTimes))
     }
 
     /** Departures at a stop; `radius` also includes the other platforms of the station. */
@@ -44,7 +44,8 @@ class TransitousClient(
         val q = mutableListOf("stopId" to stopId, "n" to count.toString(), "withAlerts" to "true")
         radius?.let { q += "radius" to it.toString() }
         modes?.let { q += "mode" to it }
-        return json.decodeFromString(StopTimesResponse.serializer(), get("/api/v6/stoptimes", q, maxAgeSeconds = 15))
+        val res = json.decodeFromString(StopTimesResponse.serializer(), get("/api/v6/stoptimes", q, maxAgeSeconds = 15))
+        return res.copy(stopTimes = io.github.elija7580.publit.live.LiveOverlay.applyStopTimes(res.stopTimes))
     }
 
     /** Places and stops for a search text, nearby ones first. */
@@ -64,7 +65,8 @@ class TransitousClient(
         )
         time?.let { q += "time" to it.toString() }
         pageCursor?.let { q += "pageCursor" to it }
-        return json.decodeFromString(PlanResponse.serializer(), get("/api/v6/plan", q, if (time == null) 20 else 60))
+        val res = json.decodeFromString(PlanResponse.serializer(), get("/api/v6/plan", q, if (time == null) 20 else 60))
+        return res.copy(itineraries = io.github.elija7580.publit.live.LiveOverlay.apply(res.itineraries))
     }
 
     /** Stops in a box, for the station map. */
@@ -74,8 +76,8 @@ class TransitousClient(
 
     /** New live times for a planned route (refresh-itinerary). */
     suspend fun refresh(itineraryId: String): Itinerary =
-        json.decodeFromString(Itinerary.serializer(), get("/api/v6/refresh-itinerary",
-            listOf("itineraryId" to itineraryId, "withFares" to "false"), 0))
+        io.github.elija7580.publit.live.LiveOverlay.apply(json.decodeFromString(Itinerary.serializer(), get("/api/v6/refresh-itinerary",
+            listOf("itineraryId" to itineraryId, "withFares" to "false"), 0)), budget = 3000)
 
     /** One vehicle's whole trip, with live stop times. */
     suspend fun trip(id: String): Itinerary =

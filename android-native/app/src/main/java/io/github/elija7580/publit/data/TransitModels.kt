@@ -103,6 +103,7 @@ data class StopTime(
     val tripCancelled: Boolean? = null,
     val directionId: String? = null,
     val tripTo: SegmentStop? = null,
+    val liveSource: String? = null,
 ) : RouteStyled {
     val departureTime: Instant get() = place.departure ?: place.arrival ?: Instant.EPOCH
     val scheduledDepartureTime: Instant? get() = place.scheduledDeparture ?: place.scheduledArrival

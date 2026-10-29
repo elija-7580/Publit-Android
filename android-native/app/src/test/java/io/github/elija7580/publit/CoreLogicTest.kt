@@ -125,4 +125,12 @@ class CoreLogicTest {
         assertEquals(38.5, pts[0].lat, 1e-6); assertEquals(-120.2, pts[0].lon, 1e-6)
         assertEquals(43.252, pts[2].lat, 1e-6)
     }
+
+    @Test fun liveMatching() {
+        assertEquals("404", io.github.elija7580.publit.live.LiveMatch.key("Bus 404"))
+        assertEquals("s4", io.github.elija7580.publit.live.LiveMatch.key("S 4 (Zug-Nr. 5197)"))
+        assertTrue(io.github.elija7580.publit.live.LiveMatch.sameLine(listOf("REX 7 2345"), listOf("REX 2345")))
+        assertEquals("60201198", io.github.elija7580.publit.live.WienerLinienSource.diva("at:49:1198"))
+        assertEquals("de:05113:9289", io.github.elija7580.publit.live.dhid("de:05113:9289_G"))
+    }
 }
