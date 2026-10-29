@@ -187,6 +187,21 @@ object TripNotifications {
     }
 }
 
+/** After a restart (or an app update) alarms are gone: set them again from the saved trips. */
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        runCatching {
+            val app = context.applicationContext as? PublitApplication ?: return
+            val now = Instant.now()
+            for (t in app.trips.upcoming(now)) {
+                if (t.followLive == true && t.startTime.isAfter(now.plusSeconds(30))) TripNotifications.scheduleLeave(context, t)
+            }
+            app.trips.activeTrip?.let { TripNotifications.scheduleGetOff(context, it.itinerary, it.id) }
+            TripNotifications.liveTick(context)
+        }
+    }
+}
+
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         runCatching {
