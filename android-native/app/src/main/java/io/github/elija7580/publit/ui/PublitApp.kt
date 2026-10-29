@@ -66,7 +66,7 @@ import java.time.Instant
 
 @Composable
 fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7580.publit.data.TransitousClient,
-              favorites: io.github.elija7580.publit.data.FavoritesStore, crashReport: String?) {
+              favorites: io.github.elija7580.publit.data.FavoritesStore, prefs: android.content.SharedPreferences, crashReport: String?) {
     PublitTheme {
         val ink = LocalInk.current
         val nav = androidx.navigation.compose.rememberNavController()
@@ -74,6 +74,9 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         val route = entry?.destination?.route ?: "nearby"
         var savedLine by remember { mutableStateOf<io.github.elija7580.publit.data.SavedLine?>(null) }
         var pickFor by remember { mutableStateOf<Pair<String, (io.github.elija7580.publit.data.SavedPlace) -> Unit>?>(null) }
+        var onboarding by remember { mutableStateOf(!prefs.getBoolean(ONBOARDING_DONE_KEY, false)) }
+        val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { vm.permissionResult() }
+        LaunchedEffect(Unit) { if (prefs.getString(START_TAB_KEY, "nearby") == "plan") nav.navigate("plan") { popUpTo("nearby") { saveState = true }; launchSingleTop = true } }
         var tripTarget by remember { mutableStateOf<TripTarget?>(null) }
         val openTrip = { t: TripTarget -> tripTarget = t; nav.navigate("trip") }
         val tabs = listOf(
@@ -140,19 +143,19 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                     if (l == null) LaunchedEffect(Unit) { nav.popBackStack() } else
                     LineDeparturesScreen(client, l, onBack = { nav.popBackStack() }) { st -> openTrip(TripTarget(st, l.stopName, l.stopId, l.coordinate)) }
                 }
-                composable("settings") { Placeholder(L10n.t("Settings")) }
+                composable("settings") { SettingsScreen(prefs) { nav.popBackStack() } }
             }
         }
+        if (onboarding) androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = ink.ground) {
+            val pick = pickFor
+            if (pick != null) PlaceSearch(plan, allowHere = false, onBack = { pickFor = null },
+                onMatch = { m -> pick.second(io.github.elija7580.publit.data.SavedPlace.of(m)); pickFor = null }) { }
+            else OnboardingScreen(favorites,
+                onAskLocation = { askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
+                onPick = { role, done -> pickFor = role.title to done },
+                onDone = { prefs.edit().putBoolean(ONBOARDING_DONE_KEY, true).apply(); onboarding = false })
+        }
         CrashDialog(crashReport)
-    }
-}
-
-@Composable
-private fun Placeholder(title: String) {
-    Column(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp)) {
-        Text(title, fontWeight = FontWeight.Bold, fontSize = 32.sp)
-        Spacer(Modifier.height(16.dp))
-        Text("Kommt in einer der nächsten Testversionen.", color = LocalInk.current.muted)
     }
 }
 
