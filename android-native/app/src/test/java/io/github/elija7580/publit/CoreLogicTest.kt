@@ -133,4 +133,19 @@ class CoreLogicTest {
         assertEquals("60201198", io.github.elija7580.publit.live.WienerLinienSource.diva("at:49:1198"))
         assertEquals("de:05113:9289", io.github.elija7580.publit.live.dhid("de:05113:9289_G"))
     }
+
+    @Test fun ticketParser() {
+        val zone = java.time.ZoneId.of("Europe/Vienna")
+        val d = io.github.elija7580.publit.tickets.TicketTextParser.parse(listOf("ÖBB", "Sparschiene", "Von Wien Hbf nach Salzburg Hbf",
+            "Gültig am 14.10.2025", "2. Klasse", "Gesamtpreis € 19,90", "Ticketnummer: 123456789"), zone = zone)
+        assertEquals("ÖBB", d.operatorName)
+        assertEquals("Sparschiene", d.title)
+        assertEquals("Wien Hbf", d.origin)
+        assertEquals("Salzburg Hbf", d.destination)
+        assertEquals("2", d.travelClass)
+        assertEquals("€ 19,90", d.price)
+        assertEquals("123456789", d.reference)
+        assertEquals(java.time.LocalDate.of(2025, 10, 14).atStartOfDay(zone).toInstant(), d.validFrom)
+        assertEquals(java.time.LocalDate.of(2025, 10, 14).atTime(23, 59, 59).atZone(zone).toInstant(), d.validUntil)
+    }
 }
