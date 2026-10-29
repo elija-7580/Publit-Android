@@ -18,4 +18,13 @@ u=https://download.swift.org/swift-6.4.1-release/android-sdk/swift-6.4.1-RELEASE
 echo ALL_DONE
 # --- after the downloads: shims and Android sysroot for the Swift SDK
 mkdir -p /data/tools/shim && cp $D/xcrun /data/tools/shim/xcrun && chmod +x /data/tools/shim/xcrun
-. $D/env.sh && bash $SWIFT_ANDROID_SDK/swift-android/scripts/setup-android-sdk.sh
+. $D/env.sh
+# swift sdk install stores bundles under ~/.swiftpm or ~/.config/swiftpm depending on the toolchain: find it, link it to where env.sh expects it.
+if [ ! -d "$SWIFT_ANDROID_SDK" ]; then
+  FOUND=$(find "$HOME" -maxdepth 6 -type d -name 'swift-6.4.1-RELEASE_android.artifactbundle' -not -path "$SWIFT_ANDROID_SDK" -print -quit 2>/dev/null)
+  [ -n "$FOUND" ] || { echo "Swift SDK for Android not found under $HOME"; find "$HOME" -maxdepth 4 -name '*swift-sdks*' 2>/dev/null; exit 1; }
+  mkdir -p "$(dirname "$SWIFT_ANDROID_SDK")" && ln -s "$FOUND" "$SWIFT_ANDROID_SDK"
+fi
+SETUP=$(find -L "$SWIFT_ANDROID_SDK" -maxdepth 4 -name setup-android-sdk.sh -print -quit)
+[ -n "$SETUP" ] || { echo "setup-android-sdk.sh missing in $SWIFT_ANDROID_SDK:"; find -L "$SWIFT_ANDROID_SDK" -maxdepth 2 | head -30; exit 1; }
+bash "$SETUP"
