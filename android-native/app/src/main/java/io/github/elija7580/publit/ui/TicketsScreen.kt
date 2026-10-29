@@ -138,7 +138,7 @@ fun PassWalletScreen(store: PassStore, onOpen: (String) -> Unit, onAdd: () -> Un
             }
             val archived = store.archived(now).size
             if (archived > 0) item {
-                Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface, onClick = onArchive) {
+                Surface(onClick = onArchive, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.Archive, null); Spacer(Modifier.width(10.dp))
                         Text(L10n.t("Archive"), modifier = Modifier.weight(1f)); Text("$archived", color = ink.muted)
