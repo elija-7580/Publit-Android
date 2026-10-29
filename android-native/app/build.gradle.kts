@@ -72,6 +72,12 @@ dependencies {
     implementation(libs.play.services.location)
     implementation(libs.maplibre)
     implementation("androidx.glance:glance-appwidget:1.1.1")
+    // Tickets, read on the device: ML Kit through Play Services (no models in the APK), ZXing draws codes again.
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
+    implementation("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
+    implementation("com.google.zxing:core:3.5.4")
+    implementation("androidx.exifinterface:exifinterface:1.4.1")
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
 }

@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.foundation.clickable
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -66,7 +67,7 @@ import java.time.Instant
 
 @Composable
 fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7580.publit.data.TransitousClient,
-              favorites: io.github.elija7580.publit.data.FavoritesStore, prefs: android.content.SharedPreferences, trips: io.github.elija7580.publit.data.TripStore,
+              favorites: io.github.elija7580.publit.data.FavoritesStore, prefs: android.content.SharedPreferences, trips: io.github.elija7580.publit.data.TripStore, passes: io.github.elija7580.publit.tickets.PassStore,
               openTrip: kotlinx.coroutines.flow.MutableStateFlow<String?>, crashReport: String?) {
     PublitTheme {
         val ink = LocalInk.current
@@ -87,11 +88,13 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                 nav.navigate("stop?id=${Uri.encode(id)}&name=${Uri.encode(name)}&exact=false")
             } else nav.navigate("savedtrip?id=$link") { launchSingleTop = true }
         }
+        var pendingPass by remember { mutableStateOf<PendingImport?>(null) }
         var tripTarget by remember { mutableStateOf<TripTarget?>(null) }
         val openTrip = { t: TripTarget -> tripTarget = t; nav.navigate("trip") }
         val tabs = listOf(
             Triple("nearby", L10n.t("Nearby"), androidx.compose.material.icons.Icons.Filled.NearMe),
             Triple("plan", L10n.t("Plan"), androidx.compose.material.icons.Icons.Filled.Route),
+            Triple("tickets", L10n.t("Tickets"), androidx.compose.material.icons.Icons.Filled.ConfirmationNumber),
             Triple("saved", L10n.t("Saved"), androidx.compose.material.icons.Icons.Filled.Star),
         )
         androidx.compose.material3.Scaffold(
@@ -100,7 +103,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
             bottomBar = {
                 androidx.compose.material3.NavigationBar(containerColor = ink.surface, tonalElevation = 0.dp) {
                     tabs.forEach { (r, title, icon) ->
-                        val selected = route == r || (r == "nearby" && (route.startsWith("stop") || route == "trip" || route == "stationmap")) || (r == "saved" && (route == "line" || route == "settings" || route == "pasttrips" || route.startsWith("savedtrip")))
+                        val selected = route == r || (r == "nearby" && (route.startsWith("stop") || route == "trip" || route == "stationmap")) || (r == "tickets" && route.startsWith("pass") && !route.startsWith("past")) || (r == "saved" && (route == "line" || route == "settings" || route == "pasttrips" || route.startsWith("savedtrip")))
                         NavigationBarItem(
                             selected = selected,
                             onClick = { if (!selected || route != r) nav.navigate(r) { popUpTo("nearby") { saveState = true }; launchSingleTop = true; restoreState = true } },
@@ -140,7 +143,35 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                     PlanScreen(plan) { it, from, to -> TripActions(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
                 }
                 composable("savedtrip?id={id}") { e ->
-                    SavedTripScreen(client, trips, e.arguments?.getString("id").orEmpty()) { nav.popBackStack() }
+                    SavedTripScreen(client, trips, e.arguments?.getString("id").orEmpty(), onBack = { nav.popBackStack() }) {
+                        TripPasses(passes, it.id, it.startTime, onOpen = { id -> nav.navigate("pass?id=$id") }, onAdd = { nav.navigate("passimport?trip=${it.id}") })
+                    }
+                }
+                composable("tickets") {
+                    PassWalletScreen(passes, onOpen = { nav.navigate("pass?id=$it") }, onAdd = { nav.navigate("passimport?trip=") },
+                        onArchive = { nav.navigate("passarchive") }, onSettings = { nav.navigate("settings") })
+                }
+                composable("pass?id={id}") { e ->
+                    PassDetailScreen(passes, e.arguments?.getString("id").orEmpty(), onBack = { nav.popBackStack() }) { id ->
+                        passes.pass(id)?.let { pendingPass = PendingImport(it, null, null, 0, null); nav.navigate("passedit?new=false") }
+                    }
+                }
+                composable("passarchive") { PassArchiveScreen(passes, onBack = { nav.popBackStack() }) { nav.navigate("pass?id=$it") } }
+                composable("passimport?trip={trip}") { e ->
+                    PassImportScreen(passes, e.arguments?.getString("trip")?.takeIf { it.isNotEmpty() }, onBack = { nav.popBackStack() }) {
+                        pendingPass = it; nav.navigate("passedit?new=true") { popUpTo("passimport?trip={trip}") { inclusive = true } }
+                    }
+                }
+                composable("passedit?new={new}") { e ->
+                    val pending = pendingPass
+                    if (pending == null) LaunchedEffect(Unit) { nav.popBackStack() } else {
+                        val isNew = e.arguments?.getString("new") == "true"
+                        PassEditorScreen(passes, pending, isNew, onCancel = { nav.popBackStack() }) { saved ->
+                            pendingPass = null
+                            nav.popBackStack()
+                            if (isNew) nav.navigate("pass?id=${saved.id}")
+                        }
+                    }
                 }
                 composable("pasttrips") {
                     PastTripsScreen(trips, onBack = { nav.popBackStack() }) { id -> nav.navigate("savedtrip?id=$id") }

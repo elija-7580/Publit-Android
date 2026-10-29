@@ -59,7 +59,7 @@ import java.time.format.DateTimeFormatter
 
 /** A saved trip with its live status (SavedTripView on iOS); a started trip shows the live guide. */
 @Composable
-fun SavedTripScreen(client: TransitousClient, store: TripStore, tripId: String, onBack: () -> Unit) {
+fun SavedTripScreen(client: TransitousClient, store: TripStore, tripId: String, onBack: () -> Unit, tickets: @Composable (SavedTrip) -> Unit = {}) {
     val ink = LocalInk.current
     val ctx = LocalContext.current
     val state by store.state.collectAsStateWithLifecycle()
@@ -92,6 +92,7 @@ fun SavedTripScreen(client: TransitousClient, store: TripStore, tripId: String, 
             OfflineNote(client)
             StatusCard(trip, error)
             TripActions(store, trip.itinerary, trip.fromName, trip.toName) { }
+            tickets(trip)
         }
     }
 }

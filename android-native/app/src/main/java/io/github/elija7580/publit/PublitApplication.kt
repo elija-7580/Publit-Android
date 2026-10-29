@@ -16,6 +16,7 @@ class PublitApplication : Application() {
     lateinit var client: TransitousClient
     lateinit var location: LocationRepository
     lateinit var crashLog: CrashLog
+    val passes by lazy { io.github.elija7580.publit.tickets.PassStore(filesDir) }
     val trips by lazy { io.github.elija7580.publit.data.TripStore(filesDir) }
     val favorites by lazy { io.github.elija7580.publit.data.FavoritesStore(getSharedPreferences("publit", MODE_PRIVATE)) }
 
