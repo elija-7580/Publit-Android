@@ -225,3 +225,239 @@ object WienerLinienSource : LiveSource {
         return out
     }
 }
+
+private fun lt(s: String?, pattern: String, tz: String): Instant? = s?.let {
+    runCatching { LocalDateTime.parse(it, DateTimeFormatter.ofPattern(pattern)).atZone(ZoneId.of(tz)).toInstant() }.getOrNull()
+}
+private fun iso(s: String?): Instant? = s?.let { runCatching { OffsetDateTime.parse(it).toInstant() }.getOrNull() ?: runCatching { Instant.parse(it) }.getOrNull() }
+private fun JSONObject.dbl(k: String): Double? = opt(k)?.let { (it as? Number)?.toDouble() ?: it.toString().toDoubleOrNull() }
+private fun alertWith(head: String, text: String, severity: String, url: String? = null, effect: String? = null,
+                      periods: List<io.github.elija7580.publit.data.AlertPeriod>? = null) =
+    Alert(headerText = head.ifEmpty { text }, descriptionText = if (head.isEmpty()) "" else text, url = url, effect = effect,
+        severityLevel = severity, impactPeriod = periods?.takeIf { it.isNotEmpty() })
+
+/** ACTV's live departure screens (Venice: vaporetti and buses), unofficial. */
+object ACTVSource : LiveSource {
+    override val name = "ACTV"
+    override val horizon = 90 * 60L
+    private val area = GeoBox(45.2, 45.7, 12.0, 12.7)
+    private const val TZ = "Europe/Rome"
+    private data class Stop(val id: String, val point: LatLon)
+    private val stopLists = TTLCache<List<Stop>>(4)
+    private val boards = TTLCache<List<LiveDeparture>>(80)
+
+    override fun covers(ride: LiveRide) = area.contains(ride.point)
+
+    override suspend fun fix(ride: LiveRide, now: Instant): LiveFix? {
+        val net = if (ride.mode == "FERRY") "nav" else "aut"
+        val stops = stopLists.value(net, 86_400) {
+            JSONArray(LiveHTTP.text("https://oraritemporeale.actv.it/$net/backend/page/stops")).let { a ->
+                J.objs(a).mapNotNull { s -> val id = J.str(s, "name"); val la = s.dbl("latitude"); val lo = s.dbl("longitude")
+                    if (id != null && la != null && lo != null) Stop(id, LatLon(la, lo)) else null }
+            }
+        }
+        val stop = stops.minByOrNull { it.point.distanceTo(ride.point) }?.takeIf { it.point.distanceTo(ride.point) < 150 } ?: return null
+        val deps = boards.value(stop.id, 30) {
+            val raw = JSONArray(LiveHTTP.text("https://oraritemporeale.actv.it/$net/backend/passages/" + java.net.URLEncoder.encode(stop.id, "UTF-8").replace("+", "%20")))
+            J.objs(raw).mapNotNull { p ->
+                val line = J.str(p, "line") ?: return@mapNotNull null
+                val shown = J.str(p, "time") ?: ""
+                val first = J.objs(p.optJSONArray("timingPoints")).firstOrNull()?.let { J.str(it, "time") }
+                val scheduled = first?.let { clock(it, now) }
+                val live = if (p.optBoolean("real")) (countdown(shown, now) ?: clock(shown, now)) else null
+                if (scheduled == null && live == null) null else LiveDeparture(listOf(line), J.str(p, "destination"), scheduled, live)
+            }
+        }
+        return LiveMatch.best(ride, deps, 150)?.let { LiveMatch.fix(it, name) }
+    }
+
+    /** "6'" → in 6 minutes. */
+    private fun countdown(s: String, now: Instant) = s.trim().takeIf { it.endsWith("'") }?.dropLast(1)?.toIntOrNull()?.let { now.plusSeconds(it * 60L) }
+
+    /** "23:55" → the nearest such time around now in Venice. */
+    private fun clock(s: String, now: Instant): Instant? {
+        val p = s.split(":").mapNotNull { it.toIntOrNull() }
+        if (p.size != 2 || p[0] !in 0..23 || p[1] !in 0..59) return null
+        val today = now.atZone(ZoneId.of(TZ)).withHour(p[0]).withMinute(p[1]).withSecond(0).withNano(0).toInstant()
+        return when { today.epochSecond - now.epochSecond > 12 * 3600 -> today.minusSeconds(86_400); now.epochSecond - today.epochSecond > 12 * 3600 -> today.plusSeconds(86_400); else -> today }
+    }
+}
+
+/** Storstockholms Lokaltrafik's open departures API (no key), with deviations. */
+object SLSource : LiveSource {
+    override val name = "SL"
+    override val horizon = 60 * 60L
+    private val area = GeoBox(58.7, 60.3, 17.2, 19.3)
+    private data class Site(val id: Int, val point: LatLon)
+    private val sites = TTLCache<List<Site>>(2)
+    private val boards = TTLCache<List<LiveDeparture>>(80)
+
+    override fun covers(ride: LiveRide) = area.contains(ride.point)
+
+    override suspend fun fix(ride: LiveRide, now: Instant): LiveFix? {
+        val all = sites.value("sites", 7 * 86_400) {
+            J.objs(JSONArray(LiveHTTP.text("https://transport.integration.sl.se/v1/sites?expand=false"))).mapNotNull { s ->
+                val id = J.int(s, "id"); val la = s.dbl("lat"); val lo = s.dbl("lon")
+                if (id != null && la != null && lo != null) Site(id, LatLon(la, lo)) else null
+            }
+        }
+        val site = all.minByOrNull { it.point.distanceTo(ride.point) }?.takeIf { it.point.distanceTo(ride.point) < 250 } ?: return null
+        val deps = boards.value(site.id.toString(), 30) { parse(JSONObject(LiveHTTP.text("https://transport.integration.sl.se/v1/sites/${site.id}/departures"))) }
+        return LiveMatch.best(ride, deps)?.let { LiveMatch.fix(it, name) }
+    }
+
+    private fun deviations(a: JSONArray?) = J.objs(a).mapNotNull { d ->
+        val text = J.str(d, "message")?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+        alertWith(text, "", if ((J.int(d, "importance_level") ?: 0) >= 7) "SEVERE" else "WARNING")
+    }
+
+    private fun parse(root: JSONObject): List<LiveDeparture> {
+        val stopWide = J.objs(root.optJSONArray("stop_deviations")).mapNotNull { d ->
+            val a = deviations(JSONArray().put(d)).firstOrNull() ?: return@mapNotNull null
+            J.objs(d.optJSONObject("scope")?.optJSONArray("lines")).mapNotNull { J.str(it, "designation") } to a
+        }
+        return J.objs(root.optJSONArray("departures")).mapNotNull { d ->
+            val designation = J.str(d.optJSONObject("line"), "designation") ?: return@mapNotNull null
+            val scheduled = lt(J.str(d, "scheduled"), "yyyy-MM-dd'T'HH:mm:ss", "Europe/Stockholm") ?: return@mapNotNull null
+            val state = J.str(d, "state") ?: ""
+            val alerts = deviations(d.optJSONArray("deviations")) + stopWide.filter { it.first.isEmpty() || designation in it.first }.map { it.second }
+            LiveDeparture(listOf(designation), J.str(d, "destination"), scheduled,
+                if (state == "NOTEXPECTED") null else lt(J.str(d, "expected"), "yyyy-MM-dd'T'HH:mm:ss", "Europe/Stockholm"),
+                state == "CANCELLED", J.str(d.optJSONObject("stop_point"), "designation"), alerts)
+        }
+    }
+}
+
+/** Transport for London line status (Powered by TfL Open Data): Underground, Overground, DLR, Elizabeth line, trams. */
+object TfLStatusSource : LiveSource {
+    override val name = "TfL"
+    override val horizon = 4 * 3600L
+    private val area = GeoBox(51.28, 51.70, -0.52, 0.34)
+    private data class Line(val names: List<String>, val alerts: List<Alert>)
+    private val status = TTLCache<List<Line>>(2)
+
+    override fun covers(ride: LiveRide) = area.contains(ride.point)
+
+    override suspend fun fix(ride: LiveRide, now: Instant): LiveFix? {
+        if (ride.mode == "BUS" || ride.mode == "COACH") return null
+        val lines = status.value("status", 90) { parse(JSONArray(LiveHTTP.text("https://api.tfl.gov.uk/Line/Mode/tube,overground,dlr,elizabeth-line,tram/Status"))) }
+        val line = lines.firstOrNull { LiveMatch.sameLine(ride.lines, it.names) }?.takeIf { it.alerts.isNotEmpty() } ?: return null
+        return LiveFix(alerts = line.alerts, source = name)
+    }
+
+    private fun parse(a: JSONArray) = J.objs(a).mapNotNull { l ->
+        val name = J.str(l, "name") ?: return@mapNotNull null
+        val alerts = J.objs(l.optJSONArray("lineStatuses")).mapNotNull { s ->
+            val sev = J.int(s, "statusSeverity") ?: 10
+            val reason = J.str(s, "reason")?.takeIf { it.isNotEmpty() }
+            if (sev in listOf(10, 18, 19) || reason == null) return@mapNotNull null
+            val periods = J.objs(s.optJSONArray("validityPeriods")).map { io.github.elija7580.publit.data.AlertPeriod(iso(J.str(it, "fromDate")), iso(J.str(it, "toDate"))) }
+            val effect = when { sev in listOf(1, 2, 16, 20) -> "NO_SERVICE"; sev == 15 -> "DETOUR"; sev == 6 -> "SIGNIFICANT_DELAYS"; sev in listOf(3, 4, 5, 7, 11, 14) -> "REDUCED_SERVICE"; else -> null }
+            alertWith("$name: ${J.str(s, "statusSeverityDescription") ?: ""}", reason.trim(), if (sev <= 6 || sev == 20) "SEVERE" else "WARNING",
+                "https://tfl.gov.uk/tube-dlr-overground/status/", effect, periods)
+        }
+        Line(listOf(name, J.str(l, "id") ?: name), alerts)
+    }
+}
+
+/** search.ch's timetable API (no key): live delays, cancellations and track changes in Switzerland. */
+object SearchChSource : LiveSource {
+    override val name = "search.ch"
+    override val horizon = 3 * 3600L
+    override val onlyWithoutLive = true
+    private val area = GeoBox(45.81, 47.81, 5.95, 10.50)
+    private val zones = setOf("Europe/Zurich", "Europe/Vaduz", "Europe/Busingen")
+    private const val TZ = "Europe/Zurich"
+    private const val API = "https://timetable.search.ch/api"
+    private val stops = TTLCache<String>(400)
+    private val boards = TTLCache<List<LiveDeparture>>(120)
+
+    override fun covers(ride: LiveRide): Boolean {
+        if (ride.stopId?.let(::stopNumber) != null) return true
+        return ride.tz != null && ride.tz in zones && area.contains(ride.point)
+    }
+
+    /** "…_ch:1:sloid:87349::1" → "8587349". */
+    fun stopNumber(stopId: String): String? {
+        val i = stopId.indexOf("ch:1:sloid:"); if (i < 0) return null
+        val d = stopId.substring(i + 11).takeWhile { it.isDigit() }
+        if (d.isEmpty() || d.length > 5 || (d.toIntOrNull() ?: 0) <= 0) return null
+        return "85" + "0".repeat(5 - d.length) + d
+    }
+
+    override suspend fun fix(ride: LiveRide, now: Instant): LiveFix? {
+        val p = ride.point
+        val id = ride.stopId?.let(::stopNumber) ?: stops.value(LatLon.format(p.lat, 4) + "," + LatLon.format(p.lon, 4), 86_400) {
+            J.objs(JSONArray(LiveHTTP.text("$API/completion.json?latlon=" + LatLon.format(p.lat, 6) + "," + LatLon.format(p.lon, 6) + "&accuracy=10&show_ids=1")))
+                .filter { !J.str(it, "id").isNullOrEmpty() && (it.dbl("dist") ?: Double.MAX_VALUE) <= 100 }
+                .minByOrNull { it.dbl("dist") ?: Double.MAX_VALUE }?.let { J.str(it, "id") } ?: ""
+        }
+        if (id.isEmpty()) return null
+        val start = Instant.ofEpochSecond(ride.scheduled.epochSecond / 1800 * 1800 - 120)
+        val z = start.atZone(ZoneId.of(TZ))
+        val deps = boards.value("$id|${start.epochSecond}", 30) {
+            val url = "$API/stationboard.json?stop=" + java.net.URLEncoder.encode(id, "UTF-8") + "&date=" + z.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")) +
+                "&time=" + z.format(DateTimeFormatter.ofPattern("HH:mm")) + "&limit=150&show_delays=1&show_tracks=1&show_trackchanges=1"
+            J.objs(JSONObject(LiveHTTP.text(url)).optJSONArray("connections")).mapNotNull { c ->
+                val scheduled = lt(J.str(c, "time"), "yyyy-MM-dd HH:mm:ss", TZ) ?: return@mapNotNull null
+                val number = J.str(c, "*Z")?.trimStart('0')
+                val category = J.str(c, "*G")
+                val lines = listOfNotNull(J.str(c, "line"), number, if (category != null && number != null) "$category $number" else null).map { it.trim() }.filter { it.isNotEmpty() }
+                if (lines.isEmpty()) return@mapNotNull null
+                val delay = J.str(c, "dep_delay")?.trim()
+                val minutes = delay?.replace("+", "")?.toIntOrNull()
+                LiveDeparture(lines, J.str(c.optJSONObject("terminal"), "name"), scheduled, minutes?.let { scheduled.plusSeconds(it * 60L) },
+                    delay?.uppercase() == "X", J.str(c, "track")?.replace("!", ""))
+            }
+        }
+        return LiveMatch.best(ride, deps)?.let { LiveMatch.fix(it, name) }
+    }
+}
+
+/** A German transport association's EFA departure monitor (rapidJSON, no key), matched by DHID. */
+class EFASource(override val name: String, private val endpoint: String, private val regions: List<String>) : LiveSource {
+    override val horizon = 2 * 3600L
+    override val onlyWithoutLive = true
+
+    companion object {
+        private const val TZ = "Europe/Berlin"
+        private val boards = TTLCache<List<LiveDeparture>>(160)
+        val vrr = EFASource("VRR", "https://efa.vrr.de/standard/XML_DM_REQUEST", listOf("de:05"))
+        val vrn = EFASource("VRN", "https://www.vrn.de/mngvrn/XML_DM_REQUEST", listOf("de:07"))
+    }
+
+    override fun covers(ride: LiveRide): Boolean {
+        if (ride.tz != null && ride.tz != TZ) return false
+        val id = ride.stopId?.let(::dhid) ?: return false
+        return regions.any { id.startsWith(it) }
+    }
+
+    override suspend fun fix(ride: LiveRide, now: Instant): LiveFix? {
+        val id = ride.stopId?.let(::dhid) ?: return null
+        val start = Instant.ofEpochSecond(ride.scheduled.epochSecond / 1800 * 1800 - 120)
+        val z = start.atZone(ZoneId.of(TZ))
+        val deps = boards.value("$name|$id|${start.epochSecond}", 30) {
+            val url = "$endpoint?outputFormat=rapidJSON&type_dm=stop&name_dm=" + java.net.URLEncoder.encode(id, "UTF-8") +
+                "&mode=direct&useRealtime=1&depType=stopEvents&itdDate=" + z.format(DateTimeFormatter.ofPattern("yyyyMMdd")) +
+                "&itdTime=" + z.format(DateTimeFormatter.ofPattern("HHmm")) + "&limit=120"
+            J.objs(JSONObject(LiveHTTP.text(url)).optJSONArray("stopEvents")).mapNotNull { e ->
+                val scheduled = iso(J.str(e, "departureTimeBaseTimetable") ?: J.str(e, "departureTimePlanned")) ?: return@mapNotNull null
+                val t = e.optJSONObject("transportation")
+                val lines = listOfNotNull(J.str(t, "number"), J.str(t, "disassembledName"), J.str(t, "name")).map { it.trim() }.filter { it.isNotEmpty() }
+                if (lines.isEmpty()) return@mapNotNull null
+                val status = J.strs(e.optJSONArray("realtimeStatus"))
+                val cancelled = e.optBoolean("isCancelled") || "TRIP_CANCELLED" in status || "STOP_CANCELLED" in status
+                val monitored = e.optBoolean("isRealtimeControlled") || "MONITORED" in status
+                val props = e.optJSONObject("location")?.optJSONObject("properties")
+                val alerts = J.objs(e.optJSONArray("infos")).mapNotNull { info ->
+                    val head = J.plain(J.str(info, "title") ?: J.str(info, "subtitle") ?: ""); val text = J.plain(J.str(info, "content") ?: "")
+                    if (head.isEmpty() && text.isEmpty()) null
+                    else alertWith(head, text, if ((J.str(info, "priority") ?: "").lowercase() in listOf("veryhigh", "high")) "SEVERE" else "WARNING")
+                }
+                LiveDeparture(lines, J.str(t?.optJSONObject("destination"), "name"), scheduled, if (monitored) iso(J.str(e, "departureTimeEstimated")) else null,
+                    cancelled, J.str(props, "platformName") ?: J.str(props, "platform"), alerts)
+            }
+        }
+        return LiveMatch.best(ride, deps)?.let { LiveMatch.fix(it, name) }
+    }
+}

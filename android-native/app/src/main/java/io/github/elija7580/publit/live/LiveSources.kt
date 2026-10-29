@@ -193,7 +193,8 @@ object LiveMerge {
 object LiveOverlay {
     @Volatile var enabled = true
 
-    val sources: List<LiveSource> = listOf(WienerLinienSource, HafasSource.oebb, HafasSource.vbb, HafasSource.rmv, HafasSource.vbn, HafasSource.nahsh)
+    val sources: List<LiveSource> = listOf(WienerLinienSource, HafasSource.oebb, SearchChSource, EFASource.vrr,
+        HafasSource.vbb, HafasSource.rmv, HafasSource.vbn, HafasSource.nahsh, EFASource.vrn, ACTVSource, SLSource, TfLStatusSource)
     val sourceNames get() = sources.map { it.name }
 
     fun ride(leg: Leg) = LiveRide(leg.from.coordinate, leg.from.stopId, leg.from.name, listOfNotNull(leg.routeShortName, leg.displayName).filter { it.isNotEmpty() },

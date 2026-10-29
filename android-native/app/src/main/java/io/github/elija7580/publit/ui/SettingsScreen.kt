@@ -135,6 +135,33 @@ fun SettingsScreen(prefs: SharedPreferences, onBack: () -> Unit) {
                     LinkRow(L10n.t("Routing and timetables: Transitous and its data sources")) { open("https://transitous.org/sources/") }
                     Line()
                     LinkRow(L10n.t("Map data © OpenStreetMap contributors")) { open("https://www.openstreetmap.org/copyright") }
+                    Line()
+                    var extra by remember { mutableStateOf(prefs.getBoolean("extraLiveSources", true)) }
+                    SwitchRow(L10n.t("Live data from more operators"), extra) {
+                        extra = it; prefs.edit().putBoolean("extraLiveSources", it).apply(); io.github.elija7580.publit.live.LiveOverlay.enabled = it
+                    }
+                    Line()
+                    var sources by remember { mutableStateOf(false) }
+                    LinkRow(L10n.t("Live data sources")) { sources = !sources }
+                    if (sources) Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("Transitous" to ("Europe and beyond" to "Routes, timetables and live times where operators publish them"),
+                            "Wiener Linien" to ("Vienna" to "Live departures, disruptions, lifts out of service"),
+                            "ÖBB" to ("Austria" to "Trains, and buses and trams where reported: delays, cancellations, construction work"),
+                            "search.ch" to ("Switzerland" to "Delays, cancellations and track changes of trains, trams, buses and boats"),
+                            "VRR" to ("North Rhine-Westphalia" to "Live times of buses, trams and trains where Transitous has none"),
+                            "VBB" to ("Berlin and Brandenburg" to "Live times of buses, trams and trains where Transitous has none"),
+                            "RMV" to ("Hesse" to "Live times of buses, trams and trains where Transitous has none"),
+                            "VBN" to ("Lower Saxony and Bremen" to "Live times of buses, trams and trains where Transitous has none"),
+                            "NAH.SH" to ("Schleswig-Holstein" to "Live times of buses, trams and trains where Transitous has none"),
+                            "VRN" to ("Rhineland-Palatinate" to "Live times of buses, trams and trains where Transitous has none"),
+                            "ACTV" to ("Venice" to "Live times of waterbuses and buses"),
+                            "SL" to ("Stockholm" to "Live departures and disruptions"),
+                            "TfL" to ("London" to "Line status and disruptions (Powered by TfL Open Data)"),
+                        ).forEach { (n, d) ->
+                            Column { Text(n + " · " + L10n.t(d.first), fontWeight = FontWeight.SemiBold, fontSize = 14.sp); Text(L10n.t(d.second), color = ink.muted, fontSize = 12.sp) }
+                        }
+                        Text(L10n.t("The extra operators only get the stop, line and time of a ride, never your location or account."), color = ink.muted, fontSize = 12.sp)
+                    }
                 }
             }
             item {
