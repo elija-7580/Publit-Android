@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -707,7 +708,23 @@ fun TripPasses(store: PassStore, tripId: String?, at: Instant, onOpen: (String) 
     Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(L10n.t("Tickets"), color = ink.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp))
         if (list.isEmpty()) Text(L10n.t("No ticket for this trip"), color = ink.muted, fontSize = 14.sp, modifier = Modifier.padding(start = 16.dp))
-        list.forEach { p -> Box(Modifier.clickable { onOpen(p.id) }) { PassCard(p, compact = true, store = store) } }
+        // The default ticket when it is valid for this trip, else the trip's own, else one with a code (QuickTicketToolbar on iOS).
+        val prefs = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("publit", android.content.Context.MODE_PRIVATE)
+        var defaultId by remember { mutableStateOf(prefs.getString("defaultPassId", "") ?: "") }
+        val chosen = list.firstOrNull { it.id == defaultId } ?: list.firstOrNull { it.barcode != null } ?: list.firstOrNull()
+        chosen?.let { c ->
+            Button(onClick = { onOpen(c.id) }, Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = ink.ink, contentColor = ink.onInk)) {
+                Icon(Icons.Filled.ConfirmationNumber, null); Spacer(Modifier.width(8.dp)); Text(L10n.t("Show ticket"), fontWeight = FontWeight.SemiBold)
+            }
+        }
+        list.forEach { p ->
+            Box(Modifier.clickable { onOpen(p.id) }) { PassCard(p, compact = true, store = store) }
+            if (list.size > 1) Row(Modifier.fillMaxWidth().clickable { defaultId = p.id; prefs.edit().putString("defaultPassId", p.id).apply() }.padding(horizontal = 16.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = p.id == chosen?.id, onClick = { defaultId = p.id; prefs.edit().putString("defaultPassId", p.id).apply() })
+                Text(L10n.t("Default ticket"), fontSize = 14.sp, color = ink.muted)
+            }
+        }
         Surface(onClick = onAdd, shape = RoundedCornerShape(14.dp), color = ink.surface, modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Add, null); Spacer(Modifier.width(10.dp)); Text(L10n.t("Add ticket for this trip"))
