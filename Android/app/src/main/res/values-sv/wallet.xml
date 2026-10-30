@@ -1,6 +1,0 @@
-<resources>
-    <string name="wallet_add">Lägg till i Google Wallet</string>
-    <string name="wallet_continue">Fortsätt</string>
-    <string name="wallet_consent">Titel, operatör, rutt, giltighet och statisk biljettkod skickas till den konfigurerade signeringstjänsten. Google får kopian när du sparar den. Behåll originalbiljetten.</string>
-    <string name="wallet_error">Google Wallet är inte tillgängligt just nu. Försök senare.</string>
-</resources>

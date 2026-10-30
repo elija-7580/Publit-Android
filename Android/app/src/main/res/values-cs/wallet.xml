@@ -1,6 +1,0 @@
-<resources>
-    <string name="wallet_add">Přidat do Peněženky Google</string>
-    <string name="wallet_continue">Pokračovat</string>
-    <string name="wallet_consent">Název, dopravce, trasa, platnost a statický kód jízdenky budou odeslány podpisové službě. Google obdrží kopii při uložení. Ponechte si originál.</string>
-    <string name="wallet_error">Peněženka Google nyní není dostupná. Zkuste to později.</string>
-</resources>

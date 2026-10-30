@@ -1,6 +1,0 @@
-<resources>
-    <string name="wallet_add">Adaugă în Google Wallet</string>
-    <string name="wallet_continue">Continuă</string>
-    <string name="wallet_consent">Titlul, operatorul, ruta, valabilitatea și codul static vor fi trimise serviciului de semnare configurat. Google primește copia la salvare. Păstrează biletul original.</string>
-    <string name="wallet_error">Google Wallet nu este disponibil acum. Încearcă mai târziu.</string>
-</resources>

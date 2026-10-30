@@ -1,6 +1,0 @@
-<resources>
-    <string name="wallet_add">Zu Google Wallet hinzufügen</string>
-    <string name="wallet_continue">Weiter</string>
-    <string name="wallet_consent">Titel, Betreiber, Strecke, Gültigkeit und statischer Ticketcode werden an den eingerichteten Signierdienst gesendet. Google erhält die Kopie beim Speichern. Bewahre das Originalticket auf.</string>
-    <string name="wallet_error">Google Wallet ist gerade nicht verfügbar. Bitte versuche es später erneut.</string>
-</resources>

@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="widget_departures">Відправлення</string>
-    <string name="widget_description">Найближчі відправлення з вибраної зупинки.</string>
-</resources>

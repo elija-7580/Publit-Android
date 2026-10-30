@@ -1,6 +1,0 @@
-<resources>
-    <string name="wallet_add">Aggiungi a Google Wallet</string>
-    <string name="wallet_continue">Continua</string>
-    <string name="wallet_consent">Titolo, operatore, percorso, validità e codice statico saranno inviati al servizio di firma configurato. Google riceve la copia al salvataggio. Conserva il biglietto originale.</string>
-    <string name="wallet_error">Google Wallet non è disponibile ora. Riprova più tardi.</string>
-</resources>

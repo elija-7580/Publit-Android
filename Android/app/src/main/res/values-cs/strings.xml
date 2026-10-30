@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="widget_departures">Odjezdy</string>
-    <string name="widget_description">Nejbližší odjezdy ze zvolené zastávky.</string>
-</resources>

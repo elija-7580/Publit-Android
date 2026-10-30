@@ -1,6 +1,0 @@
-<resources>
-    <string name="wallet_add">Adicionar à Carteira Google</string>
-    <string name="wallet_continue">Continuar</string>
-    <string name="wallet_consent">O título, operador, percurso, validade e código estático serão enviados ao serviço de assinatura configurado. A Google recebe a cópia ao guardar. Guarde o bilhete original.</string>
-    <string name="wallet_error">A Carteira Google não está disponível agora. Tente mais tarde.</string>
-</resources>

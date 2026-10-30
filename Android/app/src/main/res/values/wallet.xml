@@ -1,6 +1,0 @@
-<resources>
-    <string name="wallet_add">Add to Google Wallet</string>
-    <string name="wallet_continue">Continue</string>
-    <string name="wallet_consent">The title, operator, route, validity dates and static ticket code will be sent to the configured signing service. Google receives the copy when you save it. Keep the original ticket.</string>
-    <string name="wallet_error">Google Wallet is not available right now. Please try again later.</string>
-</resources>

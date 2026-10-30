@@ -1,6 +1,0 @@
-<resources>
-    <string name="wallet_add">Додати в Google Гаманець</string>
-    <string name="wallet_continue">Продовжити</string>
-    <string name="wallet_consent">Назву, перевізника, маршрут, строк дії та статичний код буде надіслано налаштованій службі підпису. Google отримає копію під час збереження. Зберігайте оригінал квитка.</string>
-    <string name="wallet_error">Google Гаманець зараз недоступний. Спробуйте пізніше.</string>
-</resources>
