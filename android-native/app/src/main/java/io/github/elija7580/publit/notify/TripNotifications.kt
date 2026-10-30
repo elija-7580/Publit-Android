@@ -110,20 +110,110 @@ object TripNotifications {
 
     // Live trip (the Live Activity on iOS): an ongoing notification.
 
+    /**
+     * The live trip as an ongoing notification (TripLiveActivity on iOS): line, what to do now, a countdown,
+     * the platform (orange when it changed), "Then: …", the stages with their stops and times, and
+     * "Show ticket" / "End trip". On Android 16 it is a Live Update: a progress bar per leg in the
+     * line colours with a point at each change, shown as a chip in the status bar.
+     */
     fun showLive(ctx: Context, trip: SavedTrip, now: Instant = Instant.now()) {
         if (!allowed(ctx)) return
-        val s = TripStatus.at(now, trip.itinerary)
+        val it = trip.itinerary
+        val s = TripStatus.at(now, it, countdown = false)
         if (s.phase == TripStatus.Phase.ARRIVED && now > trip.endTime.plusSeconds(300)) { endLive(ctx); return }
-        val delay = if (s.delayMinutes > 0) " · " + L10n.f("+%lld min", s.delayMinutes) else ""
-        val n = builder(ctx, LIVE, s.headline + delay, s.detail, trip.id)
+        val legs = it.legs
+        val leg = legs.firstOrNull { l -> l.isTransit && l.endTime > now } ?: it.transitLegs.firstOrNull()
+        val riding = leg?.let { l -> l.startTime <= now } ?: false
+        val departing = legs.firstOrNull { l -> l.isTransit && l.startTime > now }
+        val live = s.phase != TripStatus.Phase.CANCELLED && s.phase != TripStatus.Phase.ARRIVED
+        val platform = departing?.takeIf { live }?.let { d -> io.github.elija7580.publit.data.TransitLabels.clean(d.from.track) }
+        val changed = departing?.from?.let { p -> val a = io.github.elija7580.publit.data.TransitLabels.clean(p.track); val b = io.github.elija7580.publit.data.TransitLabels.clean(p.scheduledTrack); a != null && b != null && a != b } == true
+        val then = if (live && riding && departing != null) L10n.f("Then: %@", L10n.f("%@ at %@", departing.lineName, Fmt.time(departing.startTime, departing.from.tz))) else null
+        val delay = if (s.delayMinutes > 0) L10n.f("+%lld min", s.delayMinutes) else null
+
+        val title = listOfNotNull(leg?.takeIf { live }?.lineName, s.headline).joinToString(" · ")
+        val line2 = listOfNotNull(platform?.let { p -> (if (changed) "⚠ " else "") + L10n.f("Pl. %@", p) }, s.detail.ifEmpty { null }).joinToString(" · ")
+        // The stages, done ones ticked: "✓ Walk to Karlsplatz", "▶ U1 → Leopoldau 14:05–14:19", …
+        val steps = io.github.elija7580.publit.data.TripGuide.steps(it)
+        val current = io.github.elija7580.publit.data.TripGuide.timeIndex(steps, it, now)
+        val stages = steps.mapIndexed { i, st ->
+            val l = legs[st.legIndex]
+            val mark = if (i < current) "✓" else if (i == current) "▶" else "·"
+            val what = when (st.kind) {
+                io.github.elija7580.publit.data.GuideStep.Kind.WALK -> L10n.f("Walk to %@", legs.drop(st.legIndex + 1).firstOrNull { x -> x.isTransit }?.from?.name ?: trip.toName)
+                io.github.elija7580.publit.data.GuideStep.Kind.WAIT -> l.lineName + " · " + l.from.name + (io.github.elija7580.publit.data.TransitLabels.clean(l.from.track)?.let { t -> " · " + L10n.f("Pl. %@", t) } ?: "")
+                io.github.elija7580.publit.data.GuideStep.Kind.RIDE -> L10n.f("Get off at %@", l.to.name)
+                io.github.elija7580.publit.data.GuideStep.Kind.ARRIVE -> L10n.f("Arrive at %@", trip.toName)
+            }
+            val time = if (st.kind == io.github.elija7580.publit.data.GuideStep.Kind.ARRIVE) Fmt.time(l.endTime, l.to.tz)
+                else if (st.kind == io.github.elija7580.publit.data.GuideStep.Kind.RIDE) Fmt.time(l.endTime, l.to.tz) else Fmt.time(l.startTime, l.from.tz)
+            "$mark $time  $what"
+        }
+        val big = (listOfNotNull(line2.ifEmpty { null }, then) + listOf("") + stages).joinToString("\n")
+        val n = builder(ctx, LIVE, title, line2.ifEmpty { trip.toName }, trip.id)
+            .setStyle(Notification.BigTextStyle().bigText(big))
+            .setSubText(listOfNotNull(trip.toName, delay).joinToString(" · "))
             .setOngoing(true).setOnlyAlertOnce(true).setCategory(Notification.CATEGORY_NAVIGATION)
-            .setWhen(s.nextEvent.toEpochMilli()).setShowWhen(true).setUsesChronometer(true)
-            .apply { if (Build.VERSION.SDK_INT >= 24) setChronometerCountDown(true) }
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .apply {
+                if (live && s.nextEvent > now) {
+                    setWhen(s.nextEvent.toEpochMilli()).setShowWhen(true).setUsesChronometer(true)
+                    if (Build.VERSION.SDK_INT >= 24) setChronometerCountDown(true)
+                }
+                leg?.let { l -> runCatching { setColor(android.graphics.Color.parseColor("#" + l.lineColors.background.removePrefix("#"))) } }
+                val total = (it.endTime.epochSecond - it.startTime.epochSecond).coerceAtLeast(60)
+                val done = (now.epochSecond - it.startTime.epochSecond).coerceIn(0, total)
+                if (Build.VERSION.SDK_INT >= 36) {
+                    setStyle(liveProgress(it, total, done))
+                    val mins = ((s.nextEvent.epochSecond - now.epochSecond + 59) / 60)
+                    if (live && mins in 0..99) setShortCriticalText(L10n.f("%lld min", mins))
+                    extras.putBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING, true)
+                } else setProgress(total.toInt(), done.toInt(), false)
+                val app = ctx.applicationContext as? PublitApplication
+                if (app != null && app.passes.forTrip(trip.id, now).isNotEmpty())
+                    addAction(Notification.Action.Builder(null, L10n.t("Show ticket"), ticketsIntent(ctx, trip.id)).build())
+                addAction(Notification.Action.Builder(null, L10n.t("End trip"),
+                    PendingIntent.getBroadcast(ctx, "end".hashCode(), Intent(ctx, ReminderReceiver::class.java).setAction(ACTION_END).putExtra(EXTRA_TRIP, trip.id),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)).build())
+            }
             .build()
         runCatching { ctx.getSystemService(NotificationManager::class.java).notify(LIVE_ID, n) }
-        // Recomputed at the next moment that matters (and at least every 5 min), from stored times.
-        val next = minOf(s.nextEvent.plusSeconds(1), now.plusSeconds(300)).coerceAtLeast(now.plusSeconds(30))
+        // Recomputed at the next moment that matters (and at least every 2 min), from stored times.
+        val next = minOf(s.nextEvent.plusSeconds(1), now.plusSeconds(120)).coerceAtLeast(now.plusSeconds(30))
         alarm(ctx, "live", next, Intent(ctx, ReminderReceiver::class.java).setAction(ACTION_LIVE))
+    }
+
+    /** Android 16 Live Update: one segment per leg (line colour, walks grey), a point at each boarding. */
+    @android.annotation.TargetApi(36)
+    private fun liveProgress(it: Itinerary, total: Long, done: Long): Notification.Style {
+        val scale = 1000.0 / total
+        val segments = it.legs.map { l ->
+            val len = ((l.endTime.epochSecond - l.startTime.epochSecond) * scale).toInt().coerceAtLeast(1)
+            Notification.ProgressStyle.Segment(len).setColor(
+                if (l.isTransit) runCatching { android.graphics.Color.parseColor("#" + l.lineColors.background.removePrefix("#")) }.getOrDefault(android.graphics.Color.DKGRAY)
+                else android.graphics.Color.LTGRAY)
+        }
+        val points = it.legs.filter { l -> l.isTransit }.map { l ->
+            Notification.ProgressStyle.Point(((l.startTime.epochSecond - it.startTime.epochSecond) * scale).toInt().coerceIn(1, 999))
+        }
+        return Notification.ProgressStyle()
+            .setStyledByProgress(true)
+            .setProgressSegments(segments)
+            .setProgressPoints(points)
+            .setProgress(segments.sumOf { seg -> seg.length }.let { sum -> (done * scale).toInt().coerceIn(0, sum) })
+    }
+
+    private fun ticketsIntent(ctx: Context, tripId: String): PendingIntent {
+        val i = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("publit://tickets/$tripId"), ctx, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        return PendingIntent.getActivity(ctx, ("t" + tripId).hashCode(), i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    internal fun endFromNotification(ctx: Context, tripId: String?) {
+        val app = ctx.applicationContext as? PublitApplication ?: return
+        val t = tripId?.let { id -> app.trips.trip(id) } ?: app.trips.activeTrip ?: run { endLive(ctx); return }
+        io.github.elija7580.publit.ui.TripSession.stop(ctx, app.trips, t)
+        endLive(ctx)
     }
 
     fun endLive(ctx: Context) {
@@ -137,6 +227,7 @@ object TripNotifications {
 
     internal const val ACTION_POST = "io.github.elija7580.publit.POST"
     internal const val ACTION_LIVE = "io.github.elija7580.publit.LIVE"
+    internal const val ACTION_END = "io.github.elija7580.publit.END"
 
     private fun pending(ctx: Context): Set<String> =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getStringSet("keys", emptySet()).orEmpty()
@@ -219,6 +310,7 @@ class ReminderReceiver : BroadcastReceiver() {
             when (intent.action) {
                 TripNotifications.ACTION_POST -> TripNotifications.post(context, intent)
                 TripNotifications.ACTION_LIVE -> TripNotifications.liveTick(context)
+                TripNotifications.ACTION_END -> TripNotifications.endFromNotification(context, intent.getStringExtra(TripNotifications.EXTRA_TRIP))
             }
         }
     }
