@@ -196,8 +196,8 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
         if (axis != null) item("axis") { TimeAxis(axis.first, axis.second, state.routes.first().legs.firstOrNull()?.from?.tz) }
         val rec = state.badges.entries.firstOrNull { io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED in it.value }?.key
         items(state.sorted, key = { it.routeKey }) { r ->
-            RouteCard(r, state.badges[r.routeKey].orEmpty(), axis = axis,
-                if (r.routeKey == rec) io.github.elija7580.publit.data.SmartRouting.reason(r, state.routes) else null) { vm.open(r) }
+            RouteCard(r, state.badges[r.routeKey].orEmpty(),
+                if (r.routeKey == rec) io.github.elija7580.publit.data.SmartRouting.reason(r, state.routes) else null, axis) { vm.open(r) }
         }
         if (state.street.isNotEmpty()) item("street") {
             Text(L10n.t("Other ways").uppercase(), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 28.dp, bottom = 6.dp))

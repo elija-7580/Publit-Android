@@ -312,7 +312,7 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onSettings: ()
                                 nextTrip?.let { t ->
                                     HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
                                     Row(Modifier.fillMaxWidth().clickable { onOpenSaved(t.id) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Event, null, Modifier.width(20.dp))
+                                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.DateRange, null, Modifier.width(20.dp))
                                         Spacer(Modifier.width(12.dp))
                                         Column(Modifier.weight(1f)) {
                                             Text(L10n.f("Next trip: %@", t.toName), fontWeight = FontWeight.SemiBold, maxLines = 1)
