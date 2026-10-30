@@ -2,6 +2,8 @@ package io.github.elija7580.publit.ui
 
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.AssistChip
 import kotlinx.coroutines.launch
@@ -146,6 +148,7 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
                 }
             }
         }
+        if (!state.searched) item("recents") { RecentSearches(vm) }
         item("coverage") {
             fun pt(e: Endpoint?) = when (e) { is Endpoint.At -> e.point; Endpoint.Here -> vm.lastFix; null -> null }
             val notices = io.github.elija7580.publit.data.CoverageGuide.notices(pt(state.from), pt(state.to))
@@ -183,12 +186,17 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
             state.loading -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = ink.ink) } }
             state.error != null -> item { Text(state.error, color = ink.muted, modifier = Modifier.padding(horizontal = 16.dp)) }
         }
+        if (state.routes.isNotEmpty() && state.previousCursor != null) item("earlier") {
+            TextButton(onClick = vm::earlier, modifier = Modifier.padding(horizontal = 8.dp)) { Text(L10n.t("Earlier connections")) }
+        }
         val rec = state.badges.entries.firstOrNull { io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED in it.value }?.key
         items(state.sorted, key = { it.routeKey }) { r ->
             RouteCard(r, state.badges[r.routeKey].orEmpty(),
                 if (r.routeKey == rec) io.github.elija7580.publit.data.SmartRouting.reason(r, state.routes) else null) { vm.open(r) }
         }
         if (state.street.isNotEmpty()) item("street") {
+            Text(L10n.t("Other ways").uppercase(), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 28.dp, bottom = 6.dp))
+            val best = state.routes.filter { r -> !r.isDirect && !r.isCancelled }.minOfOrNull { r -> r.duration }
             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
                 Column {
                     state.street.forEachIndexed { i, c ->
@@ -197,7 +205,14 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
                             Icon(when (c.mode) { "BIKE" -> Icons.AutoMirrored.Filled.DirectionsBike; "CAR" -> Icons.Filled.DirectionsCar; else -> Icons.AutoMirrored.Filled.DirectionsWalk }, null, tint = ink.muted)
                             Spacer(Modifier.width(10.dp))
                             Text(L10n.t(when (c.mode) { "BIKE" -> "Bike"; "CAR" -> "Car"; else -> "Walk" }), modifier = Modifier.weight(1f))
-                            Text(Fmt.duration(c.duration) + (c.distance?.let { " · " + Fmt.distance(it) } ?: ""), color = ink.muted)
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(Fmt.duration(c.duration) + (c.distance?.let { " · " + Fmt.distance(it) } ?: ""), color = ink.muted)
+                                best?.let { b ->
+                                    val diff = (c.duration - b) / 60
+                                    Text(when { kotlin.math.abs(diff) <= 2 -> L10n.t("About as fast"); diff < 0 -> L10n.f("%lld min faster", -diff); else -> L10n.f("%lld min slower", diff) },
+                                        fontSize = 12.sp, color = if (diff < -2) ink.live else ink.muted)
+                                }
+                            }
                         }
                     }
                 }
@@ -609,6 +624,36 @@ fun PlaceSearch(vm: PlanViewModel, allowHere: Boolean, onBack: () -> Unit, onMat
                     Column {
                         Text(m.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (m.subtitle.isNotEmpty()) Text(m.subtitle, color = ink.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Searched before (RecentSearchesSection on iOS): one tap searches again with current departures. */
+@Composable
+fun RecentSearches(vm: PlanViewModel) {
+    val ink = LocalInk.current
+    val recents by vm.recents.collectAsStateWithLifecycle()
+    if (recents.isEmpty()) return
+    Column(Modifier.padding(horizontal = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(L10n.t("Recently searched").uppercase(), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f).padding(start = 16.dp))
+            TextButton(onClick = vm::clearRecents) { Text(L10n.t("Clear history"), fontSize = 13.sp) }
+        }
+        Surface(shape = RoundedCornerShape(14.dp), color = ink.surface) {
+            Column {
+                recents.take(8).forEachIndexed { i, r ->
+                    if (i > 0) HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(start = 52.dp))
+                    Row(Modifier.fillMaxWidth().clickable { vm.route(r.from, r.to) }.padding(start = 16.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.History, null, tint = ink.muted)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(r.to.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(L10n.f("From %@", r.from.title), color = ink.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        IconButton(onClick = { vm.removeRecent(r) }) { Icon(Icons.Filled.Close, L10n.t("Remove"), tint = ink.muted) }
                     }
                 }
             }

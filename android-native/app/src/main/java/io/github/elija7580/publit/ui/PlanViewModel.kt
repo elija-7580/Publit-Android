@@ -43,6 +43,7 @@ data class PlanState(
     val searched: Boolean = false,
     val opened: Itinerary? = null,
     val nextCursor: String? = null,
+    val previousCursor: String? = null,
     val options: io.github.elija7580.publit.data.RouteOptions = io.github.elija7580.publit.data.RouteOptions(),
     /** Walking, cycling and driving the whole way, for comparison. */
     val street: List<io.github.elija7580.publit.data.StreetComparison> = emptyList(),
@@ -50,6 +51,10 @@ data class PlanState(
 ) {
     /** The routes in the chosen order. */
     val sorted: List<Itinerary> get() = options.sort.apply(routes, arriveBy)
+}
+
+data class Recent(val from: Endpoint, val to: Endpoint.At) {
+    val key get() = from.title + "|" + to.name
 }
 
 class PlanViewModel(
@@ -105,9 +110,38 @@ class PlanViewModel(
 
     private suspend fun point(e: Endpoint): LatLon? = when (e) { Endpoint.Here -> here(); is Endpoint.At -> e.point }
 
+    /** Start/destination pairs searched before (RecentSearches on iOS): at most 20, newest first. */
+    val recents = MutableStateFlow(loadRecents())
+
+    private fun loadRecents(): List<Recent> = runCatching {
+        val a = org.json.JSONArray(prefs.getString("publit.recents.v1", "[]"))
+        (0 until a.length()).map { i -> a.getJSONObject(i).let { o ->
+            Recent(o.optString("fromName").takeIf { n -> n.isNotEmpty() && o.has("fromLat") }?.let { n -> Endpoint.At(n, LatLon(o.getDouble("fromLat"), o.getDouble("fromLon"))) } ?: Endpoint.Here,
+                Endpoint.At(o.getString("toName"), LatLon(o.getDouble("toLat"), o.getDouble("toLon")))) } }
+    }.getOrDefault(emptyList())
+
+    private fun saveRecents(list: List<Recent>) {
+        val a = org.json.JSONArray()
+        list.forEach { r -> a.put(org.json.JSONObject().apply {
+            (r.from as? Endpoint.At)?.let { f -> put("fromName", f.name); put("fromLat", f.point.lat); put("fromLon", f.point.lon) }
+            put("toName", r.to.name); put("toLat", r.to.point.lat); put("toLon", r.to.point.lon) }) }
+        prefs.edit().putString("publit.recents.v1", a.toString()).apply()
+        recents.value = list
+    }
+
+    private fun remember(from: Endpoint, to: Endpoint) {
+        val t = to as? Endpoint.At ?: return
+        val r = Recent(from, t)
+        saveRecents((listOf(r) + recents.value.filter { it.key != r.key }).take(20))
+    }
+
+    fun removeRecent(r: Recent) = saveRecents(recents.value.filter { it.key != r.key })
+    fun clearRecents() = saveRecents(emptyList())
+
     fun plan() {
         val s = _state.value
         val to = s.to ?: return
+        remember(s.from, to)
         search?.cancel()
         search = viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null, routes = emptyList(), walkOnly = null, searched = true, street = emptyList(), badges = emptyMap()) }
@@ -137,7 +171,7 @@ class PlanViewModel(
                     .filter { it.isRealistic(best) }
                 log.note("plan: ${found.size} routes")
                 _state.update {
-                    it.copy(loading = false, routes = found, walkOnly = res?.direct?.firstOrNull(), nextCursor = res?.nextPageCursor, street = comparisons,
+                    it.copy(loading = false, routes = found, walkOnly = res?.direct?.firstOrNull(), nextCursor = res?.nextPageCursor, previousCursor = res?.previousPageCursor, street = comparisons,
                         badges = if (io.github.elija7580.publit.data.SmartRouting.isEnabled) io.github.elija7580.publit.data.SmartRouting.badges(found, s.arriveBy) else emptyMap(),
                         error = if (found.isEmpty() && res?.direct.isNullOrEmpty()) L10n.t("No connections found.") else null)
                 }
@@ -148,9 +182,12 @@ class PlanViewModel(
         }
     }
 
-    fun later() {
+    fun later() = page(true)
+    fun earlier() = page(false)
+
+    private fun page(next: Boolean) {
         val s = _state.value
-        val cursor = s.nextCursor ?: return
+        val cursor = (if (next) s.nextCursor else s.previousCursor) ?: return
         val to = s.to ?: return
         viewModelScope.launch {
             try {
@@ -158,7 +195,9 @@ class PlanViewModel(
                 val b = point(to) ?: return@launch
                 val res = client.plan(a, b, s.time, s.arriveBy, s.options.maxWalkMinutes * 60, cursor, s.options)
                 _state.update { st ->
-                    st.copy(routes = (st.routes + res.itineraries.filter { !it.isDetour }).distinctBy { it.routeKey }, nextCursor = res.nextPageCursor)
+                    val more = res.itineraries.filter { !it.isDetour }
+                    if (next) st.copy(routes = (st.routes + more).distinctBy { it.routeKey }, nextCursor = res.nextPageCursor)
+                    else st.copy(routes = (more + st.routes).distinctBy { it.routeKey }, previousCursor = res.previousPageCursor)
                 }
             } catch (e: CancellationException) { throw e } catch (_: Exception) {}
         }
