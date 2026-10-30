@@ -2,6 +2,7 @@ package io.github.elija7580.publit.ui
 
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Star
 import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.filled.History
@@ -89,7 +90,7 @@ import java.time.ZoneId
 private enum class Field { FROM, TO }
 
 @Composable
-fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, pinned: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), actions: @Composable (Itinerary, String, String) -> Unit = { _, _, _ -> }) {
+fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), onSetRole: ((io.github.elija7580.publit.data.PlaceRole, io.github.elija7580.publit.data.SavedPlace) -> Unit)? = null, actions: @Composable (Itinerary, String, String) -> Unit = { _, _, _ -> }) {
     val state by vm.state.collectAsStateWithLifecycle()
     var searching by remember { mutableStateOf<Field?>(null) }
     var options by remember { mutableStateOf(false) }
@@ -97,9 +98,10 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, pinned: List<io.g
     var handled by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(searchRequest) }
     LaunchedEffect(searchRequest) { if (searchRequest != handled) { handled = searchRequest; searching = Field.TO } }
     val opened = state.opened
+    val pinned = io.github.elija7580.publit.data.PlaceRole.entries.mapNotNull { r -> saved.firstOrNull { it.role == r } }
     when {
         options -> { BackHandler { options = false }; RouteOptionsScreen(state.options, onDone = { vm.setOptions(it); options = false }) }
-        searching != null -> PlaceSearch(vm, allowHere = searching == Field.FROM, onBack = { searching = null }) { e ->
+        searching != null -> PlaceSearch(vm, allowHere = searching == Field.FROM, onBack = { searching = null }, saved = saved, onSetRole = onSetRole) { e ->
             if (searching == Field.FROM) vm.setFrom(e) else vm.setTo(e)
             searching = null
         }
@@ -157,84 +159,7 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
             val notices = io.github.elija7580.publit.data.CoverageGuide.notices(pt(state.from), pt(state.to))
             CoverageBanner(notices)
         }
-        item("options") {
-            Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Surface(onClick = onOptions, shape = RoundedCornerShape(50), color = ink.fill, modifier = Modifier.weight(1f)) {
-                    Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Tune, null, Modifier.size(18.dp), tint = if (state.options.isDefault) ink.muted else ink.ink)
-                        Spacer(Modifier.width(8.dp))
-                        Text(L10n.t("Route options"), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                        Spacer(Modifier.width(8.dp))
-                        Text(state.options.summary ?: L10n.t("All modes"), color = if (state.options.isDefault) ink.muted else ink.ink, fontSize = 14.sp,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    }
-                }
-                var sortMenu by remember { mutableStateOf(false) }
-                Box {
-                    Surface(onClick = { sortMenu = true }, shape = RoundedCornerShape(50), color = ink.fill) {
-                        Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.AutoMirrored.Filled.Sort, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
-                            Text(state.options.sort.effective.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                    DropdownMenu(sortMenu, { sortMenu = false }) {
-                        io.github.elija7580.publit.data.RouteSort.offered.forEach { o ->
-                            DropdownMenuItem({ Text(o.title) }, { sortMenu = false; vm.setOptions(state.options.copy(sort = o)) })
-                        }
-                    }
-                }
-            }
-        }
-        when {
-            state.loading -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = ink.ink) } }
-            state.error != null -> item { Text(state.error, color = ink.muted, modifier = Modifier.padding(horizontal = 16.dp)) }
-        }
-        if (state.routes.isNotEmpty() && state.previousCursor != null) item("earlier") {
-            TextButton(onClick = vm::earlier, modifier = Modifier.padding(horizontal = 8.dp)) { Text(L10n.t("Earlier connections")) }
-        }
-        val axis = if (timelines && state.routes.isNotEmpty()) state.routes.minOf { r -> r.startTime } to state.routes.maxOf { r -> r.endTime } else null
-        if (axis != null) item("axis") { TimeAxis(axis.first, axis.second, state.routes.first().legs.firstOrNull()?.from?.tz) }
-        val rec = state.badges.entries.firstOrNull { io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED in it.value }?.key
-        items(state.sorted, key = { it.routeKey }) { r ->
-            RouteCard(r, state.badges[r.routeKey].orEmpty(),
-                if (r.routeKey == rec) io.github.elija7580.publit.data.SmartRouting.reason(r, state.routes) else null, axis, leave = state.from == Endpoint.Here && state.time == null) { vm.open(r) }
-        }
-        if (state.street.isNotEmpty()) item("street") {
-            Text(L10n.t("Other ways").uppercase(), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 28.dp, bottom = 6.dp))
-            val best = state.routes.filter { r -> !r.isDirect && !r.isCancelled }.minOfOrNull { r -> r.duration }
-            Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
-                Column {
-                    state.street.forEachIndexed { i, c ->
-                        if (i > 0) HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
-                        Row(Modifier.fillMaxWidth().clickable { vm.open(c.itinerary) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(when (c.mode) { "BIKE" -> Icons.AutoMirrored.Filled.DirectionsBike; "CAR" -> Icons.Filled.DirectionsCar; else -> Icons.AutoMirrored.Filled.DirectionsWalk }, null, tint = ink.muted)
-                            Spacer(Modifier.width(10.dp))
-                            Text(L10n.t(when (c.mode) { "BIKE" -> "Bike"; "CAR" -> "Car"; else -> "Walk" }), modifier = Modifier.weight(1f))
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(Fmt.duration(c.duration) + (c.distance?.let { " · " + Fmt.distance(it) } ?: ""), color = ink.muted)
-                                best?.let { b ->
-                                    val diff = (c.duration - b) / 60
-                                    Text(when { kotlin.math.abs(diff) <= 2 -> L10n.t("About as fast"); diff < 0 -> L10n.f("%lld min faster", -diff); else -> L10n.f("%lld min slower", diff) },
-                                        fontSize = 12.sp, color = if (diff < -2) ink.live else ink.muted)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if (state.street.any { it.mode == "CAR" }) Text(L10n.t("Driving times are without traffic and parking."), color = ink.muted, fontSize = 12.sp,
-                modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp))
-        }
-        if (state.street.isEmpty()) state.walkOnly?.let { w -> item("walk") {
-            Row(Modifier.fillMaxWidth().clickable { vm.open(w) }.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null, tint = ink.muted)
-                Spacer(Modifier.width(8.dp))
-                Text(L10n.f("%@ walk", Fmt.duration(w.duration)), color = ink.muted)
-            }
-        } }
-        if (state.routes.isNotEmpty() && state.nextCursor != null) item("later") {
-            TextButton(onClick = vm::later, modifier = Modifier.padding(horizontal = 8.dp)) { Text(L10n.t("Later connections")) }
-        }
+        routeResults(state, vm, ink, timelines, onOptions)
     }
     picking?.let { arrive ->
         val now = java.time.LocalTime.now()
@@ -613,6 +538,7 @@ private fun StopLine(time: Instant, tz: String?, name: String, track: String?, d
 /** Search for a place or stop, as PlaceSearchView on iOS. */
 @Composable
 fun PlaceSearch(vm: PlanViewModel, allowHere: Boolean, onBack: () -> Unit, onMatch: ((io.github.elija7580.publit.data.GeocodeMatch) -> Unit)? = null,
+                saved: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), onSetRole: ((io.github.elija7580.publit.data.PlaceRole, io.github.elija7580.publit.data.SavedPlace) -> Unit)? = null,
                 onPick: (Endpoint) -> Unit) {
     val ink = LocalInk.current
     BackHandler(onBack = onBack)
@@ -626,7 +552,28 @@ fun PlaceSearch(vm: PlanViewModel, allowHere: Boolean, onBack: () -> Unit, onMat
             OutlinedTextField(text, { text = it; vm.query(it) }, singleLine = true, placeholder = { Text(L10n.t("Search")) },
                 modifier = Modifier.fillMaxWidth().focusRequester(focus))
         }
+        // "Set Home": the next place picked is saved as Home and used right away.
+        var setting by remember { mutableStateOf<io.github.elija7580.publit.data.PlaceRole?>(null) }
         LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
+            if (text.isBlank() && onMatch == null) {
+                // Home and Work first, then the current location, other saved places (PlaceSearchView on iOS).
+                io.github.elija7580.publit.data.PlaceRole.entries.forEach { role ->
+                    val p = saved.firstOrNull { it.role == role }
+                    item("role-" + role.name) {
+                        Row(Modifier.fillMaxWidth().clickable {
+                            if (p != null) onPick(Endpoint.At(role.title, p.coordinate)) else if (onSetRole != null) { setting = role; focus.requestFocus() }
+                        }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(if (role == io.github.elija7580.publit.data.PlaceRole.WORK) Icons.Filled.Work else Icons.Filled.Home, null,
+                                Modifier.size(34.dp).background(ink.fill, androidx.compose.foundation.shape.CircleShape).padding(7.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(if (p != null) role.title else L10n.f("Set %@", role.title), fontWeight = FontWeight.SemiBold)
+                                Text(p?.name ?: if (setting == role) L10n.t("Search for the place below.") else L10n.t("Not set"), color = ink.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+            }
             if (allowHere) item {
                 Row(Modifier.fillMaxWidth().clickable { onPick(Endpoint.Here) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.MyLocation, null)
@@ -634,8 +581,25 @@ fun PlaceSearch(vm: PlanViewModel, allowHere: Boolean, onBack: () -> Unit, onMat
                     Text(L10n.t("Current location"), fontWeight = FontWeight.SemiBold)
                 }
             }
+            val others = saved.filter { it.role == null }
+            if (text.isBlank() && onMatch == null && others.isNotEmpty()) {
+                item("savedHead") { Text(L10n.t("Saved").uppercase(), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)) }
+                items(others, key = { "s" + it.id }) { f ->
+                    Row(Modifier.fillMaxWidth().clickable { onPick(Endpoint.At(f.name, f.coordinate)) }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(if (f.isStop) modeIcon("BUS") else Icons.Filled.Star, null, tint = ink.muted)
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(f.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            f.subtitle?.takeIf { it.isNotEmpty() }?.let { Text(it, color = ink.muted, fontSize = 13.sp, maxLines = 1) }
+                        }
+                    }
+                }
+            }
             items(matches, key = { it.id + it.lat + it.lon }) { m ->
-                Row(Modifier.fillMaxWidth().clickable { if (onMatch != null) onMatch(m) else onPick(Endpoint.At(m.name, LatLon(m.lat, m.lon))) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                Row(Modifier.fillMaxWidth().clickable {
+                    val role = setting
+                    if (role != null && onSetRole != null) { onSetRole(role, io.github.elija7580.publit.data.SavedPlace.of(m)); setting = null; onPick(Endpoint.At(role.title, LatLon(m.lat, m.lon))) }
+                    else if (onMatch != null) onMatch(m) else onPick(Endpoint.At(m.name, LatLon(m.lat, m.lon))) }.padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Icon(if (m.isStop) modeIcon("BUS") else Icons.Filled.Place, null, tint = ink.muted)
                     Spacer(Modifier.width(12.dp))
@@ -764,4 +728,134 @@ fun ConnectionGuide(onDismiss: () -> Unit) {
                 Text(L10n.t("This is a comparison, not live progress. Check the departure times, line names and change warnings."), color = ink.muted, fontSize = 13.sp)
             }
         })
+}
+
+/** Options, sort, the routes, other ways, earlier/later: shared by Plan and Go Now. */
+private fun androidx.compose.foundation.lazy.LazyListScope.routeResults(state: PlanState, vm: PlanViewModel, ink: Ink, timelines: Boolean, onOptions: () -> Unit) {
+        item("options") {
+            Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(onClick = onOptions, shape = RoundedCornerShape(50), color = ink.fill, modifier = Modifier.weight(1f)) {
+                    Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Tune, null, Modifier.size(18.dp), tint = if (state.options.isDefault) ink.muted else ink.ink)
+                        Spacer(Modifier.width(8.dp))
+                        Text(L10n.t("Route options"), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(state.options.summary ?: L10n.t("All modes"), color = if (state.options.isDefault) ink.muted else ink.ink, fontSize = 14.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    }
+                }
+                var sortMenu by remember { mutableStateOf(false) }
+                Box {
+                    Surface(onClick = { sortMenu = true }, shape = RoundedCornerShape(50), color = ink.fill) {
+                        Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.AutoMirrored.Filled.Sort, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                            Text(state.options.sort.effective.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    DropdownMenu(sortMenu, { sortMenu = false }) {
+                        io.github.elija7580.publit.data.RouteSort.offered.forEach { o ->
+                            DropdownMenuItem({ Text(o.title) }, { sortMenu = false; vm.setOptions(state.options.copy(sort = o)) })
+                        }
+                    }
+                }
+            }
+        }
+        when {
+            state.loading -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = ink.ink) } }
+            state.error != null -> item { Text(state.error, color = ink.muted, modifier = Modifier.padding(horizontal = 16.dp)) }
+        }
+        if (state.routes.isNotEmpty() && state.previousCursor != null) item("earlier") {
+            TextButton(onClick = vm::earlier, modifier = Modifier.padding(horizontal = 8.dp)) { Text(L10n.t("Earlier connections")) }
+        }
+        val axis = if (timelines && state.routes.isNotEmpty()) state.routes.minOf { r -> r.startTime } to state.routes.maxOf { r -> r.endTime } else null
+        if (axis != null) item("axis") { TimeAxis(axis.first, axis.second, state.routes.first().legs.firstOrNull()?.from?.tz) }
+        val rec = state.badges.entries.firstOrNull { io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED in it.value }?.key
+        items(state.sorted, key = { it.routeKey }) { r ->
+            RouteCard(r, state.badges[r.routeKey].orEmpty(),
+                if (r.routeKey == rec) io.github.elija7580.publit.data.SmartRouting.reason(r, state.routes) else null, axis, leave = state.from == Endpoint.Here && state.time == null) { vm.open(r) }
+        }
+        if (state.street.isNotEmpty()) item("street") {
+            Text(L10n.t("Other ways").uppercase(), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 28.dp, bottom = 6.dp))
+            val best = state.routes.filter { r -> !r.isDirect && !r.isCancelled }.minOfOrNull { r -> r.duration }
+            Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+                Column {
+                    state.street.forEachIndexed { i, c ->
+                        if (i > 0) HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                        Row(Modifier.fillMaxWidth().clickable { vm.open(c.itinerary) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(when (c.mode) { "BIKE" -> Icons.AutoMirrored.Filled.DirectionsBike; "CAR" -> Icons.Filled.DirectionsCar; else -> Icons.AutoMirrored.Filled.DirectionsWalk }, null, tint = ink.muted)
+                            Spacer(Modifier.width(10.dp))
+                            Text(L10n.t(when (c.mode) { "BIKE" -> "Bike"; "CAR" -> "Car"; else -> "Walk" }), modifier = Modifier.weight(1f))
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(Fmt.duration(c.duration) + (c.distance?.let { " · " + Fmt.distance(it) } ?: ""), color = ink.muted)
+                                best?.let { b ->
+                                    val diff = (c.duration - b) / 60
+                                    Text(when { kotlin.math.abs(diff) <= 2 -> L10n.t("About as fast"); diff < 0 -> L10n.f("%lld min faster", -diff); else -> L10n.f("%lld min slower", diff) },
+                                        fontSize = 12.sp, color = if (diff < -2) ink.live else ink.muted)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (state.street.any { it.mode == "CAR" }) Text(L10n.t("Driving times are without traffic and parking."), color = ink.muted, fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp))
+        }
+        if (state.street.isEmpty()) state.walkOnly?.let { w -> item("walk") {
+            Row(Modifier.fillMaxWidth().clickable { vm.open(w) }.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null, tint = ink.muted)
+                Spacer(Modifier.width(8.dp))
+                Text(L10n.f("%@ walk", Fmt.duration(w.duration)), color = ink.muted)
+            }
+        } }
+        if (state.routes.isNotEmpty() && state.nextCursor != null) item("later") {
+            TextButton(onClick = vm::later, modifier = Modifier.padding(horizontal = 8.dp)) { Text(L10n.t("Later connections")) }
+        }
+    }
+
+/**
+ * Nearby → "Where to now?", Home, Work (GoNowView on iOS): the best ways from here, leaving now,
+ * with the route options, a map of the routes, other ways and later connections.
+ */
+@Composable
+fun GoNowScreen(vm: PlanViewModel, onBack: () -> Unit, saved: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(),
+                onSetRole: ((io.github.elija7580.publit.data.PlaceRole, io.github.elija7580.publit.data.SavedPlace) -> Unit)? = null,
+                actions: @Composable (Itinerary, String, String) -> Unit = { _, _, _ -> }) {
+    val ink = LocalInk.current
+    val state by vm.state.collectAsStateWithLifecycle()
+    var options by remember { mutableStateOf(false) }
+    var searching by remember { mutableStateOf(state.to == null) }
+    val timelines = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("publit", android.content.Context.MODE_PRIVATE).getBoolean("showTimelines", false)
+    val opened = state.opened
+    when {
+        options -> { BackHandler { options = false }; RouteOptionsScreen(state.options, onDone = { vm.setOptions(it); options = false }) }
+        searching -> PlaceSearch(vm, allowHere = false, onBack = { if (state.to == null) onBack() else searching = false }, saved = saved, onSetRole = onSetRole) { e ->
+            vm.route(Endpoint.Here, e); searching = false
+        }
+        opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }) { actions(opened, L10n.t("Current location"), state.to?.title ?: "") } }
+        else -> {
+            BackHandler(onBack = onBack)
+            LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+                item("head") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, L10n.t("Back")) }
+                        Text(state.to?.title ?: L10n.t("Route"), fontWeight = FontWeight.Bold, fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).clickable { searching = true })
+                    }
+                }
+                state.sorted.firstOrNull { !it.isDirect }?.let { first -> item("map") {
+                    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+                        RouteMap(first, Modifier.fillMaxWidth().height(220.dp))
+                    }
+                } }
+                item("coverage") {
+                    val to = (state.to as? Endpoint.At)?.point
+                    CoverageBanner(io.github.elija7580.publit.data.CoverageGuide.notices(vm.lastFix, to))
+                }
+                item("from") {
+                    Text(L10n.t("From your location").uppercase(), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 28.dp))
+                }
+                routeResults(state, vm, ink, timelines) { options = true }
+            }
+        }
+    }
 }

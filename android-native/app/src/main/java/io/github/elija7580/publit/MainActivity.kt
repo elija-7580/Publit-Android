@@ -24,6 +24,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Nearby → Where to now / Home / Work: its own search, as app.goNow on iOS. */
+    private val goNow: PlanViewModel by lazy {
+        ViewModelProvider(this, object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                val app = application as PublitApplication
+                return PlanViewModel(app.client, app.location, app.crashLog, getSharedPreferences("publit", MODE_PRIVATE)) as T
+            }
+        })["goNow", PlanViewModel::class.java]
+    }
+
     private val plan: PlanViewModel by viewModels {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -79,6 +90,6 @@ class MainActivity : ComponentActivity() {
         stopLink(intent)?.let { openTrip.value = it }
         if (savedInstanceState == null) shared(intent)
         lifecycleScope.launch { runCatching { io.github.elija7580.publit.notify.LineAlerts.check(app); io.github.elija7580.publit.notify.LineAlerts.schedule(app) } }
-        setContent { PublitApp(nearby, plan, app.client, app.favorites, getSharedPreferences("publit", MODE_PRIVATE), app.trips, app.passes, openTrip, crash) }
+        setContent { PublitApp(nearby, plan, app.client, app.favorites, getSharedPreferences("publit", MODE_PRIVATE), app.trips, app.passes, openTrip, crash, goNow) }
     }
 }
