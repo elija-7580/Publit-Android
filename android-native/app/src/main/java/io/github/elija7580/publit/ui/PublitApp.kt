@@ -13,6 +13,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -428,7 +429,7 @@ fun LiveTripBar(store: io.github.elija7580.publit.data.TripStore, onOpen: (io.gi
     val mins = ((if (now < trip.startTime) trip.startTime else trip.endTime).epochSecond - now.epochSecond + 59) / 60
     Surface(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp).clickable { onOpen(trip) }, shape = RoundedCornerShape(16.dp), color = ink.ink, contentColor = ink.onInk, shadowElevation = 4.dp) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(9.dp).background(androidx.compose.ui.graphics.Color(0xFFFFC21A), androidx.compose.foundation.shape.CircleShape))
+            androidx.compose.foundation.layout.Box(Modifier.width(9.dp).height(9.dp).background(androidx.compose.ui.graphics.Color(0xFFFFC21A), androidx.compose.foundation.shape.CircleShape))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(if (arrived) L10n.t("Arrived") else L10n.t("Live trip"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
@@ -438,7 +439,7 @@ fun LiveTripBar(store: io.github.elija7580.publit.data.TripStore, onOpen: (io.gi
             if (!started && !arrived) androidx.compose.material3.TextButton(onClick = { TripSession.start(ctx, store, trip); onOpen(trip) }) { Text(L10n.t("Start trip"), color = ink.onInk) }
             else androidx.compose.material3.TextButton(onClick = { onOpen(trip) }) { Text(L10n.t("Open trip"), color = ink.onInk) }
             if (!started) androidx.compose.material3.IconButton(onClick = { hiddenBars += trip.id }) {
-                androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Close, L10n.t("Hide"))
+                androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Clear, L10n.t("Hide"))
             }
         }
     }
