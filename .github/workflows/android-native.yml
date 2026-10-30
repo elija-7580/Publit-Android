@@ -30,7 +30,8 @@ jobs:
           python3 android-native/tools/strings.py Sources/Publit/Resources/Localizable.xcstrings android-native/app/src/main/assets/strings
       - name: Unit tests and release APK
         working-directory: android-native
-        run: gradle --no-daemon :app:testReleaseUnitTest :app:assembleRelease :wear:assembleRelease 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+        env: { WALLET_SIGNER_URL: '${{ vars.WALLET_SIGNER_URL }}' }
+        run: gradle --no-daemon ${WALLET_SIGNER_URL:+-Ppublit.walletSignerUrl=$WALLET_SIGNER_URL} :app:testReleaseUnitTest :app:assembleRelease :wear:assembleRelease 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
       - name: Errors only
         if: failure()
         run: |

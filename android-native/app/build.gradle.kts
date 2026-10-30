@@ -16,6 +16,9 @@ android {
         targetSdk = 36
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "0.8.0"
+        // Optional Google Wallet export: the signing service's HTTPS URL (services/google-wallet-signer).
+        // Without it the button stays hidden. The issuer key never goes into the app.
+        manifestPlaceholders["walletSignerUrl"] = (project.findProperty("publit.walletSignerUrl") as String?) ?: ""
     }
 
     signingConfigs {

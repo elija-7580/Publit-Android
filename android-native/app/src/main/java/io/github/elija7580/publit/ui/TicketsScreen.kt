@@ -102,6 +102,7 @@ import io.github.elija7580.publit.tickets.TicketScan
 import io.github.elija7580.publit.tickets.TicketTextParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -292,6 +293,7 @@ fun PassDetailScreen(store: PassStore, id: String, onBack: () -> Unit, onEdit: (
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             PassCard(p, compact = false) { PassCode(store, p, onTap = { fullCode = true }) }
             if (p.document != null) OutlinedSurfaceButton(L10n.t("Show original")) { original = true }
+            WalletButton(p)
             p.reference?.let { InfoRow(L10n.t("Ticket number"), it) }
             p.notes?.takeIf { it.isNotBlank() }?.let { InfoRow(L10n.t("Notes"), it) }
             Text(L10n.t("A copy of your ticket for quick access. Only the ticket the operator issued is valid. Inspectors may ask for it or for the operator's app."),
@@ -304,6 +306,32 @@ fun PassDetailScreen(store: PassStore, id: String, onBack: () -> Unit, onEdit: (
         text = { Text(L10n.t("The copy and its original are removed from this iPhone.").replace("iPhone", "Android")) },
         confirmButton = { TextButton({ confirmDelete = false; store.remove(p.id); onBack() }) { Text(L10n.t("Delete ticket"), color = ink.danger) } },
         dismissButton = { TextButton({ confirmDelete = false }) { Text(L10n.t("Cancel")) } })
+}
+
+/** "Add to Google Wallet", only with a configured signing service and a code Wallet can show. */
+@Composable
+private fun WalletButton(p: TicketPass) {
+    val ctx = LocalContext.current
+    if (!io.github.elija7580.publit.tickets.GoogleWallet.available(ctx, p)) return
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var consent by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+    val res = ctx.resources
+    OutlinedSurfaceButton(res.getString(io.github.elija7580.publit.R.string.wallet_add)) { consent = true }
+    if (consent) AlertDialog(onDismissRequest = { consent = false },
+        title = { Text(res.getString(io.github.elija7580.publit.R.string.wallet_add)) },
+        text = { Text(res.getString(io.github.elija7580.publit.R.string.wallet_consent)) },
+        confirmButton = { TextButton({
+            consent = false
+            scope.launch {
+                runCatching { io.github.elija7580.publit.tickets.GoogleWallet.export(ctx, p) }
+                    .onSuccess { url -> ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    .onFailure { failed = true }
+            }
+        }) { Text(res.getString(io.github.elija7580.publit.R.string.wallet_continue)) } },
+        dismissButton = { TextButton({ consent = false }) { Text(L10n.t("Cancel")) } })
+    if (failed) AlertDialog(onDismissRequest = { failed = false }, text = { Text(res.getString(io.github.elija7580.publit.R.string.wallet_error)) },
+        confirmButton = { TextButton({ failed = false }) { Text("OK") } })
 }
 
 @Composable

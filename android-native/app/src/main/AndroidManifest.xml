@@ -16,6 +16,7 @@
         android:supportsRtl="true"
         android:allowBackup="true"
         android:theme="@style/Theme.Publit">
+        <meta-data android:name="publit.walletSignerUrl" android:value="${walletSignerUrl}" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
