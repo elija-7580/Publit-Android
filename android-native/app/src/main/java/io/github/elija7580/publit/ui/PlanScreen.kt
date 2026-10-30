@@ -1,5 +1,6 @@
 package io.github.elija7580.publit.ui
 
+import androidx.compose.material.icons.filled.Settings
 import kotlinx.coroutines.launch
 import io.github.elija7580.publit.data.SmartRouting.Change.Level as ChangeLevel
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -81,10 +82,13 @@ import java.time.ZoneId
 private enum class Field { FROM, TO }
 
 @Composable
-fun PlanScreen(vm: PlanViewModel, actions: @Composable (Itinerary, String, String) -> Unit = { _, _, _ -> }) {
+fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, actions: @Composable (Itinerary, String, String) -> Unit = { _, _, _ -> }) {
     val state by vm.state.collectAsStateWithLifecycle()
     var searching by remember { mutableStateOf<Field?>(null) }
     var options by remember { mutableStateOf(false) }
+    val searchRequest by vm.searchRequest.collectAsStateWithLifecycle()
+    var handled by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(searchRequest) }
+    LaunchedEffect(searchRequest) { if (searchRequest != handled) { handled = searchRequest; searching = Field.TO } }
     val opened = state.opened
     when {
         options -> { BackHandler { options = false }; RouteOptionsScreen(state.options, onDone = { vm.setOptions(it); options = false }) }
@@ -93,17 +97,22 @@ fun PlanScreen(vm: PlanViewModel, actions: @Composable (Itinerary, String, Strin
             searching = null
         }
         opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }) { actions(opened, state.from.title, state.to?.title ?: "") } }
-        else -> PlanForm(state, vm, onPick = { searching = it }, onOptions = { options = true })
+        else -> PlanForm(state, vm, onPick = { searching = it }, onOptions = { options = true }, onSettings = onSettings)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Unit, onOptions: () -> Unit) {
+private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Unit, onOptions: () -> Unit, onSettings: () -> Unit) {
     val ink = LocalInk.current
     var picking by remember { mutableStateOf<Boolean?>(null) } // arriveBy?
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { Text(L10n.t("Plan"), fontWeight = FontWeight.Bold, fontSize = 32.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(L10n.t("Plan"), fontWeight = FontWeight.Bold, fontSize = 32.sp, modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp))
+                IconButton(onClick = onSettings, modifier = Modifier.padding(end = 8.dp)) { Icon(Icons.Filled.Settings, L10n.t("Settings")) }
+            }
+        }
         item {
             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

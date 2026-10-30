@@ -71,6 +71,9 @@ class PlanViewModel(
     fun setTo(e: Endpoint) { _state.update { it.copy(to = e) }; plan() }
     /** Opens Plan with these endpoints (from a stop of a line: "Route here" / "Route from here"). */
     fun route(from: Endpoint, to: Endpoint?) { _state.update { it.copy(from = from, to = to, opened = null) }; plan() }
+    /** "Where to now?" from Nearby: Plan opens with the destination search. */
+    val searchRequest = MutableStateFlow(0)
+    fun requestSearch() { searchRequest.value++ }
     fun swap() { _state.update { s -> s.copy(from = s.to ?: Endpoint.Here, to = s.from) }; plan() }
     fun setTime(time: Instant?, arriveBy: Boolean) { _state.update { it.copy(time = time, arriveBy = arriveBy) }; plan() }
     fun setOptions(o: io.github.elija7580.publit.data.RouteOptions) {

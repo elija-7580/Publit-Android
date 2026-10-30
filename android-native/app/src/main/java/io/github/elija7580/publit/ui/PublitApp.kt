@@ -1,5 +1,11 @@
 package io.github.elija7580.publit.ui
 
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.filled.Directions
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
@@ -103,7 +109,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
             bottomBar = {
                 androidx.compose.material3.NavigationBar(containerColor = ink.surface, tonalElevation = 0.dp) {
                     tabs.forEach { (r, title, icon) ->
-                        val selected = route == r || (r == "nearby" && (route.startsWith("stop") || route == "trip" || route == "stationmap")) || (r == "tickets" && route.startsWith("pass") && !route.startsWith("past")) || (r == "saved" && (route == "line" || route == "settings" || route == "pasttrips" || route.startsWith("savedtrip")))
+                        val selected = route == r || (r == "nearby" && (route.startsWith("stop") || route == "trip" || route == "stationmap" || (route == "settings" && false))) || (r == "tickets" && route.startsWith("pass") && !route.startsWith("past")) || (r == "saved" && (route == "line" || route == "settings" || route == "pasttrips" || route.startsWith("savedtrip")))
                         NavigationBarItem(
                             selected = selected,
                             onClick = { if (!selected || route != r) nav.navigate(r) { popUpTo("nearby") { saveState = true }; launchSingleTop = true; restoreState = true } },
@@ -118,7 +124,10 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         ) { padding ->
             androidx.navigation.compose.NavHost(nav, startDestination = "nearby", modifier = Modifier.padding(padding)) {
                 composable("nearby") {
-                    NearbyScreen(vm, onOpenMap = { nav.navigate("stationmap") }, onOpenTrip = { st, g -> openTrip(TripTarget(st, g.name, g.id, g.coordinate)) }) { g -> nav.navigate("stop?id=${Uri.encode(g.id)}&name=${Uri.encode(g.name)}&exact=${g.isPole}") }
+                    NearbyScreen(vm, onOpenMap = { nav.navigate("stationmap") }, onSettings = { nav.navigate("settings") },
+                        pinned = favorites.state.collectAsStateWithLifecycle().value.let { st -> io.github.elija7580.publit.data.PlaceRole.entries.mapNotNull { st.place(it) } },
+                        onWhereTo = { plan.route(Endpoint.Here, null); plan.requestSearch(); nav.navigate("plan") { popUpTo("nearby"); launchSingleTop = true } },
+                        onRoute = { name, at -> plan.route(Endpoint.Here, Endpoint.At(name, at)); nav.navigate("plan") { popUpTo("nearby"); launchSingleTop = true } }, onOpenTrip = { st, g -> openTrip(TripTarget(st, g.name, g.id, g.coordinate)) }) { g -> nav.navigate("stop?id=${Uri.encode(g.id)}&name=${Uri.encode(g.name)}&exact=${g.isPole}") }
                 }
                 composable("stop?id={id}&name={name}&exact={exact}") { e ->
                     val a = e.arguments
@@ -144,7 +153,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                     }
                 }
                 composable("plan") {
-                    PlanScreen(plan) { it, from, to -> TripActions(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
+                    PlanScreen(plan, onSettings = { nav.navigate("settings") }) { it, from, to -> TripActions(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
                 }
                 composable("savedtrip?id={id}") { e ->
                     SavedTripScreen(client, trips, e.arguments?.getString("id").orEmpty(), onBack = { nav.popBackStack() }) {
@@ -208,6 +217,13 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                 onPick = { role, done -> pickFor = role.title to done },
                 onDone = { prefs.edit().putBoolean(ONBOARDING_DONE_KEY, true).apply(); onboarding = false })
         }
+        // A moment of the logo while location and the first departures load underneath.
+        var splash by remember { mutableStateOf(!onboarding) }
+        val nearbyState by vm.state.collectAsStateWithLifecycle()
+        LaunchedEffect(Unit) { kotlinx.coroutines.delay(2500); splash = false }
+        LaunchedEffect(nearbyState.groups.isNotEmpty()) { if (nearbyState.groups.isNotEmpty()) { kotlinx.coroutines.delay(900); splash = false } }
+        androidx.compose.animation.AnimatedVisibility(splash, enter = androidx.compose.animation.EnterTransition.None,
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(250))) { LaunchSplash() }
         CrashDialog(crashReport)
     }
 }
@@ -235,7 +251,9 @@ private fun CrashDialog(report: String?) {
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onOpenTrip: (io.github.elija7580.publit.data.StopTime, io.github.elija7580.publit.data.StopGroup) -> Unit = { _, _ -> }, onOpenStop: (io.github.elija7580.publit.data.StopGroup) -> Unit) {
+fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onSettings: () -> Unit = {}, onWhereTo: () -> Unit = {},
+                 onRoute: (String, io.github.elija7580.publit.core.LatLon) -> Unit = { _, _ -> },
+                 pinned: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), onOpenTrip: (io.github.elija7580.publit.data.StopTime, io.github.elija7580.publit.data.StopGroup) -> Unit = { _, _ -> }, onOpenStop: (io.github.elija7580.publit.data.StopGroup) -> Unit) {
     val ink = LocalInk.current
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -252,8 +270,11 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onOpenTrip: (i
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(L10n.t("Nearby"), fontWeight = FontWeight.Bold, fontSize = 32.sp, modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp))
-            androidx.compose.material3.IconButton(onClick = onOpenMap, modifier = Modifier.padding(end = 8.dp)) {
+            androidx.compose.material3.IconButton(onClick = onOpenMap) {
                 androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Map, L10n.t("Station map"))
+            }
+            androidx.compose.material3.IconButton(onClick = onSettings, modifier = Modifier.padding(end = 8.dp)) {
+                androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Settings, L10n.t("Settings"))
             }
         }
         when {
@@ -272,6 +293,30 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onOpenTrip: (i
             else -> PullToRefreshBox(isRefreshing = false, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
                 LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
+                    item("go") {
+                        // "Where to now?", Home and Work: a route from here in one tap (goSection on iOS).
+                        Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+                            Column {
+                                Row(Modifier.fillMaxWidth().clickable(onClick = onWhereTo).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(L10n.t("To"), color = ink.muted, fontSize = 14.sp, modifier = Modifier.width(56.dp))
+                                    Text(L10n.t("Where to now?"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = ink.muted, modifier = Modifier.weight(1f))
+                                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Search, null,
+                                        Modifier.background(ink.ink, androidx.compose.foundation.shape.CircleShape).padding(8.dp), tint = ink.onInk)
+                                }
+                                pinned.forEach { p ->
+                                    HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                                    Row(Modifier.fillMaxWidth().clickable { onRoute(p.name, p.coordinate) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        androidx.compose.material3.Icon(if (p.role == io.github.elija7580.publit.data.PlaceRole.HOME) androidx.compose.material.icons.Icons.Filled.Home
+                                            else androidx.compose.material.icons.Icons.Filled.Work, null, Modifier.width(20.dp))
+                                        Spacer(Modifier.width(12.dp))
+                                        Text(p.role?.title ?: p.name, fontWeight = FontWeight.SemiBold)
+                                        Spacer(Modifier.weight(1f))
+                                        Text(p.name, color = ink.muted, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
                     if (state.available.size > 1 || state.filter.isActive) item("chips") {
                         ModeChips(state.available, state.filter.included, state.filter.isActive) { vm.setFilter(state.filter.toggleOnly(it)) }
                     }
@@ -290,8 +335,15 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onOpenTrip: (i
                     items(state.groups, key = { it.id }) { group ->
                         Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
                             Column {
-                                Column(Modifier.clickable { onOpenStop(group) }) {
-                                    StationHeader(group, nearest = group.id == state.groups.first().id)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f).clickable { onOpenStop(group) }) {
+                                        StationHeader(group, nearest = group.id == state.groups.first().id)
+                                    }
+                                    // The arrow plans a route there from here, now.
+                                    androidx.compose.material3.IconButton(onClick = { onRoute(group.name, group.coordinate) }, modifier = Modifier.padding(end = 8.dp)) {
+                                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Directions, L10n.t("Route here"),
+                                            Modifier.background(ink.fill, androidx.compose.foundation.shape.CircleShape).padding(8.dp))
+                                    }
                                 }
                                 group.departures.take(5).forEachIndexed { i, st ->
                                     HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
