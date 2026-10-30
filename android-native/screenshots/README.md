@@ -72,3 +72,9 @@ Lizenz: **Apache License 2.0** (Android Open Source Project). Der Workflow lädt
 prüft ihre SHA-256-Summen; sie liegen nicht im Repository. Die Screenshots kommen unskaliert in die
 Bildschirmöffnung (genau 1344 × 2992 an Position 58, 58), werden also nicht verzerrt.
 Schrift der Poster: Noto Sans (SIL Open Font License), wie bei den iPhone-Postern.
+
+## Hinweise aus den ersten Läufen
+
+- `avdmanager` legt das AVD sonst unter `~/.config/.android/avd` ab, der Emulator sucht aber in `~/.android/avd`; der Workflow setzt deshalb `ANDROID_AVD_HOME` und begrenzt `adb wait-for-device` auf 5 Minuten.
+- Weiße Schrift auf den farbigen Linien-Abzeichen (U3, U6) liest die OCR nicht; die Prüfungen in `scenes.json` nutzen deshalb Zielnamen.
+- Die Statusleiste zeigt im Demo-Modus 09:41, WLAN, 5G, volle Balken und 100 % Akku.
