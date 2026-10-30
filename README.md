@@ -1,5 +1,7 @@
 # Publit for Android
 
+Android uses **MapLibre**; the iOS version uses **Apple Maps**. [Android APK downloads](https://github.com/elija-7580/Publit-Android/releases/tag/native-latest) · [Publit website](https://publit.eu). Android remains in development.
+
 **Public transport, without the noise.** The Android version of [Publit](https://github.com/elija-7580/Publit), the free, open-source transit app built on the open [Transitous](https://transitous.org) routing service. No ads, no account, no tracking.
 
 ![Android 8+](https://img.shields.io/badge/Android-8.0%2B%20(API%2026)-black)
