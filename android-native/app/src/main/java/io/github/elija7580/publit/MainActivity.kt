@@ -46,6 +46,18 @@ class MainActivity : ComponentActivity() {
 
     /** A place shared or opened from another app: a route there (as "place:" for the app's navigation). */
     private fun shared(i: android.content.Intent?) {
+        // publit:// links and https://publit.eu/open/#… links from iPhone or Android.
+        val raw = i?.data ?: i?.getStringExtra(android.content.Intent.EXTRA_TEXT)?.let { t -> Regex("https://\\S+").find(t)?.value?.let(android.net.Uri::parse) }
+        val app = raw?.let { u -> if (u.scheme == "publit") u else io.github.elija7580.publit.data.ShareLinks.appUrl(u)?.let(android.net.Uri::parse) }
+        when (app?.host) {
+            "route" -> { openTrip.value = "route:" + (app.encodedQuery ?: ""); return }
+            "trip" -> { app.lastPathSegment?.let { openTrip.value = it }; return }
+            "stop" -> { app.lastPathSegment?.let { id -> openTrip.value = "stop:" + id + "|" + (app.getQueryParameter("name") ?: "") }; return }
+            "place" -> {
+                val lat = app.getQueryParameter("lat")?.toDoubleOrNull(); val lon = app.getQueryParameter("lon")?.toDoubleOrNull()
+                if (lat != null && lon != null) { openTrip.value = "place:${app.getQueryParameter("name") ?: ""}|$lat|$lon"; return }
+            }
+        }
         i?.data?.takeIf { it.scheme == "publit" && it.host == "go" }?.lastPathSegment?.let { openTrip.value = "go:$it"; return }
         val text = SharedPlace.text(i) ?: return
         lifecycleScope.launch {

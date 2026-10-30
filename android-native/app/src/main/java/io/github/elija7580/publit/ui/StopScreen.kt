@@ -103,7 +103,8 @@ fun StopScreen(client: TransitousClient, favorites: io.github.elija7580.publit.d
             val ctx = androidx.compose.ui.platform.LocalContext.current
             if (shown.isNotEmpty()) IconButton(onClick = {
                 val text = name + "\n" + shown.take(8).joinToString("\n") { d -> Fmt.time(d.departureTime, d.place.tz) + "  " + d.lineName + (d.shownDirection?.let { " → $it" } ?: "") +
-                    (if (d.delayMinutes > 0) "  +${d.delayMinutes}" else "") }
+                    (if (d.delayMinutes > 0) "  +${d.delayMinutes}" else "") } +
+                    (at?.let { c -> "\n" + io.github.elija7580.publit.data.ShareLinks.stop(stopId, name, c) } ?: "")
                 ctx.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, text), L10n.t("Share departures")))
             }) { Icon(Icons.Filled.Share, L10n.t("Share departures")) }
             val saved by favorites.state.collectAsStateWithLifecycle()

@@ -96,8 +96,9 @@ fun TripActions(store: TripStore, it: Itinerary, fromName: String, toName: Strin
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 val upcoming = it.endTime > Instant.now()
                 Action(Icons.Filled.Share, L10n.t(if (upcoming) "Share arrival" else "Share trip"), Modifier.weight(1f)) {
-                    val text = if (upcoming) L10n.f("I'm arriving at %@ at %@.", toName, Fmt.time(it.endTime, it.legs.lastOrNull()?.to?.tz))
-                        else "$fromName → $toName"
+                    val link = io.github.elija7580.publit.data.ShareLinks.route(io.github.elija7580.publit.data.SharedRoute.of(it, fromName, toName))
+                    val text = (if (upcoming) L10n.f("I'm arriving at %@ at %@.", toName, Fmt.time(it.endTime, it.legs.lastOrNull()?.to?.tz))
+                        else "$fromName → $toName") + "\n" + link
                     ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 }

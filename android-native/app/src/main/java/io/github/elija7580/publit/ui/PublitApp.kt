@@ -89,10 +89,14 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         LaunchedEffect(Unit) { if (prefs.getString(START_TAB_KEY, "nearby") == "plan") nav.navigate("plan") { popUpTo("nearby") { saveState = true }; launchSingleTop = true } }
         val tripLink by openTrip.collectAsStateWithLifecycle()
         val linkContext = androidx.compose.ui.platform.LocalContext.current
+        var sharedRoute by remember { mutableStateOf<io.github.elija7580.publit.data.SharedRoute?>(null) }
         LaunchedEffect(tripLink) {
             val link = tripLink ?: return@LaunchedEffect
             openTrip.value = null
-            if (link.startsWith("place:")) {
+            if (link.startsWith("route:")) {
+                sharedRoute = io.github.elija7580.publit.data.SharedRoute.parse(link.removePrefix("route:"))
+                if (sharedRoute != null) nav.navigate("sharedroute") { launchSingleTop = true }
+            } else if (link.startsWith("place:")) {
                 val parts = link.removePrefix("place:").split("|")
                 if (parts.size == 3) {
                     plan.route(Endpoint.Here, Endpoint.At(parts[0], io.github.elija7580.publit.core.LatLon(parts[1].toDouble(), parts[2].toDouble())))
@@ -221,6 +225,13 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                     val l = savedLine
                     if (l == null) LaunchedEffect(Unit) { nav.popBackStack() } else
                     LineDetailScreen(client, favorites, l, onBack = { nav.popBackStack() }) { st -> openTrip(TripTarget(st, l.stopName, l.stopId, l.coordinate)) }
+                }
+                composable("sharedroute") {
+                    val r = sharedRoute
+                    if (r == null) LaunchedEffect(Unit) { nav.popBackStack() } else
+                    SharedRouteScreen(client, trips, r, onBack = { nav.popBackStack() },
+                        onSearch = { plan.route(Endpoint.At(r.fromName, r.from), Endpoint.At(r.toName, r.to)); nav.navigate("plan") { popUpTo("nearby"); launchSingleTop = true } },
+                        onStarted = { t -> nav.navigate("savedtrip?id=${t.id}") })
                 }
                 composable("settings") { SettingsScreen(prefs) { nav.popBackStack() } }
             }
@@ -466,6 +477,41 @@ fun LiveTripBar(store: io.github.elija7580.publit.data.TripStore, onOpen: (io.gi
             else androidx.compose.material3.TextButton(onClick = { onOpen(trip) }) { Text(L10n.t("Open trip"), color = ink.onInk) }
             if (!started) androidx.compose.material3.IconButton(onClick = { hiddenBars += trip.id }) {
                 androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Clear, L10n.t("Hide"))
+            }
+        }
+    }
+}
+
+/** A route someone shared (SharedRouteView on iOS): fetched again with its live state. */
+@Composable
+fun SharedRouteScreen(client: io.github.elija7580.publit.data.TransitousClient, trips: io.github.elija7580.publit.data.TripStore,
+                      route: io.github.elija7580.publit.data.SharedRoute, onBack: () -> Unit, onSearch: () -> Unit,
+                      onStarted: (io.github.elija7580.publit.data.SavedTrip) -> Unit) {
+    val ink = LocalInk.current
+    var it by remember { mutableStateOf<io.github.elija7580.publit.data.Itinerary?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(route) {
+        failed = false
+        it = route.itineraryId?.let { id -> runCatching { client.refresh(id) }.getOrNull() }
+        if (it == null) failed = true
+    }
+    val loaded = it
+    when {
+        loaded != null -> ItineraryDetail(loaded, onBack, title = route.toName) {
+            TripActions(trips, loaded, route.fromName, route.toName, onStarted)
+        }
+        else -> androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().statusBarsPadding()) {
+            androidx.compose.material3.IconButton(onClick = onBack) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, L10n.t("Back")) }
+            androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp, Alignment.CenterVertically)) {
+                if (!failed) androidx.compose.material3.CircularProgressIndicator(color = ink.ink) else {
+                    Text(L10n.t("This route could not be loaded."), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                    Text(route.fromName + " → " + route.toName, color = ink.muted)
+                    Text(L10n.t("It may be too old or no longer in the timetable. You can search for it again."), color = ink.muted)
+                    androidx.compose.material3.Button(onClick = onSearch, colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = ink.ink, contentColor = ink.onInk)) {
+                        Text(L10n.t("Search this route"))
+                    }
+                }
             }
         }
     }
