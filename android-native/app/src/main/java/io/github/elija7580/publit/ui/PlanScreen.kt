@@ -113,6 +113,7 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, pinned: List<io.g
 private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Unit, onOptions: () -> Unit, onSettings: () -> Unit, pinned: List<io.github.elija7580.publit.data.SavedPlace> = emptyList()) {
     val ink = LocalInk.current
     var picking by remember { mutableStateOf<Boolean?>(null) } // arriveBy?
+    val timelines = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("publit", android.content.Context.MODE_PRIVATE).getBoolean("showTimelines", false)
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -191,9 +192,11 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
         if (state.routes.isNotEmpty() && state.previousCursor != null) item("earlier") {
             TextButton(onClick = vm::earlier, modifier = Modifier.padding(horizontal = 8.dp)) { Text(L10n.t("Earlier connections")) }
         }
+        val axis = if (timelines && state.routes.isNotEmpty()) state.routes.minOf { r -> r.startTime } to state.routes.maxOf { r -> r.endTime } else null
+        if (axis != null) item("axis") { TimeAxis(axis.first, axis.second, state.routes.first().legs.firstOrNull()?.from?.tz) }
         val rec = state.badges.entries.firstOrNull { io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED in it.value }?.key
         items(state.sorted, key = { it.routeKey }) { r ->
-            RouteCard(r, state.badges[r.routeKey].orEmpty(),
+            RouteCard(r, state.badges[r.routeKey].orEmpty(), axis = axis,
                 if (r.routeKey == rec) io.github.elija7580.publit.data.SmartRouting.reason(r, state.routes) else null) { vm.open(r) }
         }
         if (state.street.isNotEmpty()) item("street") {
@@ -260,7 +263,7 @@ private fun EndpointRow(label: String, value: String, placeholder: Boolean = fal
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.data.SmartRouting.Badge>, reason: String?, onClick: () -> Unit) {
+private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.data.SmartRouting.Badge>, reason: String?, axis: Pair<java.time.Instant, java.time.Instant>? = null, onClick: () -> Unit) {
     val ink = LocalInk.current
     val tz = it.legs.firstOrNull()?.from?.tz
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable(onClick = onClick), shape = RoundedCornerShape(14.dp), color = ink.surface) {
@@ -282,6 +285,7 @@ private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.dat
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 it.transitLegs.forEach { leg -> LegBadge(leg) }
             }
+            axis?.let { a -> TimelineBar(it, a.first, a.second) }
             val first = it.transitLegs.firstOrNull()
             Text(listOfNotNull(
                 if (it.transfers == 0) L10n.t("Direct") else if (it.transfers == 1) L10n.t("1 change") else L10n.f("%lld changes", it.transfers),
@@ -700,4 +704,58 @@ private fun GetOffCard(it: Itinerary) {
             note?.let { n -> Text(n, color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) }
         }
     }
+}
+
+/** All rows on one clock (TimelineBar on iOS): rides coloured, walks thin grey, waits dotted. */
+@Composable
+fun TimelineBar(it: Itinerary, start: java.time.Instant, end: java.time.Instant) {
+    val ink = LocalInk.current
+    val total = (end.epochSecond - start.epochSecond).coerceAtLeast(60).toFloat()
+    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(14.dp)) {
+        fun x(t: java.time.Instant) = size.width * ((t.epochSecond - start.epochSecond) / total)
+        val mid = size.height / 2
+        var last: java.time.Instant? = null
+        it.legs.forEach { l ->
+            last?.let { p -> if (l.startTime > p) drawLine(ink.muted, androidx.compose.ui.geometry.Offset(x(p), mid), androidx.compose.ui.geometry.Offset(x(l.startTime), mid), 2f,
+                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4f, 6f))) }
+            if (l.isTransit) drawRoundRect(lineStroke(l, ink.dark), androidx.compose.ui.geometry.Offset(x(l.startTime), 0f),
+                androidx.compose.ui.geometry.Size((x(l.endTime) - x(l.startTime)).coerceAtLeast(4f), size.height), androidx.compose.ui.geometry.CornerRadius(6f))
+            else drawLine(ink.hairline, androidx.compose.ui.geometry.Offset(x(l.startTime), mid), androidx.compose.ui.geometry.Offset(x(l.endTime), mid), 6f)
+            last = l.endTime
+        }
+    }
+}
+
+@Composable
+private fun TimeAxis(start: java.time.Instant, end: java.time.Instant, tz: String?) {
+    val ink = LocalInk.current
+    var guide by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(Fmt.time(start, tz), color = ink.muted, fontSize = 12.sp)
+        Spacer(Modifier.weight(1f))
+        TextButton(onClick = { guide = true }) { Text(L10n.t("Time axis"), fontSize = 12.sp) }
+        Spacer(Modifier.weight(1f))
+        Text(Fmt.time(end, tz), color = ink.muted, fontSize = 12.sp)
+    }
+    if (guide) ConnectionGuide { guide = false }
+}
+
+/** "How to read connections" (ConnectionGuideView on iOS). */
+@Composable
+fun ConnectionGuide(onDismiss: () -> Unit) {
+    val ink = LocalInk.current
+    androidx.compose.material3.AlertDialog(onDismissRequest = onDismiss, confirmButton = { TextButton(onClick = onDismiss) { Text(L10n.t("Done")) } },
+        title = { Text(L10n.t("How to read connections")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(L10n.t("All rows use the same clock. Later departures start farther right."))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(22.dp, 10.dp).background(ink.ink, RoundedCornerShape(3.dp))); Text(L10n.t("Ride"))
+                    Box(Modifier.size(22.dp, 3.dp).background(ink.hairline)); Text(L10n.t("Walk"))
+                    Text("···", color = ink.muted); Text(L10n.t("Wait"))
+                }
+                Text(L10n.t("The coloured blocks are rides. Thin grey sections are walking; dotted gaps are waiting between legs."))
+                Text(L10n.t("This is a comparison, not live progress. Check the departure times, line names and change warnings."), color = ink.muted, fontSize = 13.sp)
+            }
+        })
 }

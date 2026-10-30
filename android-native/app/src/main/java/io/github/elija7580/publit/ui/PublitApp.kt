@@ -129,6 +129,8 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                     NearbyScreen(vm, onOpenMap = { nav.navigate("stationmap") }, onSettings = { nav.navigate("settings") },
                         pinned = favorites.state.collectAsStateWithLifecycle().value.let { st -> io.github.elija7580.publit.data.PlaceRole.entries.mapNotNull { st.place(it) } },
                         onWhereTo = { plan.route(Endpoint.Here, null); plan.requestSearch(); nav.navigate("plan") { popUpTo("nearby"); launchSingleTop = true } },
+                        nextTrip = trips.state.collectAsStateWithLifecycle().value.let { st -> st.trips.filter { t -> t.id != st.activeId && t.startTime > java.time.Instant.now() }.minByOrNull { it.startTime } },
+                        onOpenSaved = { id -> nav.navigate("savedtrip?id=$id") },
                         onRoute = { name, at -> plan.route(Endpoint.Here, Endpoint.At(name, at)); nav.navigate("plan") { popUpTo("nearby"); launchSingleTop = true } }, onOpenTrip = { st, g -> openTrip(TripTarget(st, g.name, g.id, g.coordinate)) }) { g -> nav.navigate("stop?id=${Uri.encode(g.id)}&name=${Uri.encode(g.name)}&exact=${g.isPole}") }
                 }
                 composable("stop?id={id}&name={name}&exact={exact}") { e ->
@@ -256,7 +258,7 @@ private fun CrashDialog(report: String?) {
 @Composable
 fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onSettings: () -> Unit = {}, onWhereTo: () -> Unit = {},
                  onRoute: (String, io.github.elija7580.publit.core.LatLon) -> Unit = { _, _ -> },
-                 pinned: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), onOpenTrip: (io.github.elija7580.publit.data.StopTime, io.github.elija7580.publit.data.StopGroup) -> Unit = { _, _ -> }, onOpenStop: (io.github.elija7580.publit.data.StopGroup) -> Unit) {
+                 pinned: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), nextTrip: io.github.elija7580.publit.data.SavedTrip? = null, onOpenSaved: (String) -> Unit = {}, onOpenTrip: (io.github.elija7580.publit.data.StopTime, io.github.elija7580.publit.data.StopGroup) -> Unit = { _, _ -> }, onOpenStop: (io.github.elija7580.publit.data.StopGroup) -> Unit) {
     val ink = LocalInk.current
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -306,6 +308,17 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onSettings: ()
                                     Text(L10n.t("Where to now?"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = ink.muted, modifier = Modifier.weight(1f))
                                     androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Search, null,
                                         Modifier.background(ink.ink, androidx.compose.foundation.shape.CircleShape).padding(8.dp), tint = ink.onInk)
+                                }
+                                nextTrip?.let { t ->
+                                    HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                                    Row(Modifier.fillMaxWidth().clickable { onOpenSaved(t.id) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Event, null, Modifier.width(20.dp))
+                                        Spacer(Modifier.width(12.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(L10n.f("Next trip: %@", t.toName), fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                            Text(io.github.elija7580.publit.data.TripStatus.at(java.time.Instant.now(), t.itinerary).headline, color = ink.muted, fontSize = 14.sp)
+                                        }
+                                    }
                                 }
                                 pinned.forEach { p ->
                                     HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))

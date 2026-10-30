@@ -166,6 +166,15 @@ fun SettingsScreen(prefs: SharedPreferences, onBack: () -> Unit) {
             }
             item {
                 var dirApp by remember { mutableStateOf(io.github.elija7580.publit.DirectionsApp.current(context)) }
+                var timelines by remember { mutableStateOf(prefs.getBoolean("showTimelines", false)) }
+                var guide by remember { mutableStateOf(false) }
+                Group(L10n.t("Travel preferences")) {
+                    SwitchRow(L10n.t("Show connection timelines"), timelines) { timelines = it; prefs.edit().putBoolean("showTimelines", it).apply() }
+                    Line()
+                    LinkRow(L10n.t("How to read connections")) { guide = true }
+                }
+                if (guide) ConnectionGuide { guide = false }
+                Spacer(Modifier.height(12.dp))
                 Group(L10n.t("Map")) {
                     Text(L10n.t("Open directions in"), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(16.dp)) {
