@@ -450,11 +450,7 @@ private fun WalkStage(it: Itinerary, legIndex: Int, destination: String, now: In
         HeadingRow(b, compassWord(b))
     }
     HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(start = 16.dp))
-    Row(Modifier.fillMaxWidth().clickable {
-        val u = android.net.Uri.parse("google.navigation:q=${leg.to.lat},${leg.to.lon}&mode=w")
-        val i = android.content.Intent(android.content.Intent.ACTION_VIEW, u)
-        runCatching { ctx.startActivity(i) }.onFailure { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("geo:${leg.to.lat},${leg.to.lon}?q=${leg.to.lat},${leg.to.lon}(${android.net.Uri.encode(target)})"))) } }
-    }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clickable { io.github.elija7580.publit.DirectionsApp.open(ctx, leg.to.lat, leg.to.lon, target) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Filled.Map, null); Spacer(Modifier.width(10.dp)); Text(L10n.t("Open in Maps"))
     }
 }

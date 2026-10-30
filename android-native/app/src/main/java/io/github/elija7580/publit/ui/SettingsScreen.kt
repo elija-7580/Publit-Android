@@ -165,6 +165,34 @@ fun SettingsScreen(prefs: SharedPreferences, onBack: () -> Unit) {
                 }
             }
             item {
+                var dirApp by remember { mutableStateOf(io.github.elija7580.publit.DirectionsApp.current(context)) }
+                Group(L10n.t("Map")) {
+                    Text(L10n.t("Open directions in"), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(16.dp)) {
+                        io.github.elija7580.publit.DirectionsApp.choices.forEachIndexed { i, (k, t) ->
+                            SegmentedButton(dirApp == k, { dirApp = k; prefs.edit().putString("directionsApp", k).apply() }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(t, maxLines = 1, fontSize = 12.sp) }
+                        }
+                    }
+                }
+            }
+            item {
+                Group(L10n.t("Data")) {
+                    LinkRow(L10n.t("Export my data")) { io.github.elija7580.publit.DataExport.share(context) }
+                }
+            }
+            item {
+                var crashes by remember { mutableStateOf(if (io.github.elija7580.publit.CrashLog.peek() != null) 1 else 0) }
+                Group(L10n.t("Diagnostics"), footer = listOf(L10n.t("Diagnostics stay on this device until you share them. They contain no places, stops or tickets."))) {
+                    Text(L10n.f("Crashes: %lld", crashes), modifier = Modifier.padding(16.dp))
+                    Line()
+                    LinkRow(L10n.t("Share diagnostics")) { io.github.elija7580.publit.DataExport.shareDiagnostics(context) }
+                    Line()
+                    LinkRow(L10n.t("Report a problem")) { open("$REPOSITORY/issues/new") }
+                    Line()
+                    LinkRow(L10n.t("Delete diagnostics")) { io.github.elija7580.publit.CrashLog.clear(); crashes = 0 }
+                }
+            }
+            item {
                 Group(L10n.t("About"), footer = listOf(
                     L10n.t("Publit is open source (MIT). No account, no ads, no tracking. Saved places and trips stay on this device."),
                     "Publit ${BuildConfigInfo.version}")) {

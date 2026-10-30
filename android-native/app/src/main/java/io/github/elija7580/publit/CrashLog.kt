@@ -45,6 +45,9 @@ class CrashLog(private val context: Context) {
     }
 
     /** The report of the last crash, once. */
+    fun peek(): String? = runCatching { file.takeIf { it.exists() }?.readText() }.getOrNull()
+    fun clear() { runCatching { file.delete() } }
+
     fun take(): String? = runCatching {
         file.takeIf { it.exists() }?.readText()?.also { file.delete() }
     }.getOrNull()
