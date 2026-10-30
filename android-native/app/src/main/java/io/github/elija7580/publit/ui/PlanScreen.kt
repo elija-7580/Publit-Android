@@ -134,6 +134,11 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
                     label = { Text(if (state.time != null && state.arriveBy) L10n.t("Arrive") + " " + Fmt.time(state.time) else L10n.t("Arrive")) })
             }
         }
+        item("coverage") {
+            fun pt(e: Endpoint?) = when (e) { is Endpoint.At -> e.point; Endpoint.Here -> vm.lastFix; null -> null }
+            val notices = io.github.elija7580.publit.data.CoverageGuide.notices(pt(state.from), pt(state.to))
+            CoverageBanner(notices)
+        }
         item("options") {
             Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Surface(onClick = onOptions, shape = RoundedCornerShape(50), color = ink.fill, modifier = Modifier.weight(1f)) {
@@ -282,6 +287,7 @@ fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, to
                     fontWeight = FontWeight.Bold, fontSize = 20.sp)
             }
         }
+        item("coverage") { CoverageBanner(io.github.elija7580.publit.data.CoverageGuide.notices(it)) }
         item("top") { top() }
         item("map") {
             var full by remember { mutableStateOf(false) }

@@ -293,6 +293,7 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onSettings: ()
             else -> PullToRefreshBox(isRefreshing = false, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
                 LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
+                    io.github.elija7580.publit.data.CoverageGuide.notice(state.fix?.coordinate)?.let { n -> item("coverage") { CoverageBanner(listOf(n)) } }
                     item("go") {
                         // "Where to now?", Home and Work: a route from here in one tap (goSection on iOS).
                         Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {

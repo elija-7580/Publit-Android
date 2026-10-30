@@ -65,7 +65,8 @@ class PlanViewModel(
     private val _matches = MutableStateFlow<List<GeocodeMatch>>(emptyList())
     val matches = _matches.asStateFlow()
     private var geocode: Job? = null
-    private var lastFix: LatLon? = null
+    var lastFix: LatLon? = null
+        private set
 
     fun setFrom(e: Endpoint) { _state.update { it.copy(from = e) }; plan() }
     fun setTo(e: Endpoint) { _state.update { it.copy(to = e) }; plan() }

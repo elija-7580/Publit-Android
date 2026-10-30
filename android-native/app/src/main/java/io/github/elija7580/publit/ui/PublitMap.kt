@@ -38,7 +38,9 @@ import kotlin.math.cos
 import kotlin.math.max
 
 /** What a map shows (GoogleMapContent on iOS): lines, then round dots, drawn in this order. */
-data class MapContent(val lines: List<Line> = emptyList(), val dots: List<Dot> = emptyList()) {
+data class MapContent(val lines: List<Line> = emptyList(), val dots: List<Dot> = emptyList(), val areas: List<Area> = emptyList()) {
+    /** A filled outline (rings by the even-odd rule): areas with missing timetable data. */
+    data class Area(val rings: List<List<LatLon>>, val strong: Boolean)
     data class Line(val points: List<LatLon>, val color: Color, val width: Float)
     /** A round dot: stop, vehicle, start, destination. */
     data class Dot(val at: LatLon, val fill: Color, val border: Color, val size: Float, val borderWidth: Float,
@@ -188,6 +190,10 @@ private class MapHolder(ctx: Context) {
     }.getOrNull()
 
     private fun setup(s: Style) {
+        s.addSource(GeoJsonSource("pub-areas"))
+        s.addLayer(org.maplibre.android.style.layers.FillLayer("pub-areas", "pub-areas").withProperties(
+            P.fillColor(toColor(get("fill"))), P.fillOutlineColor(toColor(get("edge")))))
+        s.addLayer(LineLayer("pub-area-edges", "pub-areas").withProperties(P.lineColor(toColor(get("edge"))), P.lineWidth(1.5f)))
         s.addSource(GeoJsonSource("pub-lines"))
         s.addSource(GeoJsonSource("pub-dots"))
         s.addLayer(LineLayer("pub-lines", "pub-lines").withProperties(
@@ -223,6 +229,12 @@ private class MapHolder(ctx: Context) {
                 addStringProperty("halo", if (dark) "rgba(11,11,12,0.9)" else "rgba(255,255,255,0.9)")
             }
         }
+        val areas = content.areas.map { a ->
+            Feature.fromGeometry(org.maplibre.geojson.Polygon.fromLngLats(a.rings.map { r -> r.map { Point.fromLngLat(it.lon, it.lat) } + listOfNotNull(r.firstOrNull()?.let { Point.fromLngLat(it.lon, it.lat) }) })).apply {
+                addStringProperty("fill", if (a.strong) "rgba(178,80,0,0.26)" else "rgba(178,80,0,0.17)"); addStringProperty("edge", "rgba(178,80,0,0.9)")
+            }
+        }
+        s.getSourceAs<GeoJsonSource>("pub-areas")?.setGeoJson(FeatureCollection.fromFeatures(areas))
         s.getSourceAs<GeoJsonSource>("pub-lines")?.setGeoJson(FeatureCollection.fromFeatures(lines))
         s.getSourceAs<GeoJsonSource>("pub-dots")?.setGeoJson(FeatureCollection.fromFeatures(dots))
     }

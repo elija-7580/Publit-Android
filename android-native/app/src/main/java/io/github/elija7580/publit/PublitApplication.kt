@@ -31,6 +31,7 @@ class PublitApplication : Application() {
         Fmt.timePattern = if (DateFormat.is24HourFormat(this)) "HH:mm" else "h:mm a"
         client = TransitousClient(cacheDir = cacheDir)
         location = LocationRepository(this)
+        Thread { runCatching { io.github.elija7580.publit.data.CoverageAtlas.load(this) } }.start()
         Thread { runCatching { client.pruneDisk() } }.start()
     }
 

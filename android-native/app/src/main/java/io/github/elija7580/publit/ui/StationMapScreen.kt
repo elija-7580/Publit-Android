@@ -175,7 +175,7 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
         if (!showVehicles || r == null) emptyList() else io.github.elija7580.publit.data.LiveMap.vehicles(tracks, tick,
             LatLon(r.center.lat - r.latSpan, r.center.lon - r.lonSpan), LatLon(r.center.lat + r.latSpan, r.center.lon + r.lonSpan))
     }
-    val content = remember(stations, focus, ink.dark, shapes, showLines, vehicles, rentals, showStations, categoryHits) {
+    val content = remember(stations, focus, ink.dark, shapes, showLines, vehicles, rentals, showStations, categoryHits, region?.center) {
         val categoryDots = categoryHits.mapIndexed { i, c -> MapContent.Dot(c.at, hexColor(c.category.colorHex), Color.White, 14f, 2f, id = "c|$i", label = c.name) }
         val lines = if (showLines) shapes.map { MapContent.Line(it.points, hexColor(io.github.elija7580.publit.data.LineColors.strokeHex(it.colorHex, ink.dark)), 3f) } else emptyList()
         val rentalDots = rentals.stations.map { MapContent.Dot(LatLon(it.lat, it.lon), Color(0xFF1B7A33), Color.White, 9f, 1.5f, id = "rs|" + it.id) } +
@@ -186,7 +186,9 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
             MapContent.Dot(s.coordinate, if (s.isMajor) c else Color.White, if (s.isMajor) Color.White else c,
                 if (s.isMajor) 14f else 10f, 2f, id = "s|" + s.id, label = if (s.isMajor || separate) MapStation.shortName(s.name) else null)
         } + rentalDots + vehicleDots + categoryDots + listOfNotNull(focus?.let { MapContent.Dot(LatLon(it.lat, it.lon), ink.ink, Color.White, 18f, 3f, label = it.name) })
-        MapContent(lines = lines, dots = dots)
+        val gaps = region?.let { r -> io.github.elija7580.publit.data.CoverageAtlas.areas(r.center.lat - r.latSpan, r.center.lat + r.latSpan, r.center.lon - r.lonSpan, r.center.lon + r.lonSpan) }.orEmpty()
+            .map { MapContent.Area(it.outline, it.level == io.github.elija7580.publit.data.CoverageLevel.NONE) }
+        MapContent(lines = lines, dots = dots, areas = gaps)
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -247,6 +249,7 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                 }
             } else {
                 ModeChips(ModeGroup.entries.filter { it != ModeGroup.OTHER }, filter.included, filter.isActive) { filter = filter.toggleOnly(it) }
+                io.github.elija7580.publit.data.CoverageGuide.notice(region?.center)?.let { n -> Box(Modifier.align(Alignment.CenterHorizontally)) { CoverageMapNote(n) } }
                 category?.let { c ->
                     val moved = categoryRegion?.let { a -> region?.let { b -> a.center.distanceTo(b.center) > 300 || kotlin.math.abs(a.latSpan - b.latSpan) > a.latSpan * 0.3 } } == true
                     Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
