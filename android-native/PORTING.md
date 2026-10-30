@@ -44,3 +44,19 @@ Two test APKs per release: arm64 (`Publit-native.apk`) and 32-bit ARM (`Publit-n
   2. Load-time investigation (LiveOverlay budget per call, MapLibre init).
   3. Full iOS feature audit: GoNowView, LinesView/LineDetailView, SharedRouteView, ConnectionGuideView, RecentSearches, WalkThereRow, ArrivalUpdates, DataExport, Diagnostics, ServiceAlertsView, "Open in maps".
   4. Better satellite imagery: needs a decision and key from the owner (Google Maps SDK, MapTiler or Esri).
+
+## Abgleich mit iOS docs/FUNKTIONEN.md (Stand #44, 2026-10-30)
+Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktionen in Android:
+- [x] Live-Fahrt kartenzentriert (StageStrip, StagePager, Panel, GuideStopRow, GuideMap) – Turn-by-turn-Anweisungen (MOTIS steps) und Kompass-Sensor fehlen noch
+- [ ] Nearby: "Next trip", "Active trip"
+- [ ] Haltestelle: "Share departures"
+- [ ] Linien: Suche "Line, destination or station", LineDetail mit geschätzten Fahrzeugpositionen, LineTimetable (Tag)
+- [ ] Karte: Ebene "Data gaps" (Schalter), "Dropped pin" (langes Drücken), Leihrad-Detail "Available now"
+- [ ] Ortssuche: "Recently searched" + "Clear history"
+- [ ] Plan: "Earlier connections", GoNow "Walk all the way", "Other ways" ("About as fast")
+- [ ] Routendetail: Smart-Abschnitt "Feels like", "Remind me to get off"
+- [ ] Live-Leiste: "Open trip", "Hide"
+- [ ] Tickets: "Default ticket"
+- [ ] Einstellungen: "Show connection timelines", "How to read connections", "Open directions in", "Export my data", Diagnose ("Share diagnostics", "Report a problem")
+- [ ] Deep Links/Teilen: SharedRoute "This route could not be loaded.", Share-Ziel "No place found in what was shared."
+- [ ] Live-Karte: "Turn the map with you"
