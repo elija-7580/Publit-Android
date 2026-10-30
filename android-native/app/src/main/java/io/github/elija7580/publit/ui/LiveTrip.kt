@@ -113,6 +113,8 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
     val shown: Int? = if (overview) null else index
     fun show(i: Int?) { if (i == null) overview = true else { overview = false; picked = if (i == live) null else i } }
 
+    var turnMap by remember { mutableStateOf(prefs.getBoolean("guideTurnMap", false)) }
+    val heading by io.github.elija7580.publit.location.rememberHeading()
     val sheet = rememberBottomSheetScaffoldState()
     var menu by remember { mutableStateOf(false) }
     BottomSheetScaffold(
@@ -177,7 +179,8 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
         },
     ) { inner ->
         Box(Modifier.fillMaxSize()) {
-            GuideMap(it, steps, live, shown, vehicle, if (index == live) here else null, mapBase, Modifier.fillMaxSize().padding(bottom = inner.calculateBottomPadding()))
+            GuideMap(it, steps, live, shown, vehicle, if (index == live) here else null, mapBase,
+                follow = if (turnMap && index == live && here != null && heading != null && step.kind == GuideStep.Kind.WALK) here to heading!! else null, modifier = Modifier.fillMaxSize().padding(bottom = inner.calculateBottomPadding()))
             Row(Modifier.statusBarsPadding().padding(8.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 RoundKey(Icons.AutoMirrored.Filled.ArrowBack, L10n.t("Minimize"), onBack)
                 Spacer(Modifier.width(8.dp))
@@ -199,6 +202,9 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
                                 menu = false; voice = !voice; prefs.edit().putBoolean("guideVoice", voice).apply()
                                 if (!voice) io.github.elija7580.publit.notify.GuideVoice.stop() else cue?.let { c -> io.github.elija7580.publit.notify.GuideVoice.say(ctx, c.text) }
                             })
+                        DropdownMenuItem(text = { Text(L10n.t(if (turnMap) "Stop turning the map" else "Turn the map with you")) },
+                            leadingIcon = { Icon(Icons.Filled.Explore, null) },
+                            onClick = { menu = false; turnMap = !turnMap; prefs.edit().putBoolean("guideTurnMap", turnMap).apply() })
                         listOf("muted" to "Transit", "standard" to "Standard", "satellite" to "Satellite").forEach { (k, t) ->
                             DropdownMenuItem(text = { Text(L10n.t(t)) }, leadingIcon = { Icon(Icons.Filled.Map, null) },
                                 trailingIcon = { if (mapBase == k) Icon(Icons.Filled.Check, null) },
@@ -398,8 +404,11 @@ private fun PlatformLine(p: Place, big: Boolean) {
 /** A compass row: which way to go, north up (HeadingRow without a compass on iOS). */
 @Composable
 private fun HeadingRow(bearing: Double, title: String) {
+    val heading by io.github.elija7580.publit.location.rememberHeading()
+    // With a compass the arrow points the real way; without, north is up.
+    val rel = bearing - (heading ?: 0.0)
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Filled.Navigation, null, Modifier.size(30.dp).rotate(bearing.toFloat()))
+        Icon(Icons.Filled.Navigation, null, Modifier.size(30.dp).rotate(rel.toFloat()))
         Spacer(Modifier.width(12.dp))
         Text(title, fontWeight = FontWeight.SemiBold)
     }
@@ -606,7 +615,7 @@ private fun ArriveStage(it: Itinerary, destination: String, now: Instant, here: 
  * or your position as the yellow dot. Frames the stage shown, or the whole trip.
  */
 @Composable
-private fun GuideMap(it: Itinerary, steps: List<GuideStep>, live: Int, shown: Int?, vehicle: LatLon?, here: LatLon?, base: String, modifier: Modifier) {
+private fun GuideMap(it: Itinerary, steps: List<GuideStep>, live: Int, shown: Int?, vehicle: LatLon?, here: LatLon?, base: String, follow: Pair<LatLon, Double>? = null, modifier: Modifier) {
     val ink = LocalInk.current
     val ahead = if (ink.dark) Color(0xFF409CFF) else Color(0xFF0A7CFF)
     val done = if (ink.dark) Color(0xFF5A6B80) else Color(0xFFB7CDE6)
@@ -624,8 +633,9 @@ private fun GuideMap(it: Itinerary, steps: List<GuideStep>, live: Int, shown: In
         vehicle?.let { p -> dots += MapContent.Dot(p, Color(0xFFFFC21A), ink.ink, 18f, 3f) }
         MapContent(lines, dots)
     }
-    val camera = remember(it.routeKey, shown) {
-        if (shown == null) MapCamera.Fit(it.legs.flatMap { l -> l.mapPath + listOf(l.from.coordinate, l.to.coordinate) })
+    val camera = remember(it.routeKey, shown, follow) {
+        if (follow != null) MapCamera.Follow(follow.first, follow.second)
+        else if (shown == null) MapCamera.Fit(it.legs.flatMap { l -> l.mapPath + listOf(l.from.coordinate, l.to.coordinate) })
         else {
             val step = steps[shown]; val l = it.legs[step.legIndex]
             if (step.kind == GuideStep.Kind.ARRIVE) MapCamera.Around(l.to.coordinate, 300.0)

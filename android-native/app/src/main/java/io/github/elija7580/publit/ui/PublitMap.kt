@@ -54,6 +54,8 @@ data class MapRegion(val center: LatLon, val latSpan: Double, val lonSpan: Doubl
 sealed class MapCamera {
     data class Fit(val points: List<LatLon>) : MapCamera()
     data class Around(val center: LatLon, val meters: Double) : MapCamera()
+    /** Following you, the map turned so that ahead is up ("Turn the map with you"). */
+    data class Follow(val center: LatLon, val bearing: Double) : MapCamera()
 }
 
 /**
@@ -261,6 +263,8 @@ private class MapHolder(ctx: Context) {
                         }
                     }
                 }
+                is MapCamera.Follow -> CameraUpdateFactory.newCameraPosition(
+                    org.maplibre.android.camera.CameraPosition.Builder().target(LatLng(cam.center.lat, cam.center.lon)).zoom(17.0).bearing(cam.bearing).build())
                 is MapCamera.Around -> {
                     val dLat = cam.meters / 2 / 111_320
                     val dLon = dLat / max(cos(Math.toRadians(cam.center.lat)), 0.01)
@@ -271,7 +275,7 @@ private class MapHolder(ctx: Context) {
                 }
             }
         }.getOrNull() ?: return
-        runCatching { if (animated) m.animateCamera(update, 600) else m.moveCamera(update) }
+        runCatching { if (animated) m.animateCamera(update, if (cam is MapCamera.Follow) 250 else 600) else m.moveCamera(update) }
     }
 }
 
