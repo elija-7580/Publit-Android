@@ -1,0 +1,145 @@
+name: Website-Screenshots erstellen
+
+# Real screenshots of the native Android app (android-native/) for the websites: builds the
+# "screenshots" build type, runs it in an Android emulator (Pixel 8 Pro screen, API 35) with demo
+# data from android-native/screenshots/mock_server.py, captures 4 views in German and English,
+# checks them and frames them in the Pixel 8 Pro device art. See android-native/screenshots/README.md.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, Tag oder Commit mit der nativen App'
+        default: 'native-android'
+        required: false
+      publish:
+        description: 'Bilder zusätzlich im Vorab-Release "website-screenshots" ablegen'
+        type: boolean
+        default: true
+  push:
+    branches: [native-android]
+    paths: ['android-native/screenshots/**', '.github/workflows/website-screenshots.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: website-screenshots
+  cancel-in-progress: true
+
+env:
+  # Android Studio device art "pixel_8_pro" (Apache License 2.0), pinned to one AOSP commit.
+  ART_COMMIT: 488997af9ec931fc1d173aca75f9982667dc3786
+  ART_BACK_SHA256: dcd52899d29f057f6c28333f4afa3e47be38e08eb328a00fd8291009b49771db
+  ART_MASK_SHA256: cb140e5dd92fa18216b4859dd6fc266fac62da03f2d4168cdbb948eec744b7bc
+  SYSTEM_IMAGE: 'system-images;android-35;google_apis;x86_64'
+  OUT: ${{ github.workspace }}/shots
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ inputs.ref || github.sha }}' }
+      - name: Commit
+        id: commit
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Screenshots of $(git rev-parse HEAD) ($(git log -1 --format=%s))" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.14.3' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Strings from the iOS catalog
+        run: |
+          bash scripts/fetch-ios-strings.sh
+          python3 android-native/tools/strings.py Sources/Publit/Resources/Localizable.xcstrings android-native/app/src/main/assets/strings
+      - name: Build the screenshot APK (x86_64)
+        working-directory: android-native
+        run: gradle --no-daemon -Ppublit.emulatorAbi=true :app:assembleScreenshots 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+      - name: Tools (OCR, imaging), device frame, font
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q tesseract-ocr tesseract-ocr-deu tesseract-ocr-eng >/dev/null
+          pip install -q pillow numpy
+          mkdir -p "$RUNNER_TEMP/art" "$OUT/diagnostics"
+          for f in back mask; do
+            curl -fsSL "https://android.googlesource.com/platform/tools/adt/idea/+/$ART_COMMIT/artwork/resources/device-art-resources/pixel_8_pro/$f.webp?format=TEXT" | base64 -d > "$RUNNER_TEMP/art/$f.webp"
+          done
+          echo "$ART_BACK_SHA256  $RUNNER_TEMP/art/back.webp" | sha256sum -c
+          echo "$ART_MASK_SHA256  $RUNNER_TEMP/art/mask.webp" | sha256sum -c
+          curl -fsSL -o "$RUNNER_TEMP/NotoSans-VF.ttf" "https://github.com/google/fonts/raw/main/ofl/notosans/NotoSans%5Bwdth%2Cwght%5D.ttf"
+      - name: Emulator (Pixel 8 Pro, API 35)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          SDK="$ANDROID_HOME"; BIN="$SDK/cmdline-tools/latest/bin"
+          yes | "$BIN/sdkmanager" --licenses >/dev/null || true
+          "$BIN/sdkmanager" --install emulator platform-tools "$SYSTEM_IMAGE" >/dev/null
+          DEV=pixel_8_pro; "$BIN/avdmanager" list device -c | grep -qx pixel_8_pro || DEV=pixel_7_pro
+          echo no | "$BIN/avdmanager" create avd -n shots -k "$SYSTEM_IMAGE" -d "$DEV" --force
+          CFG="$HOME/.android/avd/shots.avd/config.ini"
+          sed -i '/^hw.lcd.width\|^hw.lcd.height\|^hw.lcd.density\|^skin\.\|^showDeviceFrame\|^hw.ramSize\|^disk.dataPartition.size\|^hw.keyboard\|^hw.gpu/d' "$CFG"
+          printf '%s\n' hw.lcd.width=1344 hw.lcd.height=2992 hw.lcd.density=480 skin.name=1344x2992 skin.dynamic=yes \
+            showDeviceFrame=no hw.ramSize=4096 disk.dataPartition.size=6G hw.keyboard=yes hw.gpu.enabled=yes hw.gpu.mode=swiftshader_indirect >> "$CFG"
+          cp "$CFG" "$OUT/diagnostics/avd-config.ini"
+          nohup "$SDK/emulator/emulator" -avd shots -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
+            -timezone Europe/Berlin -camera-back none -camera-front none -netfast > "$OUT/diagnostics/emulator.log" 2>&1 &
+          export PATH="$SDK/platform-tools:$PATH"
+          adb wait-for-device
+          for i in $(seq 1 120); do [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ] && break; sleep 5; done
+          adb shell getprop sys.boot_completed | grep -q 1
+          sleep 20; adb shell input keyevent 82 || true
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+      - name: Capture (demo data server + emulator)
+        working-directory: android-native/screenshots
+        run: |
+          nohup python3 mock_server.py --fixtures fixtures/munich --port 8765 --log "$OUT/diagnostics/requests.jsonl" > "$OUT/diagnostics/server.log" 2>&1 &
+          sleep 2; curl -fsS "http://127.0.0.1:8765/_demo/stats" >/dev/null
+          python3 capture.py --apk ../app/build/outputs/apk/screenshots/app-x86_64-screenshots.apk --out "$OUT" --server http://127.0.0.1:8765
+      - name: Frames, posters, WebP, preview
+        working-directory: android-native/screenshots
+        run: |
+          python3 frame.py --raw "$OUT/raw" --art "$RUNNER_TEMP/art" --font "$RUNNER_TEMP/NotoSans-VF.ttf" --out "$OUT"
+          cp "$OUT/report.json" "$OUT/manifest.json" "$OUT/preview/"
+          { echo; echo "| Sprache | Ansicht | Datei |"; echo "|---|---|---|"
+            python3 -c "import json;[print(f\"| {m['lang']} | {m['scene']} | {m['framed']} |\") for m in json.load(open('$OUT/manifest.json'))]"; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Diagnostics
+        if: always()
+        run: |
+          adb logcat -d -v time > "$OUT/diagnostics/logcat-all.txt" 2>/dev/null || true
+          adb exec-out screencap -p > "$OUT/diagnostics/end.png" 2>/dev/null || true
+          cp android-native/build.log "$OUT/diagnostics/" 2>/dev/null || true
+          cp "$OUT/report.json" "$OUT/diagnostics/" 2>/dev/null || true
+          cd "$OUT" && zip -qr diagnostics.zip diagnostics
+      - uses: actions/upload-artifact@v4
+        with: { name: screenshots-raw-png, path: '${{ env.OUT }}/raw' }
+      - uses: actions/upload-artifact@v4
+        with: { name: screenshots-framed-png, path: '${{ env.OUT }}/framed' }
+      - uses: actions/upload-artifact@v4
+        with: { name: screenshots-webp, path: "${{ env.OUT }}/webp\n${{ env.OUT }}/web\n${{ env.OUT }}/posters/**/*.webp" }
+      - uses: actions/upload-artifact@v4
+        with: { name: screenshots-posters-png, path: '${{ env.OUT }}/posters/**/*.png' }
+      - uses: actions/upload-artifact@v4
+        with: { name: screenshots-preview, path: '${{ env.OUT }}/preview' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: screenshots-diagnostics, path: '${{ env.OUT }}/diagnostics.zip' }
+      - name: Publish to the pre-release "website-screenshots"
+        if: always() && (github.event_name == 'push' || inputs.publish)
+        env: { GH_TOKEN: '${{ github.token }}', SHA: '${{ steps.commit.outputs.sha }}', RESULT: '${{ job.status }}' }
+        run: |
+          cd "$OUT"
+          TAG=website-screenshots; R="--repo $GITHUB_REPOSITORY"
+          NOTES="Automatisch erzeugt vom Workflow \"Website-Screenshots erstellen\" (Lauf $GITHUB_RUN_ID, Commit ${SHA:0:7}, Ergebnis: $RESULT). Nur Bildmaterial für die Websites, keine App zum Installieren."
+          gh release view $TAG $R >/dev/null 2>&1 || gh release create $TAG $R --title "Website-Screenshots (Android)" --notes "$NOTES" --prerelease --target "$GITHUB_SHA"
+          gh release edit $TAG $R --notes "$NOTES"
+          FILES=diagnostics.zip
+          if [ -f manifest.json ]; then
+            zip -qr screenshots-raw-png.zip raw; zip -qr screenshots-framed-png.zip framed
+            zip -qr screenshots-webp.zip webp web posters -i '*.webp'; zip -qr screenshots-posters-png.zip posters -i '*.png'
+            cp preview/framed.png preview-framed.png; cp preview/posters.png preview-posters.png
+            FILES="$FILES screenshots-raw-png.zip screenshots-framed-png.zip screenshots-webp.zip screenshots-posters-png.zip preview-framed.png preview-posters.png manifest.json"
+          fi
+          gh release upload $TAG $R $FILES --clobber
