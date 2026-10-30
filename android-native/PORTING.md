@@ -61,5 +61,5 @@ Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktione
 - [x] Tickets: "Default ticket", "Show ticket"
 - [x] Einstellungen: Zeitleisten, "How to read connections", "Open directions in", "Export my data", Diagnose
 - [x] Teilen aus anderen Apps, publit://place, publit://go/home|work
-- [ ] SharedRoute publit://route ("This route could not be loaded.")
+- [x] Geteilte Routen und Haltestellen im iOS-Linkformat (https://publit.eu/open/#route?…), in beide Richtungen
 - [ ] Live-Karte: "Turn the map with you"
