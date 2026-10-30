@@ -1,5 +1,6 @@
 package io.github.elija7580.publit.ui
 
+import kotlinx.coroutines.launch
 import io.github.elija7580.publit.data.SmartRouting.Change.Level as ChangeLevel
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -446,6 +447,39 @@ fun SwitchRow(title: String, on: Boolean, enabled: Boolean = true, onChange: (Bo
 }
 
 /** Settings → Smart routing (SmartRoutingSettingsSection on iOS). Walking speed from the step counter is not on Android yet. */
+/** "Use my walking speed" from Health Connect (the step counter), measured on the device. */
+@Composable
+private fun WalkingSpeedRows(p: android.content.SharedPreferences) {
+    val S = io.github.elija7580.publit.data.SmartRouting
+    val W = io.github.elija7580.publit.location.WalkingPace
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    if (!W.available(ctx)) return
+    val ink = LocalInk.current
+    var on by remember { mutableStateOf(p.getBoolean(S.OWN_SPEED, false)) }
+    var speed by remember { mutableStateOf(p.getFloat(S.MEASURED_SPEED, 0f).toDouble()) }
+    var measuring by remember { mutableStateOf(false) }
+    var trigger by remember { mutableStateOf(0) }
+    LaunchedEffect(on, trigger) {
+        if (!on) return@LaunchedEffect
+        measuring = true
+        W.measure(ctx)?.let { speed = it }
+        measuring = false
+    }
+    val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.health.connect.client.PermissionController.createRequestPermissionResultContract()) { granted ->
+        on = granted.isNotEmpty(); p.edit().putBoolean(S.OWN_SPEED, on).apply(); trigger++
+    }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    SwitchRow(L10n.t("Use my walking speed"), on) { v ->
+        if (!v) { on = false; p.edit().putBoolean(S.OWN_SPEED, false).apply() }
+        else scope.launch { if (W.granted(ctx)) { on = true; p.edit().putBoolean(S.OWN_SPEED, true).apply(); trigger++ } else ask.launch(W.permissions) }
+    }
+    if (on) Text(when {
+        measuring -> L10n.t("Your walking speed") + " …"
+        speed > 0 -> L10n.t("Your walking speed") + ": " + String.format(L10n.locale, "%.1f km/h", speed * 3.6) + " · " + L10n.t("From the step counter")
+        else -> L10n.t("Not enough walking measured yet.")
+    }, color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+}
+
 @Composable
 fun SmartRoutingSettings() {
     val S = io.github.elija7580.publit.data.SmartRouting
@@ -474,6 +508,7 @@ fun SmartRoutingSettings() {
                     }
                 }
             }
+            WalkingSpeedRows(p)
             SwitchRow(L10n.t("Avoid steep walks"), flat) { flat = it; p.edit().putBoolean(S.FLAT_WALKS, it).apply() }
             SwitchRow(L10n.t("Learn from my choices"), learn) { learn = it; p.edit().putBoolean(S.LEARN, it).apply() }
             TextButton({ S.resetLearning(); minutes = S.DEFAULT_TRANSFER_MINUTES.toFloat() }, Modifier.padding(horizontal = 4.dp)) { Text(L10n.t("Reset learned preferences")) }

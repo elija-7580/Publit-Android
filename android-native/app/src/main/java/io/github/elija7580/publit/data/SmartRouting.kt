@@ -125,6 +125,7 @@ data class StreetComparison(val mode: String, val itinerary: Itinerary) {
 object SmartRouting {
     const val ENABLED = "smartRouting"; const val TRANSFER_MINUTES = "smartTransferMinutes"; const val WALK_WEIGHT = "smartWalkWeight"
     const val EXTRA_TRANSFER = "smartExtraTransfer"; const val FLAT_WALKS = "smartFlatWalks"; const val LEARN = "smartLearn"
+    const val OWN_SPEED = "smartOwnWalkingSpeed"; const val MEASURED_SPEED = "smartMeasuredSpeed"
     const val DEFAULT_TRANSFER_MINUTES = 15.0
     val transferMinutesRange = 3.0..30.0
     const val DEFAULT_WALK_WEIGHT = 1.65
@@ -285,6 +286,10 @@ object SmartRouting {
     fun queryItems(): List<Pair<String, String>> {
         if (!isEnabled) return emptyList()
         val q = mutableListOf("numLegAlternatives" to "2", "slowDirect" to "true", "fastestSlowDirectFactor" to "1.5")
+        val p = prefs
+        if (p != null && p.getBoolean(OWN_SPEED, false)) p.getFloat(MEASURED_SPEED, 0f).toDouble().takeIf { it in 0.6..2.2 }?.let {
+            q += "pedestrianSpeed" to (Math.round(it * 100) / 100.0).toString()
+        }
         val extra = prefs?.getInt(EXTRA_TRANSFER, 0) ?: 0
         if (extra > 0) q += "additionalTransferTime" to extra.toString()
         if (prefs?.getBoolean(FLAT_WALKS, false) == true) q += "elevationCosts" to "LOW"

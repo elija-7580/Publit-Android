@@ -80,6 +80,8 @@ dependencies {
     implementation("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
     implementation("com.google.zxing:core:3.5.4")
+    // Walking speed for smart routing, only when switched on.
+    implementation("androidx.health.connect:connect-client:1.1.0")
     implementation("androidx.exifinterface:exifinterface:1.4.1")
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
