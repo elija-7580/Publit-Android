@@ -51,12 +51,12 @@ Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktione
 - [ ] Nearby: "Next trip", "Active trip"
 - [ ] Haltestelle: "Share departures"
 - [ ] Linien: Suche "Line, destination or station", LineDetail mit geschätzten Fahrzeugpositionen, LineTimetable (Tag)
-- [ ] Karte: Ebene "Data gaps" (Schalter), "Dropped pin" (langes Drücken), Leihrad-Detail "Available now"
+- [ ] Karte: ~~Ebene "Data gaps"~~ (erledigt), "Dropped pin" (langes Drücken), Leihrad-Detail "Available now"
 - [ ] Ortssuche: "Recently searched" + "Clear history"
 - [ ] Plan: "Earlier connections", GoNow "Walk all the way", "Other ways" ("About as fast")
 - [ ] Routendetail: Smart-Abschnitt "Feels like", "Remind me to get off"
 - [ ] Live-Leiste: "Open trip", "Hide"
 - [ ] Tickets: "Default ticket"
-- [ ] Einstellungen: "Show connection timelines", "How to read connections", "Open directions in", "Export my data", Diagnose ("Share diagnostics", "Report a problem")
+- [ ] Einstellungen: "Show connection timelines", "How to read connections" (erledigt: "Open directions in", "Export my data", Diagnose)
 - [ ] Deep Links/Teilen: SharedRoute "This route could not be loaded.", Share-Ziel "No place found in what was shared."
 - [ ] Live-Karte: "Turn the map with you"
