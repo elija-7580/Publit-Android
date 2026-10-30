@@ -475,7 +475,7 @@ private fun WaitStage(it: Itinerary, legIndex: Int, now: Instant) {
         }
         Text(leg.from.name, fontSize = 15.sp)
         PlatformLine(leg.from, big = true)
-        if (leg.isReplacementBus) Text(L10n.t("Rail replacement bus"), color = ink.delay, fontWeight = FontWeight.SemiBold)
+        if ((leg.mode == "BUS" || leg.mode == "COACH") && (leg.routeShortName ?: "").uppercase().let { n -> n.startsWith("SEV") || n.startsWith("EV") || n.contains("ERSATZ") }) Text(L10n.t("Rail replacement bus"), color = ink.delay, fontWeight = FontWeight.SemiBold)
         if (leg.cancelled == true) Text(L10n.t("This trip is cancelled."), color = ink.danger, fontWeight = FontWeight.SemiBold)
         SmartRouting.changes(it).firstOrNull { c -> c.outgoingIndex == legIndex }?.let { c -> ChangeLine(c) }
         leg.alerts.orEmpty().take(2).forEach { a -> Text(a.headerText, color = ink.delay, fontSize = 13.sp) }
