@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -61,7 +63,7 @@ import java.time.Instant
 /** A station's departures, as StopDeparturesView on iOS: refreshed every 30 s while visible. */
 @Composable
 fun StopScreen(client: TransitousClient, favorites: io.github.elija7580.publit.data.FavoritesStore, stopId: String, name: String, exact: Boolean, onBack: () -> Unit,
-               onOpenTrip: (StopTime) -> Unit = {}) {
+               onOpenTrip: (StopTime) -> Unit = {}, onOpenLine: ((io.github.elija7580.publit.data.SavedLine) -> Unit)? = null) {
     val ink = LocalInk.current
     var departures by remember { mutableStateOf<List<StopTime>>(emptyList()) }
     var alerts by remember { mutableStateOf(emptyList<io.github.elija7580.publit.data.Alert>()) }
@@ -149,7 +151,7 @@ fun StopScreen(client: TransitousClient, favorites: io.github.elija7580.publit.d
                         if (showLines) {
                             LineGrouping.lines(shown).forEachIndexed { i, line ->
                                 if (i > 0) HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
-                                LineRow(line, now)
+                                Box(Modifier.clickable { at?.let { c -> onOpenLine?.invoke(io.github.elija7580.publit.data.SavedLine.of(line.first, stopId, name, c)) } }) { LineRow(line, now) }
                             }
                         } else {
                             shown.forEachIndexed { i, st ->

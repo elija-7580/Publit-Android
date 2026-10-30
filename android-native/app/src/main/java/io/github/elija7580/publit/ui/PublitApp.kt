@@ -134,7 +134,8 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                 composable("stop?id={id}&name={name}&exact={exact}") { e ->
                     val a = e.arguments
                     StopScreen(client, favorites, a?.getString("id").orEmpty(), a?.getString("name").orEmpty(), a?.getString("exact") == "true", onBack = { nav.popBackStack() },
-                        onOpenTrip = { st -> openTrip(TripTarget(st, a?.getString("name").orEmpty(), a?.getString("id").orEmpty(), st.place.coordinate)) })
+                        onOpenTrip = { st -> openTrip(TripTarget(st, a?.getString("name").orEmpty(), a?.getString("id").orEmpty(), st.place.coordinate)) },
+                        onOpenLine = { l -> savedLine = l; nav.navigate("line") })
                 }
                 composable("stationmap") {
                     StationMapScreen(client, vm.state.value.fix?.coordinate, onBack = { nav.popBackStack() }, onRoute = { name, at, to ->
@@ -205,7 +206,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                 composable("line") {
                     val l = savedLine
                     if (l == null) LaunchedEffect(Unit) { nav.popBackStack() } else
-                    LineDeparturesScreen(client, l, onBack = { nav.popBackStack() }) { st -> openTrip(TripTarget(st, l.stopName, l.stopId, l.coordinate)) }
+                    LineDetailScreen(client, favorites, l, onBack = { nav.popBackStack() }) { st -> openTrip(TripTarget(st, l.stopName, l.stopId, l.coordinate)) }
                 }
                 composable("settings") { SettingsScreen(prefs) { nav.popBackStack() } }
             }

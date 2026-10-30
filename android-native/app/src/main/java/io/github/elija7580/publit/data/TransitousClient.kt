@@ -40,11 +40,14 @@ class TransitousClient(
     }
 
     /** Departures at a stop; `radius` also includes the other platforms of the station. */
-    suspend fun departures(stopId: String, count: Int, radius: Int? = null, modes: String? = null): StopTimesResponse {
+    suspend fun departures(stopId: String, count: Int, radius: Int? = null, modes: String? = null,
+                           time: java.time.Instant? = null, window: Int? = null, maxAge: Long = 15): StopTimesResponse {
         val q = mutableListOf("stopId" to stopId, "n" to count.toString(), "withAlerts" to "true")
+        time?.let { q += "time" to it.toString() }
+        window?.let { q += "window" to it.toString() }
         radius?.let { q += "radius" to it.toString() }
         modes?.let { q += "mode" to it }
-        val res = json.decodeFromString(StopTimesResponse.serializer(), get("/api/v6/stoptimes", q, maxAgeSeconds = 15))
+        val res = json.decodeFromString(StopTimesResponse.serializer(), get("/api/v6/stoptimes", q, maxAgeSeconds = maxAge))
         return res.copy(stopTimes = io.github.elija7580.publit.live.LiveOverlay.applyStopTimes(res.stopTimes))
     }
 
