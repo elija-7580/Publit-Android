@@ -197,7 +197,7 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
         val rec = state.badges.entries.firstOrNull { io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED in it.value }?.key
         items(state.sorted, key = { it.routeKey }) { r ->
             RouteCard(r, state.badges[r.routeKey].orEmpty(),
-                if (r.routeKey == rec) io.github.elija7580.publit.data.SmartRouting.reason(r, state.routes) else null, axis) { vm.open(r) }
+                if (r.routeKey == rec) io.github.elija7580.publit.data.SmartRouting.reason(r, state.routes) else null, axis, leave = state.from == Endpoint.Here && state.time == null) { vm.open(r) }
         }
         if (state.street.isNotEmpty()) item("street") {
             Text(L10n.t("Other ways").uppercase(), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 28.dp, bottom = 6.dp))
@@ -263,11 +263,17 @@ private fun EndpointRow(label: String, value: String, placeholder: Boolean = fal
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.data.SmartRouting.Badge>, reason: String?, axis: Pair<java.time.Instant, java.time.Instant>? = null, onClick: () -> Unit) {
+private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.data.SmartRouting.Badge>, reason: String?, axis: Pair<java.time.Instant, java.time.Instant>? = null, leave: Boolean = false, onClick: () -> Unit) {
     val ink = LocalInk.current
     val tz = it.legs.firstOrNull()?.from?.tz
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable(onClick = onClick), shape = RoundedCornerShape(14.dp), color = ink.surface) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // From your location, leaving now (GoNowView on iOS): when to set off is the first thing.
+            if (leave) {
+                val mins = kotlin.math.ceil((it.startTime.epochSecond - java.time.Instant.now().epochSecond) / 60.0).toLong()
+                Text(if (it.isDirect) L10n.t("Walk all the way") else if (mins <= 0) L10n.t("Leave now") else L10n.f("Leave in %lld min", mins),
+                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (!it.isDirect && mins <= 2) ink.delay else ink.muted)
+            }
             if (badges.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 badges.forEach { b ->
                     val main = b == io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED

@@ -41,6 +41,8 @@ data class Leg(
     val effectiveFareLegIndex: Int? = null,
     /** Other vehicles for this ride (numLegAlternatives), for the backup of a change. */
     val alternatives: List<List<Leg>>? = null,
+    /** Walking instructions (MOTIS steps). */
+    val steps: List<StepInstruction>? = null,
 ) : RouteStyled {
     val isTransit: Boolean get() = ModeStyle.isTransit(mode)
     val allStops: List<Place> get() = listOf(from) + intermediateStops.orEmpty() + listOf(to)

@@ -20,6 +20,10 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.TurnLeft
+import androidx.compose.material.icons.automirrored.filled.TurnRight
+import androidx.compose.material.icons.automirrored.filled.TurnSlightLeft
+import androidx.compose.material.icons.automirrored.filled.TurnSlightRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -405,17 +409,6 @@ private fun HeadingRow(bearing: Double, title: String) {
     }
 }
 
-private fun bearing(a: LatLon, b: LatLon): Double {
-    val p1 = Math.toRadians(a.lat); val p2 = Math.toRadians(b.lat); val dl = Math.toRadians(b.lon - a.lon)
-    val y = sin(dl) * cos(p2); val x = cos(p1) * sin(p2) - sin(p1) * cos(p2) * cos(dl)
-    return (Math.toDegrees(atan2(y, x)) + 360) % 360
-}
-
-private fun compassWord(b: Double): String {
-    val names = listOf("Head north", "Head northeast", "Head east", "Head southeast", "Head south", "Head southwest", "Head west", "Head northwest")
-    return L10n.t(names[((b + 22.5) / 45).toInt() % 8])
-}
-
 @Composable
 private fun WalkStage(it: Itinerary, legIndex: Int, destination: String, now: Instant, here: LatLon?, isLive: Boolean) {
     val ink = LocalInk.current
@@ -423,9 +416,12 @@ private fun WalkStage(it: Itinerary, legIndex: Int, destination: String, now: In
     val leg = it.legs[legIndex]
     val target = walkTarget(it, legIndex, destination)
     val next = it.legs.drop(legIndex + 1).firstOrNull { l -> l.isTransit }
+    val route = remember(leg) { WalkRoute(leg) }
+    val pos = route.livePosition(here, isLive)
     val pace = if ((leg.distance ?: 0.0) > 0) leg.duration / leg.distance!! else 1 / 1.3
-    val nearPath = isLive && here != null && leg.mapPath.minOfOrNull { p -> p.distanceTo(here) }?.let { d -> d < 80 } == true
-    val remaining = if (isLive && here != null) here.distanceTo(leg.to.coordinate).let { d -> if (nearPath) min(d * 1.25, leg.distance ?: d * 1.25) else d * 1.3 } else leg.distance ?: 0.0
+    // Away from the planned path: straight-line distance (no Apple Maps detour on Android).
+    val away = isLive && here != null && pos == null
+    val remaining = pos?.remaining ?: if (away) here!!.distanceTo(leg.to.coordinate) * 1.3 else leg.distance ?: route.length * route.scale
     val walkSeconds = (remaining * pace).toInt()
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -444,15 +440,58 @@ private fun WalkStage(it: Itinerary, legIndex: Int, destination: String, now: In
             if (spare < 60 && n.startTime > now) Text(L10n.t("Walk faster to make it."), color = ink.delay, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
         }
     }
-    if (here != null && isLive) {
+    val bearing = if (away) PathGeometry.bearing(here!!, leg.to.coordinate) else route.bearing(pos?.along ?: 0.0)
+    bearing?.let { b ->
         HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(start = 16.dp))
-        val b = bearing(here, leg.to.coordinate)
-        HeadingRow(b, compassWord(b))
+        HeadingRow(b, Compass.head(Compass.point(b)))
+    }
+    if (pos != null) route.maneuvers.getOrNull(pos.index + 1)?.let { m ->
+        HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(start = 16.dp))
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(maneuverIcon(m.kind), null, Modifier.size(32.dp)); Spacer(Modifier.width(12.dp))
+            Column {
+                Text(L10n.f("In %@", Fmt.distance(pos.toNext ?: 0.0)), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(m.instruction(target), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                m.exitNote?.let { e -> Text(e, fontWeight = FontWeight.SemiBold, fontSize = 15.sp) }
+            }
+        }
     }
     HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(start = 16.dp))
     Row(Modifier.fillMaxWidth().clickable { io.github.elija7580.publit.DirectionsApp.open(ctx, leg.to.lat, leg.to.lon, target) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Filled.Map, null); Spacer(Modifier.width(10.dp)); Text(L10n.t("Open in Maps"))
     }
+    if (!away && route.maneuvers.size > 2) {
+        HorizontalDivider(color = ink.hairline)
+        Text(L10n.t("Directions").uppercase(), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
+        route.maneuvers.forEachIndexed { i, m ->
+            val isNow = pos?.index == i
+            val isPast = (pos?.index ?: -1) > i
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(maneuverIcon(m.kind), null, Modifier.size(24.dp), tint = if (isPast) ink.muted else ink.ink); Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(m.instruction(target), fontSize = 15.sp, fontWeight = if (isNow) FontWeight.Bold else FontWeight.Normal, color = if (isPast) ink.muted else ink.ink)
+                    m.exitNote?.let { e -> Text(e, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                    if (m.kind != WalkManeuver.Kind.ARRIVE && m.distance >= 1) Text(Fmt.distance(m.distance), fontSize = 12.sp, color = ink.muted)
+                }
+                if (isNow) SignatureDot(10)
+            }
+        }
+    }
+}
+
+private fun maneuverIcon(k: WalkManeuver.Kind) = when (k) {
+    WalkManeuver.Kind.START -> Icons.AutoMirrored.Filled.DirectionsWalk
+    WalkManeuver.Kind.STRAIGHT -> Icons.Filled.Straight
+    WalkManeuver.Kind.SLIGHT_LEFT -> Icons.AutoMirrored.Filled.TurnSlightLeft
+    WalkManeuver.Kind.LEFT, WalkManeuver.Kind.SHARP_LEFT -> Icons.AutoMirrored.Filled.TurnLeft
+    WalkManeuver.Kind.SLIGHT_RIGHT -> Icons.AutoMirrored.Filled.TurnSlightRight
+    WalkManeuver.Kind.RIGHT, WalkManeuver.Kind.SHARP_RIGHT -> Icons.AutoMirrored.Filled.TurnRight
+    WalkManeuver.Kind.U_TURN -> Icons.Filled.UTurnLeft
+    WalkManeuver.Kind.STAIRS_UP, WalkManeuver.Kind.STAIRS_DOWN, WalkManeuver.Kind.STAIRS -> Icons.Filled.Stairs
+    WalkManeuver.Kind.ELEVATOR -> Icons.Filled.Elevator
+    WalkManeuver.Kind.LEVEL_UP -> Icons.Filled.NorthEast
+    WalkManeuver.Kind.LEVEL_DOWN -> Icons.Filled.SouthEast
+    WalkManeuver.Kind.ARRIVE -> Icons.Filled.Place
 }
 
 @Composable
@@ -560,7 +599,7 @@ private fun ArriveStage(it: Itinerary, destination: String, now: Instant, here: 
         Text(destination + " · " + Fmt.time(it.endTime, last.to.tz), color = ink.muted, fontWeight = FontWeight.SemiBold)
     }
     val away = here?.distanceTo(last.to.coordinate)
-    if (here != null && away != null && away > 15 && away < 3000) HeadingRow(bearing(here, last.to.coordinate), L10n.f("Destination in %@", Fmt.distance(away)))
+    if (here != null && away != null && away > 15 && away < 3000) HeadingRow(PathGeometry.bearing(here, last.to.coordinate), L10n.f("Destination in %@", Fmt.distance(away)))
     if (arrived) Button(onClick = onEnd, Modifier.fillMaxWidth().padding(16.dp).height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = ink.ink, contentColor = ink.onInk)) {
         Text(L10n.t("End trip"), fontWeight = FontWeight.SemiBold)
     }
