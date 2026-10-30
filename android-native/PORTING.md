@@ -47,19 +47,19 @@ Two test APKs per release: arm64 (`Publit-native.apk`) and 32-bit ARM (`Publit-n
 
 ## Abgleich mit iOS docs/FUNKTIONEN.md (Stand #44, 2026-10-30)
 Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktionen in Android:
-- [x] Live-Fahrt kartenzentriert (StageStrip, StagePager, Panel, GuideStopRow, GuideMap) – Turn-by-turn-Anweisungen (MOTIS steps) und Kompass-Sensor fehlen noch
+- [x] Live-Fahrt kartenzentriert inkl. Turn-by-turn (WalkRoute-Port aus MOTIS steps) und Kompass
 - [x] Nearby: "Next trip" (Active trip = Live-Leiste)
 - [x] Haltestelle: "Share departures"
 - [x] LineDetail (Richtungen, Karte mit geschätzten Fahrzeugen, Halte) und LineTimetable (Tag)
-- [ ] Linienliste mit Suche "Line, destination or station"
+- [-] Linienliste (LinesView): in iOS nirgends eingebunden, daher nicht portiert
 - [x] Karte: "Data gaps", "Dropped pin", Leihrad "Available now"
 - [x] "Recently searched" + "Clear history" (im Planer)
 - [x] Plan: "Earlier connections", "Other ways" ("About as fast")
-- [ ] GoNow "Walk all the way"
+- [x] GoNow: "Leave now / Leave in x min / Walk all the way" auf Routen vom Standort
 - [x] Routendetail: "Feels like", "Remind me to get off"
 - [x] Live-Leiste: "Open trip", "Start trip", "Hide", "Arrived"
 - [x] Tickets: "Default ticket", "Show ticket"
 - [x] Einstellungen: Zeitleisten, "How to read connections", "Open directions in", "Export my data", Diagnose
 - [x] Teilen aus anderen Apps, publit://place, publit://go/home|work
 - [x] Geteilte Routen und Haltestellen im iOS-Linkformat (https://publit.eu/open/#route?…), in beide Richtungen
-- [ ] Live-Karte: "Turn the map with you"
+- [x] Live-Karte: "Turn the map with you"
