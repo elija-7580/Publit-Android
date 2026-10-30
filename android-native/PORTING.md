@@ -49,13 +49,15 @@ Two test APKs per release: arm64 (`Publit-native.apk`) and 32-bit ARM (`Publit-n
 Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktionen in Android:
 - [x] Live-Fahrt kartenzentriert (StageStrip, StagePager, Panel, GuideStopRow, GuideMap) – Turn-by-turn-Anweisungen (MOTIS steps) und Kompass-Sensor fehlen noch
 - [ ] Nearby: "Next trip", "Active trip"
-- [ ] Haltestelle: "Share departures"
-- [ ] Linien: Suche "Line, destination or station", LineDetail mit geschätzten Fahrzeugpositionen, LineTimetable (Tag)
+- [x] Haltestelle: "Share departures"
+- [x] LineDetail (Richtungen, Karte mit geschätzten Fahrzeugen, Halte) und LineTimetable (Tag)
+- [ ] Linienliste mit Suche "Line, destination or station"
 - [ ] Karte: ~~Ebene "Data gaps"~~ (erledigt), "Dropped pin" (langes Drücken), Leihrad-Detail "Available now"
-- [ ] Ortssuche: "Recently searched" + "Clear history"
-- [ ] Plan: "Earlier connections", GoNow "Walk all the way", "Other ways" ("About as fast")
-- [ ] Routendetail: Smart-Abschnitt "Feels like", "Remind me to get off"
-- [ ] Live-Leiste: "Open trip", "Hide"
+- [x] "Recently searched" + "Clear history" (im Planer)
+- [x] Plan: "Earlier connections", "Other ways" ("About as fast")
+- [ ] GoNow "Walk all the way"
+- [x] Routendetail: "Feels like", "Remind me to get off"
+- [x] Live-Leiste: "Open trip", "Start trip", "Hide", "Arrived"
 - [ ] Tickets: "Default ticket"
 - [ ] Einstellungen: "Show connection timelines", "How to read connections" (erledigt: "Open directions in", "Export my data", Diagnose)
 - [ ] Deep Links/Teilen: SharedRoute "This route could not be loaded.", Share-Ziel "No place found in what was shared."
