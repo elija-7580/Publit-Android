@@ -60,7 +60,7 @@ sealed class MapCamera {
  */
 @Composable
 fun PublitMap(content: MapContent, camera: MapCamera, modifier: Modifier = Modifier, description: String? = null,
-              onTap: ((String?) -> Unit)? = null, onRegion: ((MapRegion) -> Unit)? = null, standard: Boolean = false) {
+              onTap: ((String?) -> Unit)? = null, onRegion: ((MapRegion) -> Unit)? = null, base: String = "muted") {
     val context = LocalContext.current
     val dark = LocalInk.current.dark
     val holder = remember { MapHolder(context) }
@@ -71,10 +71,17 @@ fun PublitMap(content: MapContent, camera: MapCamera, modifier: Modifier = Modif
         onDispose { lifecycle.removeObserver(observer); holder.destroy() }
     }
     AndroidView({ holder.view }, modifier.then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)) {
-        holder.onTap = onTap; holder.onRegion = onRegion; holder.standard = standard
+        holder.onTap = onTap; holder.onRegion = onRegion; holder.base = base
         holder.update(content, camera, dark)
     }
 }
+
+/** Cloud-free Sentinel-2 imagery (EOX, CC BY 4.0), glyphs from OpenFreeMap for the labels. */
+private val SATELLITE = """{"version":8,"glyphs":"https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+ "sources":{"eox":{"type":"raster","tileSize":256,"maxzoom":17,
+   "tiles":["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"],
+   "attribution":"Sentinel-2 cloudless – https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2020)"}},
+ "layers":[{"id":"background","type":"background","paint":{"background-color":"#0b1a24"}},{"id":"eox","type":"raster","source":"eox"}]}""".trimIndent()
 
 private class MapHolder(ctx: Context) {
     val view: MapView
@@ -89,8 +96,8 @@ private class MapHolder(ctx: Context) {
     private val density = ctx.resources.displayMetrics.density
     var onTap: ((String?) -> Unit)? = null
     var onRegion: ((MapRegion) -> Unit)? = null
-    /** OSM Liberty instead of the pale "Transit" look (MapBase.standard on iOS). */
-    var standard = false
+    /** "muted" (pale Transit look), "standard" (OSM Liberty) or "satellite" (Sentinel-2 imagery), as MapBase on iOS. */
+    var base = "muted"
 
     init {
         MapLibre.getInstance(ctx)
@@ -148,11 +155,16 @@ private class MapHolder(ctx: Context) {
 
     private fun refresh() {
         val m = map ?: return
-        val url = if (dark) "https://tiles.openfreemap.org/styles/dark" else if (standard) "https://tiles.openfreemap.org/styles/liberty" else "https://tiles.openfreemap.org/styles/positron"
+        val url = when {
+            base == "satellite" -> SATELLITE
+            dark -> "https://tiles.openfreemap.org/styles/dark"
+            base == "standard" -> "https://tiles.openfreemap.org/styles/liberty"
+            else -> "https://tiles.openfreemap.org/styles/positron"
+        }
         if (url != styleUrl) {
             styleUrl = url
             style = null
-            m.setStyle(Style.Builder().fromUri(url)) { s ->
+            m.setStyle(if (url == SATELLITE) Style.Builder().fromJson(SATELLITE) else Style.Builder().fromUri(url)) { s ->
                 if (destroyed || styleUrl != url) return@setStyle
                 runCatching { setup(s) }
                 style = s

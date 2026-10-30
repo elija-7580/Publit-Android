@@ -126,7 +126,11 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                         onOpenTrip = { st -> openTrip(TripTarget(st, a?.getString("name").orEmpty(), a?.getString("id").orEmpty(), st.place.coordinate)) })
                 }
                 composable("stationmap") {
-                    StationMapScreen(client, vm.state.value.fix?.coordinate, onBack = { nav.popBackStack() }) { id, name, exact ->
+                    StationMapScreen(client, vm.state.value.fix?.coordinate, onBack = { nav.popBackStack() }, onRoute = { name, at, to ->
+                        val e = Endpoint.At(name, at)
+                        if (to) plan.route(Endpoint.Here, e) else plan.route(e, null)
+                        nav.navigate("plan") { popUpTo("nearby"); launchSingleTop = true }
+                    }) { id, name, exact ->
                         nav.navigate("stop?id=${Uri.encode(id)}&name=${Uri.encode(name)}&exact=$exact")
                     }
                 }

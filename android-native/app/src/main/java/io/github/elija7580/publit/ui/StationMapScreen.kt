@@ -1,5 +1,8 @@
 package io.github.elija7580.publit.ui
 
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,7 +70,8 @@ private const val MAX_STATION_SPAN = 0.08
  * Tap a station for its departures. Live vehicles, line shapes and sharing follow later.
  */
 @Composable
-fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Unit, onOpenStation: (id: String, name: String, exact: Boolean) -> Unit) {
+fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Unit, onRoute: ((String, LatLon, Boolean) -> Unit)? = null,
+                     onOpenStation: (id: String, name: String, exact: Boolean) -> Unit) {
     val ink = LocalInk.current
     var region by remember { mutableStateOf<MapRegion?>(null) }
     var raw by remember { mutableStateOf(emptyList<MapStop>()) }
@@ -86,7 +90,21 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
     var showLines by remember { mutableStateOf(prefs.getBoolean("mapLines", true)) }
     var showVehicles by remember { mutableStateOf(prefs.getBoolean("mapVehicles", true)) }
     var showSharing by remember { mutableStateOf(prefs.getBoolean("mapSharing", false)) }
-    var standard by remember { mutableStateOf(prefs.getString("mapBase", "muted") == "standard") }
+    var base by remember { mutableStateOf(prefs.getString("mapBase", "muted") ?: "muted") }
+    var category by remember { mutableStateOf<io.github.elija7580.publit.data.PlaceCategory?>(null) }
+    var categoryHits by remember { mutableStateOf(emptyList<io.github.elija7580.publit.data.CategoryPlace>()) }
+    var categoryRegion by remember { mutableStateOf<MapRegion?>(null) }
+    var categoryLoading by remember { mutableStateOf(false) }
+    var categoryFailed by remember { mutableStateOf(false) }
+    var categoryRequest by remember { mutableStateOf(0) }
+    LaunchedEffect(category, categoryRequest) {
+        val c = category ?: return@LaunchedEffect
+        val r = region ?: return@LaunchedEffect
+        categoryLoading = true; categoryFailed = false
+        runCatching { io.github.elija7580.publit.data.OSMPlaces.places(r.center, r.latSpan, r.lonSpan, c) }
+            .onSuccess { categoryHits = it; categoryRegion = r }.onFailure { categoryFailed = true }
+        categoryLoading = false
+    }
     var layers by remember { mutableStateOf(false) }
     var tracks by remember { mutableStateOf(emptyList<io.github.elija7580.publit.data.VehicleTrack>()) }
     var shapes by remember { mutableStateOf(emptyList<io.github.elija7580.publit.data.LineShape>()) }
@@ -157,7 +175,8 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
         if (!showVehicles || r == null) emptyList() else io.github.elija7580.publit.data.LiveMap.vehicles(tracks, tick,
             LatLon(r.center.lat - r.latSpan, r.center.lon - r.lonSpan), LatLon(r.center.lat + r.latSpan, r.center.lon + r.lonSpan))
     }
-    val content = remember(stations, focus, ink.dark, shapes, showLines, vehicles, rentals, showStations) {
+    val content = remember(stations, focus, ink.dark, shapes, showLines, vehicles, rentals, showStations, categoryHits) {
+        val categoryDots = categoryHits.mapIndexed { i, c -> MapContent.Dot(c.at, hexColor(c.category.colorHex), Color.White, 14f, 2f, id = "c|$i", label = c.name) }
         val lines = if (showLines) shapes.map { MapContent.Line(it.points, hexColor(io.github.elija7580.publit.data.LineColors.strokeHex(it.colorHex, ink.dark)), 3f) } else emptyList()
         val rentalDots = rentals.stations.map { MapContent.Dot(LatLon(it.lat, it.lon), Color(0xFF1B7A33), Color.White, 9f, 1.5f, id = "rs|" + it.id) } +
             rentals.vehicles.filter { it.isAvailable }.map { MapContent.Dot(LatLon(it.lat, it.lon), Color(0xFF00727A), Color.White, 7f, 1f, id = "rv|" + it.id) }
@@ -166,12 +185,12 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
             val c = hexColor(ModeStyle.defaultHex(s.mainMode))
             MapContent.Dot(s.coordinate, if (s.isMajor) c else Color.White, if (s.isMajor) Color.White else c,
                 if (s.isMajor) 14f else 10f, 2f, id = "s|" + s.id, label = if (s.isMajor || separate) MapStation.shortName(s.name) else null)
-        } + rentalDots + vehicleDots + listOfNotNull(focus?.let { MapContent.Dot(LatLon(it.lat, it.lon), ink.ink, Color.White, 18f, 3f, label = it.name) })
+        } + rentalDots + vehicleDots + categoryDots + listOfNotNull(focus?.let { MapContent.Dot(LatLon(it.lat, it.lon), ink.ink, Color.White, 18f, 3f, label = it.name) })
         MapContent(lines = lines, dots = dots)
     }
 
     Box(Modifier.fillMaxSize()) {
-        PublitMap(content, camera, Modifier.fillMaxSize(), onRegion = { region = it }, standard = standard, onTap = { id ->
+        PublitMap(content, camera, Modifier.fillMaxSize(), onRegion = { region = it }, base = base, onTap = { id ->
             when {
                 id == null -> selected = null
                 id.startsWith("s|") -> stations.firstOrNull { it.id == id.removePrefix("s|") }?.let { s -> onOpenStation(s.id, s.name, s.isPole) }
@@ -189,6 +208,19 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                         leadingIcon = { Icon(Icons.Filled.Search, null) },
                         colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
                             focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent))
+                }
+            }
+            val typed = io.github.elija7580.publit.data.PlaceCategory.matching(query)
+            if (searching && (query.isBlank() || typed != null)) {
+                Surface(shape = RoundedCornerShape(14.dp), color = ink.surface, shadowElevation = 3.dp) {
+                    LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                        items(if (typed != null) listOf(typed) else io.github.elija7580.publit.data.PlaceCategory.entries.toList()) { c ->
+                            Row(Modifier.fillMaxWidth().clickable { searching = false; query = ""; selected = null; category = c; categoryRequest++ }
+                                .padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(14.dp).background(hexColor(c.colorHex), CircleShape)); Spacer(Modifier.width(12.dp)); Text(c.title)
+                            }
+                        }
+                    }
                 }
             }
             if (searching && results.isNotEmpty()) {
@@ -215,6 +247,25 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                 }
             } else {
                 ModeChips(ModeGroup.entries.filter { it != ModeGroup.OTHER }, filter.included, filter.isActive) { filter = filter.toggleOnly(it) }
+                category?.let { c ->
+                    val moved = categoryRegion?.let { a -> region?.let { b -> a.center.distanceTo(b.center) > 300 || kotlin.math.abs(a.latSpan - b.latSpan) > a.latSpan * 0.3 } } == true
+                    Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Surface(shape = RoundedCornerShape(50), color = ink.surface, shadowElevation = 2.dp) {
+                            Row(Modifier.padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(12.dp).background(hexColor(c.colorHex), CircleShape)); Spacer(Modifier.width(6.dp))
+                                Text(c.title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp); Spacer(Modifier.width(6.dp))
+                                Text(if (categoryLoading) "…" else if (categoryFailed) "!" else "${categoryHits.size}", color = ink.muted, fontSize = 13.sp)
+                                IconButton(onClick = { category = null; categoryHits = emptyList(); selected = null }, modifier = Modifier.size(32.dp)) {
+                                    Icon(androidx.compose.material.icons.Icons.Filled.Close, L10n.t("Close"), Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                        if (moved || categoryFailed) Surface(onClick = { categoryRequest++ }, shape = RoundedCornerShape(50), color = ink.surface, shadowElevation = 2.dp) {
+                            Text(L10n.t(if (categoryFailed) "Try again" else "Search this area"), fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                        }
+                    }
+                }
                 val hint = error ?: if (hidden && showStations) L10n.t("Zoom in to see stations") else if (liveHidden && (showLines || showVehicles)) L10n.t("Zoom in to see lines and vehicles") else null
                 hint?.let {
                     Surface(shape = RoundedCornerShape(50), color = ink.surface, shadowElevation = 2.dp, modifier = Modifier.align(Alignment.CenterHorizontally)) {
@@ -233,6 +284,14 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                             Text(if (!v.realTime) L10n.t("Position estimated from the timetable.") else if (v.delayMinutes > 0) L10n.f("+%lld min", v.delayMinutes) else L10n.t("On time"),
                                 color = if (v.delayMinutes > 0) ink.delay else ink.muted, fontSize = 13.sp)
                         } ?: Text(L10n.t("Trip"), color = ink.muted)
+                        sel.startsWith("c|") -> categoryHits.getOrNull(sel.removePrefix("c|").toIntOrNull() ?: -1)?.let { c ->
+                            Text(c.name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                            Text(listOfNotNull(c.category.title, c.street).joinToString(" · "), color = ink.muted)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                androidx.compose.material3.TextButton({ onRoute?.invoke(c.name, c.at, true) }) { Text(L10n.t("Route here"), color = ink.ink) }
+                                androidx.compose.material3.TextButton({ onRoute?.invoke(c.name, c.at, false) }) { Text(L10n.t("Route from here"), color = ink.ink) }
+                            }
+                        }
                         sel.startsWith("rs|") -> rentals.stations.firstOrNull { it.id == sel.removePrefix("rs|") }?.let { st ->
                             Text(st.name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
                             Text(rentals.groupName(st.providerGroupId) + (st.numVehiclesAvailable?.let { " · $it" } ?: ""), color = ink.muted)
@@ -253,7 +312,11 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
         if (layers) Surface(Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = 28.dp).width(260.dp), shape = RoundedCornerShape(14.dp), color = ink.surface, shadowElevation = 4.dp) {
             Column(Modifier.padding(vertical = 8.dp)) {
                 fun set(key: String, v: Boolean) = prefs.edit().putBoolean(key, v).apply()
-                SwitchRow(L10n.t("Standard"), standard) { standard = it; prefs.edit().putString("mapBase", if (it) "standard" else "muted").apply() }
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("muted" to "Transit", "standard" to "Standard", "satellite" to "Satellite").forEach { (k, t) ->
+                        androidx.compose.material3.FilterChip(base == k, { base = k; prefs.edit().putString("mapBase", k).apply() }, { Text(L10n.t(t), fontSize = 12.sp) })
+                    }
+                }
                 SwitchRow(L10n.t("Stations"), showStations) { showStations = it; set("mapStations", it) }
                 SwitchRow(L10n.t("Lines"), showLines) { showLines = it; set("mapLines", it) }
                 SwitchRow(L10n.t("Vehicles"), showVehicles) { showVehicles = it; set("mapVehicles", it) }
