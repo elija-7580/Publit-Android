@@ -153,7 +153,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                     }
                 }
                 composable("plan") {
-                    PlanScreen(plan, onSettings = { nav.navigate("settings") }) { it, from, to -> TripActions(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
+                    PlanScreen(plan, onSettings = { nav.navigate("settings") }, pinned = favorites.state.collectAsStateWithLifecycle().value.let { st -> io.github.elija7580.publit.data.PlaceRole.entries.mapNotNull { st.place(it) } }) { it, from, to -> TripActions(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
                 }
                 composable("savedtrip?id={id}") { e ->
                     SavedTripScreen(client, trips, e.arguments?.getString("id").orEmpty(), onBack = { nav.popBackStack() }) {

@@ -1,6 +1,9 @@
 package io.github.elija7580.publit.ui
 
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material3.AssistChip
 import kotlinx.coroutines.launch
 import io.github.elija7580.publit.data.SmartRouting.Change.Level as ChangeLevel
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -82,7 +85,7 @@ import java.time.ZoneId
 private enum class Field { FROM, TO }
 
 @Composable
-fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, actions: @Composable (Itinerary, String, String) -> Unit = { _, _, _ -> }) {
+fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, pinned: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), actions: @Composable (Itinerary, String, String) -> Unit = { _, _, _ -> }) {
     val state by vm.state.collectAsStateWithLifecycle()
     var searching by remember { mutableStateOf<Field?>(null) }
     var options by remember { mutableStateOf(false) }
@@ -97,13 +100,13 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, actions: @Composa
             searching = null
         }
         opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }) { actions(opened, state.from.title, state.to?.title ?: "") } }
-        else -> PlanForm(state, vm, onPick = { searching = it }, onOptions = { options = true }, onSettings = onSettings)
+        else -> PlanForm(state, vm, onPick = { searching = it }, onOptions = { options = true }, onSettings = onSettings, pinned = pinned)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Unit, onOptions: () -> Unit, onSettings: () -> Unit) {
+private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Unit, onOptions: () -> Unit, onSettings: () -> Unit, pinned: List<io.github.elija7580.publit.data.SavedPlace> = emptyList()) {
     val ink = LocalInk.current
     var picking by remember { mutableStateOf<Boolean?>(null) } // arriveBy?
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -132,6 +135,15 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
                     label = { Text(if (state.time != null && !state.arriveBy) L10n.t("Depart") + " " + Fmt.time(state.time) else L10n.t("Depart")) })
                 FilterChip(selected = state.time != null && state.arriveBy, onClick = { picking = true },
                     label = { Text(if (state.time != null && state.arriveBy) L10n.t("Arrive") + " " + Fmt.time(state.time) else L10n.t("Arrive")) })
+            }
+        }
+        if (pinned.isNotEmpty()) item("pinned") {
+            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                pinned.forEach { p ->
+                    val icon = if (p.role == io.github.elija7580.publit.data.PlaceRole.WORK) Icons.Filled.Work else Icons.Filled.Home
+                    AssistChip(onClick = { vm.setTo(Endpoint.At(p.role?.title ?: p.name, p.coordinate)) },
+                        label = { Text(p.role?.title ?: p.name) }, leadingIcon = { Icon(icon, null, Modifier.size(18.dp)) })
+                }
             }
         }
         item("coverage") {
