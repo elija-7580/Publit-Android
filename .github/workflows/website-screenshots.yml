@@ -79,7 +79,10 @@ jobs:
           "$BIN/sdkmanager" --install emulator platform-tools "$SYSTEM_IMAGE" >/dev/null
           DEV=pixel_8_pro; "$BIN/avdmanager" list device -c | grep -qx pixel_8_pro || DEV=pixel_7_pro
           echo no | "$BIN/avdmanager" create avd -n shots -k "$SYSTEM_IMAGE" -d "$DEV" --force
-          CFG="$HOME/.android/avd/shots.avd/config.ini"
+          AVD_HOME="${ANDROID_AVD_HOME:-$HOME/.android/avd}"
+          CFG="$AVD_HOME/shots.avd/config.ini"
+          [ -f "$CFG" ] || CFG="$(find "$HOME" /home/runner -maxdepth 6 -path '*shots.avd/config.ini' 2>/dev/null | head -1)"
+          echo "AVD config: $CFG (ANDROID_AVD_HOME=${ANDROID_AVD_HOME:-unset})"; test -f "$CFG"
           sed -i '/^hw.lcd.width\|^hw.lcd.height\|^hw.lcd.density\|^skin\.\|^showDeviceFrame\|^hw.ramSize\|^disk.dataPartition.size\|^hw.keyboard\|^hw.gpu/d' "$CFG"
           printf '%s\n' hw.lcd.width=1344 hw.lcd.height=2992 hw.lcd.density=480 skin.name=1344x2992 skin.dynamic=yes \
             showDeviceFrame=no hw.ramSize=4096 disk.dataPartition.size=6G hw.keyboard=yes hw.gpu.enabled=yes hw.gpu.mode=swiftshader_indirect >> "$CFG"
