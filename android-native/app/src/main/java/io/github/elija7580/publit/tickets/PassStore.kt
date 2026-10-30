@@ -69,6 +69,19 @@ class PassStore(dir: File) {
         return p
     }
 
+    /** Sets or removes (null) the operator logo of a saved pass. PNG data, already scaled down. */
+    fun setLogo(id: String, png: ByteArray?, source: String?) {
+        val p = pass(id) ?: return
+        logoFile(p)?.delete()
+        val logo = png?.let { data ->
+            // A new name each time, so views showing the old file reload.
+            val name = "$id-logo-${System.currentTimeMillis() / 1000}.png"
+            runCatching { File(documentDirectory, name).writeBytes(data) }.getOrNull() ?: return
+            TicketPass.Logo(name, source)
+        }
+        update(p.copy(logo = logo))
+    }
+
     fun update(p: TicketPass) = set(_passes.value.map { if (it.id == p.id) p.copy(updatedAt = Instant.now()) else it })
 
     fun remove(id: String) {

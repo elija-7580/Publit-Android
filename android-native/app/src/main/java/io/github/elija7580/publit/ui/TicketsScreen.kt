@@ -158,7 +158,7 @@ private fun PassGroup_grouped(passes: List<TicketPass>, now: Instant) = io.githu
 private fun PassCardItem(store: PassStore, p: TicketPass, now: Instant, onOpen: (String) -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Box(Modifier.padding(horizontal = 12.dp)) {
-        Box(Modifier.combinedClickable(onClick = { onOpen(p.id) }, onLongClick = { menu = true })) { PassCard(p, compact = true, now = now) }
+        Box(Modifier.combinedClickable(onClick = { onOpen(p.id) }, onLongClick = { menu = true })) { PassCard(p, compact = true, now = now, store = store) }
         DropdownMenu(menu, { menu = false }) {
             if (p.isArchived(now)) DropdownMenuItem({ Text(L10n.t("Move back to tickets")) }, { menu = false; store.unarchive(p.id) })
             else DropdownMenuItem({ Text(L10n.t("Move to archive")) }, { menu = false; store.archive(p.id) })
@@ -168,13 +168,19 @@ private fun PassCardItem(store: PassStore, p: TicketPass, now: Instant, onOpen: 
 
 /** A ticket as a pass (PassCardView on iOS): operator and title, route, details, perforation and code. */
 @Composable
-fun PassCard(p: TicketPass, compact: Boolean, now: Instant = Instant.now(), code: (@Composable () -> Unit)? = null) {
+fun PassCard(p: TicketPass, compact: Boolean, now: Instant = Instant.now(), store: PassStore? = null, logo: Bitmap? = null, code: (@Composable () -> Unit)? = null) {
+    val logoFile = store?.logoFile(p)
+    val shownLogo = logo ?: produceState<Bitmap?>(null, logoFile?.path) {
+        value = logoFile?.let { f -> withContext(Dispatchers.IO) { LogoCache.get(f) } }
+    }.value
     val bg = hexColor(p.style.background); val fg = hexColor(p.style.foreground); val label = hexColor(p.style.label)
     val expired = p.validity(now) is TicketPass.Validity.Expired
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(bg).then(if (compact && expired) Modifier.background(Color.Black.copy(alpha = 0.25f)) else Modifier)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(38.dp).background(fg.copy(alpha = 0.14f), CircleShape), contentAlignment = Alignment.Center) {
+                if (shownLogo != null) Box(Modifier.background(Color.White, RoundedCornerShape(8.dp)).padding(horizontal = 6.dp, vertical = 4.dp)) {
+                    Image(shownLogo.asImageBitmap(), null, Modifier.heightIn(max = 30.dp).width(84.dp), contentScale = ContentScale.Fit)
+                } else Box(Modifier.size(38.dp).background(fg.copy(alpha = 0.14f), CircleShape), contentAlignment = Alignment.Center) {
                     Icon(if (p.symbol == TicketPass.Symbol.TICKET) Icons.Filled.ConfirmationNumber else modeIcon(p.symbol.mode), null, tint = fg, modifier = Modifier.size(20.dp))
                 }
                 Spacer(Modifier.width(12.dp))
@@ -291,7 +297,7 @@ fun PassDetailScreen(store: PassStore, id: String, onBack: () -> Unit, onEdit: (
             IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, L10n.t("Delete")) }
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            PassCard(p, compact = false) { PassCode(store, p, onTap = { fullCode = true }) }
+            PassCard(p, compact = false, store = store) { PassCode(store, p, onTap = { fullCode = true }) }
             if (p.document != null) OutlinedSurfaceButton(L10n.t("Show original")) { original = true }
             WalletButton(p)
             p.reference?.let { InfoRow(L10n.t("Ticket number"), it) }
@@ -393,7 +399,7 @@ fun PassArchiveScreen(store: PassStore, onBack: () -> Unit, onOpen: (String) -> 
         }
         OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 12.dp), singleLine = true, placeholder = { Text(L10n.t("Search")) })
         LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(list, key = { it.id }) { p -> Box(Modifier.clickable { onOpen(p.id) }) { PassCard(p, compact = true, now = now) } }
+            items(list, key = { it.id }) { p -> Box(Modifier.clickable { onOpen(p.id) }) { PassCard(p, compact = true, now = now, store = store) } }
         }
     }
     if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(L10n.t("Delete")) },
@@ -518,6 +524,23 @@ fun PassEditorScreen(store: PassStore, initial: PendingImport, isNew: Boolean, o
     var from by remember { mutableStateOf(fmt(p.validFrom)) }
     var until by remember { mutableStateOf(fmt(p.validUntil)) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Logo: unchanged (null), removed (empty), or a new PNG with its source.
+    var newLogo by remember { mutableStateOf<Pair<ByteArray, String>?>(null) }
+    var removeLogo by remember { mutableStateOf(false) }
+    var candidates by remember { mutableStateOf(emptyList<io.github.elija7580.publit.tickets.LogoCandidate>()) }
+    var autoPicked by remember { mutableStateOf(false) }
+    val hasOldLogo = initial.pass.logo != null
+    LaunchedEffect(p.operatorName) {
+        val op = p.operatorName?.trim().orEmpty()
+        if (op.length < 2) { candidates = emptyList(); return@LaunchedEffect }
+        kotlinx.coroutines.delay(600)
+        candidates = io.github.elija7580.publit.tickets.OperatorLogos.lookup(op, L10n.locale.language.ifEmpty { "en" })
+        // New tickets get the first Wikimedia logo as a suggestion; the user can choose another.
+        if (isNew && !hasOldLogo && newLogo == null && !removeLogo && !autoPicked) candidates.firstOrNull { it.wikimedia }?.let { c ->
+            autoPicked = true
+            io.github.elija7580.publit.tickets.OperatorLogos.download(c.url)?.let { newLogo = it to c.credit }
+        }
+    }
     BackHandler(onBack = onCancel)
     Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -535,6 +558,7 @@ fun PassEditorScreen(store: PassStore, initial: PendingImport, isNew: Boolean, o
                         if (store.passes.value.size == before && s.id != final.id) { error = L10n.t("Ticket already saved"); return@TextButton }
                         s
                     } else { store.update(final); final }
+                    newLogo?.let { (png, src) -> store.setLogo(saved.id, png, src) } ?: run { if (removeLogo) store.setLogo(saved.id, null, null) }
                     onSaved(saved)
                 } catch (e: Exception) { error = e.message ?: L10n.t("Ticket could not be saved") }
             }) { Text(L10n.t("Save"), fontWeight = FontWeight.SemiBold, color = ink.ink) }
@@ -603,6 +627,32 @@ fun PassEditorScreen(store: PassStore, initial: PendingImport, isNew: Boolean, o
                 }
             }
             item {
+                Group(L10n.t("Operator logo")) {
+                    val scope = androidx.compose.runtime.rememberCoroutineScope()
+                    val current = newLogo?.first?.let { BitmapFactory_decode(it) }
+                    if (current != null || (hasOldLogo && !removeLogo)) Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        val shown = current ?: store.logoFile(initial.pass)?.let { LogoCache.get(it) }
+                        shown?.let { Box(Modifier.background(Color.White, RoundedCornerShape(8.dp)).border(1.dp, ink.hairline, RoundedCornerShape(8.dp)).padding(6.dp)) {
+                            Image(it.asImageBitmap(), null, Modifier.height(30.dp).width(84.dp), contentScale = ContentScale.Fit) } }
+                        Spacer(Modifier.weight(1f))
+                        TextButton({ newLogo = null; removeLogo = true }) { Text(L10n.t("Remove logo"), color = ink.danger) }
+                    }
+                    if (candidates.isNotEmpty()) LazyRow(contentPadding = PaddingValues(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(candidates, key = { it.url }) { c ->
+                            val thumb by produceState<Bitmap?>(null, c.url) { value = io.github.elija7580.publit.tickets.OperatorLogos.download(c.url)?.let { BitmapFactory_decode(it) } }
+                            Box(Modifier.size(96.dp, 48.dp).background(Color.White, RoundedCornerShape(8.dp)).border(1.dp, ink.hairline, RoundedCornerShape(8.dp))
+                                .clickable { scope.launch { io.github.elija7580.publit.tickets.OperatorLogos.download(c.url)?.let { newLogo = it to c.credit; removeLogo = false } } }
+                                .padding(6.dp), contentAlignment = Alignment.Center) {
+                                thumb?.let { Image(it.asImageBitmap(), c.title, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
+                            }
+                        }
+                    }
+                    newLogo?.second?.let { Text(it, color = ink.muted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 16.dp)) }
+                    if (candidates.any { it.wikimedia }) Text(L10n.t("Suggested from Wikimedia Commons. Choose another if it is not the right one."),
+                        color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                }
+            }
+            item {
                 Group(L10n.t("Code")) {
                     val c = p.barcode
                     Text(if (c == null) (if (p.document != null) L10n.t("No code found on this page. Publit shows the original instead.") else L10n.t("No code"))
@@ -657,7 +707,7 @@ fun TripPasses(store: PassStore, tripId: String?, at: Instant, onOpen: (String) 
     Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(L10n.t("Tickets"), color = ink.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp))
         if (list.isEmpty()) Text(L10n.t("No ticket for this trip"), color = ink.muted, fontSize = 14.sp, modifier = Modifier.padding(start = 16.dp))
-        list.forEach { p -> Box(Modifier.clickable { onOpen(p.id) }) { PassCard(p, compact = true) } }
+        list.forEach { p -> Box(Modifier.clickable { onOpen(p.id) }) { PassCard(p, compact = true, store = store) } }
         Surface(onClick = onAdd, shape = RoundedCornerShape(14.dp), color = ink.surface, modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Add, null); Spacer(Modifier.width(10.dp)); Text(L10n.t("Add ticket for this trip"))
@@ -666,4 +716,12 @@ fun TripPasses(store: PassStore, tripId: String?, at: Instant, onOpen: (String) 
         Text(L10n.t("Add the ticket from a PDF, a photo or a screenshot. Day, weekly and annual passes show up for every trip while they are valid."),
             color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp))
     }
+}
+
+private fun BitmapFactory_decode(b: ByteArray): Bitmap? = android.graphics.BitmapFactory.decodeByteArray(b, 0, b.size)
+
+/** Small in-memory cache of operator logos (PassLogoCache on iOS). */
+object LogoCache {
+    private val cache = android.util.LruCache<String, Bitmap>(80)
+    fun get(f: File): Bitmap? = cache.get(f.path) ?: android.graphics.BitmapFactory.decodeFile(f.path)?.also { cache.put(f.path, it) }
 }
