@@ -78,3 +78,5 @@ Schrift der Poster: Noto Sans (SIL Open Font License), wie bei den iPhone-Poster
 - `avdmanager` legt das AVD sonst unter `~/.config/.android/avd` ab, der Emulator sucht aber in `~/.android/avd`; der Workflow setzt deshalb `ANDROID_AVD_HOME` und begrenzt `adb wait-for-device` auf 5 Minuten.
 - Weiße Schrift auf den farbigen Linien-Abzeichen (U3, U6) liest die OCR nicht; die Prüfungen in `scenes.json` nutzen deshalb Zielnamen.
 - Die Statusleiste zeigt im Demo-Modus 09:41, WLAN, 5G, volle Balken und 100 % Akku.
+
+- Dunkle Aufnahmen: `capture.py` nimmt jede Ansicht zusätzlich im Dunkelmodus auf (`--themes light,dark`); `frame.py` macht daraus nur die Website-Bilder `web/<lang>/web-<ansicht>-android-dark.webp` für den Hell/Dunkel-Schalter auf publit.eu.

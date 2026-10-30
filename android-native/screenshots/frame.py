@@ -145,6 +145,12 @@ def main():
         stem = os.path.splitext(os.path.basename(f))[0]          # 01-nearby
         scene = stem.split("-", 1)[1]
         raw = Image.open(f)
+        if stem.endswith("-dark"):   # dark mode: only the website screen (publit.eu's light/dark switch)
+            scene = scene[:-5]
+            p = os.path.join(a.out, "web", lang, f"web-{scene}-android-dark.webp"); os.makedirs(os.path.dirname(p), exist_ok=True)
+            raw.convert("RGB").resize((600, round(600 * raw.height / raw.width)), Image.LANCZOS).save(p, quality=86, method=6)
+            print("web dark", lang, stem, flush=True)
+            continue
         dev = device(raw, back, mask)
         outs = {}
         def save(img, kind, name, **kw):

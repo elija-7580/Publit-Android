@@ -278,6 +278,7 @@ def main():
     ap.add_argument("--scenes", default=os.path.join(HERE, "scenes.json"))
     ap.add_argument("--only", help="comma separated scene ids")
     ap.add_argument("--langs", default="de,en")
+    ap.add_argument("--themes", default="light,dark", help="light and/or dark (dark: only for the website)")
     a = ap.parse_args()
     cfg = json.load(open(a.scenes, encoding="utf-8"))
     diag = os.path.join(a.out, "diagnostics"); os.makedirs(diag, exist_ok=True)
@@ -287,11 +288,15 @@ def main():
     dev.install(a.apk)
     scenes = [s for s in cfg["scenes"] if not a.only or s["id"] in a.only.split(",")]
     report, shots, failures = [], {}, []
-    for lang in a.langs.split(","):
+    themes = a.themes.split(",")
+    for theme in themes:
+      shell(f"cmd uimode night {'yes' if theme == 'dark' else 'no'}", check=False)
+      suffix = "-dark" if theme == "dark" else ""
+      for lang in a.langs.split(","):
         L = cfg["languages"][lang]
         os.makedirs(os.path.join(a.out, "raw", lang), exist_ok=True)
         for i, sc in enumerate(scenes, 1):
-            name = f"{lang}-{sc['id']}"
+            name = f"{lang}-{sc['id']}{suffix}"
             log("scene", name)
             try:
                 http(f"{a.server}/_demo/scene?offset={sc.get('offset', 0)}")
@@ -311,10 +316,10 @@ def main():
                 img, png, rep = wait_ready(dev, name, sc["expect"] + L["expect"], cfg["forbid"] + L["forbid"],
                                            sc.get("tolerance", 0.004), sc.get("timeout", 150), diag,
                                            a.server, sc.get("requires", []), sc.get("map", False))
-                path = os.path.join(a.out, "raw", lang, f"{cfg['scenes'].index(sc) + 1:02d}-{sc['id']}.png")
+                path = os.path.join(a.out, "raw", lang, f"{cfg['scenes'].index(sc) + 1:02d}-{sc['id']}{suffix}.png")
                 open(path, "wb").write(png)
                 shots[name] = img
-                rep.update({"scene": sc["id"], "lang": lang, "file": os.path.relpath(path, a.out), "sha256": hashlib.sha256(png).hexdigest()})
+                rep.update({"scene": sc["id"], "lang": lang, "theme": theme, "file": os.path.relpath(path, a.out), "sha256": hashlib.sha256(png).hexdigest()})
                 report.append(rep)
                 log("ok", name, rep)
             except Exception as e:
@@ -336,12 +341,13 @@ def main():
     for x in names:
         for y in names:
             if x >= y: continue
+            if x.endswith("-dark") != y.endswith("-dark"): continue
             same_scene = x.split("-", 1)[1] == y.split("-", 1)[1]
             d = changed(shots[x], shots[y])
             if (same_scene and d < 0.002) or (not same_scene and x[:2] == y[:2] and d < 0.08):
                 failures.append(f"captures too similar: {x} / {y} ({d:.4f})")
     json.dump({"day": day.isoformat(), "shots": report, "failures": failures}, open(os.path.join(a.out, "report.json"), "w"), indent=2)
-    if failures or len(report) != len(scenes) * len(a.langs.split(",")):
+    if failures or len(report) != len(scenes) * len(a.langs.split(",")) * len(themes):
         log("FAILED:\n  " + "\n  ".join(failures))
         return 1
     log(f"all {len(report)} screenshots ok")
