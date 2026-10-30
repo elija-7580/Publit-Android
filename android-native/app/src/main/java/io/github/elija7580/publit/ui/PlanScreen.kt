@@ -2,6 +2,8 @@ package io.github.elija7580.publit.ui
 
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Home
+import kotlin.math.roundToInt
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Work
@@ -334,7 +336,13 @@ fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, to
             }
         }
         val changes = io.github.elija7580.publit.data.SmartRouting.changes(it)
+        if (io.github.elija7580.publit.data.SmartRouting.isEnabled && !it.isDirect) item("felt") {
+            val felt = io.github.elija7580.publit.data.SmartRouting.feltMinutes(it).roundToInt()
+            Text(L10n.f("Feels like %@", Fmt.duration(felt * 60)) + if (changes.isEmpty()) " · " + L10n.t("No change: nothing to miss") else "",
+                color = ink.muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 28.dp))
+        }
         if (changes.isNotEmpty()) item("changes") { ChangesCard(changes) }
+        if (it.transitLegs.any { l -> l.endTime > java.time.Instant.now() }) item("getoff") { GetOffCard(it) }
         items(it.legs.size) { i ->
             val leg = it.legs[i]
             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
@@ -657,6 +665,39 @@ fun RecentSearches(vm: PlanViewModel) {
                     }
                 }
             }
+        }
+    }
+}
+
+/** "Remind me to get off" per ride (GetOffButton on iOS). */
+@Composable
+private fun GetOffCard(it: Itinerary) {
+    val ink = LocalInk.current
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val N = io.github.elija7580.publit.notify.TripNotifications
+    var tick by remember { mutableStateOf(0) }
+    var note by remember { mutableStateOf<String?>(null) }
+    val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { tick++ }
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+        Column {
+            it.transitLegs.filter { l -> l.endTime > java.time.Instant.now() }.forEachIndexed { i, leg ->
+                if (i > 0) HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                val set = remember(tick) { N.isGetOffSet(ctx, leg) }
+                Row(Modifier.fillMaxWidth().clickable {
+                    if (!N.allowed(ctx)) {
+                        if (android.os.Build.VERSION.SDK_INT >= 33) ask.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        note = L10n.t("Notifications are off. Turn them on in Settings to get reminders."); return@clickable
+                    }
+                    val at = N.scheduleGetOff(ctx, leg)
+                    note = if (at == null) L10n.t("This stop is less than two minutes away.") else L10n.t("Reminder set") + " – " + L10n.f("We'll notify you at %@.", Fmt.time(at, leg.to.tz))
+                    tick++
+                }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    LineBadge(leg); Spacer(Modifier.width(10.dp))
+                    Text(if (set) L10n.t("Reminder set") else L10n.t("Remind me to get off"), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Text(leg.to.name, color = ink.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 150.dp))
+                }
+            }
+            note?.let { n -> Text(n, color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) }
         }
     }
 }

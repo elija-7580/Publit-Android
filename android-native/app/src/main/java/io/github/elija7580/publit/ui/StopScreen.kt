@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -97,6 +98,12 @@ fun StopScreen(client: TransitousClient, favorites: io.github.elija7580.publit.d
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 4.dp)) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = L10n.t("Back")) }
             Text(name, fontWeight = FontWeight.Bold, fontSize = 22.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            if (shown.isNotEmpty()) IconButton(onClick = {
+                val text = name + "\n" + shown.take(8).joinToString("\n") { d -> Fmt.time(d.departureTime, d.place.tz) + "  " + d.lineName + (d.shownDirection?.let { " → $it" } ?: "") +
+                    (if (d.delayMinutes > 0) "  +${d.delayMinutes}" else "") }
+                ctx.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, text), L10n.t("Share departures")))
+            }) { Icon(Icons.Filled.Share, L10n.t("Share departures")) }
             val saved by favorites.state.collectAsStateWithLifecycle()
             at?.let { c ->
                 val place = io.github.elija7580.publit.data.SavedPlace(stopId, name, null, c.lat, c.lon, stopId, exact = if (exact) true else null)

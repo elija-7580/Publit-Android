@@ -83,6 +83,16 @@ object TripNotifications {
                 L10n.f("%@ reaches %@ at %@.", leg.lineName, leg.to.name, Fmt.time(leg.endTime, leg.to.tz)), tripId)
         }
     }
+    /** "Remind me to get off" for one ride (GetOffButton on iOS). Null when the stop is less than two minutes away. */
+    fun scheduleGetOff(ctx: Context, leg: Leg): Instant? {
+        val fire = maxOf(leg.endTime.minusSeconds(GET_OFF_LEAD), leg.startTime)
+        if (fire <= Instant.now().plusSeconds(5)) return null
+        schedule(ctx, getOffKey(leg), fire, L10n.t("Get off soon"),
+            L10n.f("%@ reaches %@ at %@.", leg.lineName, leg.to.name, Fmt.time(leg.endTime, leg.to.tz)), null)
+        return fire
+    }
+    fun isGetOffSet(ctx: Context, leg: Leg) = pending(ctx).contains(getOffKey(leg))
+
     fun cancelGetOff(ctx: Context, it: Itinerary) = it.transitLegs.forEach { cancel(ctx, getOffKey(it)) }
 
     /** A live refresh moved an arrival: a pending reminder moves with it. */
