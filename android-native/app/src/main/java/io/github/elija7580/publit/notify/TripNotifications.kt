@@ -167,7 +167,7 @@ object TripNotifications {
                     setStyle(liveProgress(it, total, done))
                     val mins = ((s.nextEvent.epochSecond - now.epochSecond + 59) / 60)
                     if (live && mins in 0..99) setShortCriticalText(L10n.f("%lld min", mins))
-                    extras.putBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING, true)
+                    extras.putBoolean("android.requestPromotedOngoing", true)
                 } else setProgress(total.toInt(), done.toInt(), false)
                 val app = ctx.applicationContext as? PublitApplication
                 if (app != null && app.passes.forTrip(trip.id, now).isNotEmpty())

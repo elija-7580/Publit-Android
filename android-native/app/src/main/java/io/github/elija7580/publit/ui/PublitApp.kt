@@ -14,6 +14,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.foundation.layout.Arrangement
@@ -125,7 +135,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
             containerColor = ink.ground,
             contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
             bottomBar = { androidx.compose.foundation.layout.Column {
-                if (!route.startsWith("savedtrip")) LiveTripBar(trips) { t -> nav.navigate("savedtrip?id=${t.id}") { launchSingleTop = true } }
+                if (!route.startsWith("savedtrip")) LiveTripBar(trips, client) { t -> nav.navigate("savedtrip?id=${t.id}") { launchSingleTop = true } }
                 androidx.compose.material3.NavigationBar(containerColor = ink.surface, tonalElevation = 0.dp) {
                     tabs.forEach { (r, title, icon) ->
                         val selected = route == r || (r == "nearby" && (route.startsWith("stop") || route == "trip" || route == "stationmap" || (route == "settings" && false))) || (r == "tickets" && route.startsWith("pass") && !route.startsWith("past")) || (r == "saved" && (route == "line" || route == "settings" || route == "pasttrips" || route.startsWith("savedtrip")))
@@ -446,38 +456,121 @@ private fun Message(title: String, text: String, button: String, onClick: () -> 
     }
 }
 
-/** Trips hidden from the bar this session ("Hide"). */
-private val hiddenBars = androidx.compose.runtime.mutableStateListOf<String>()
-
 /**
- * The live bar over the tabs (LiveTripBar on iOS): the started trip, or a saved one that is running or
- * starts within 30 minutes; until 5 minutes after arrival ("Arrived").
+ * The bar above the tabs while a saved trip is on (LiveTripBar on iOS): 30 min before leaving until
+ * 5 min after arrival, or the trip started by hand. ▶ starts the trip; a started trip is a dark live bar
+ * with a ring for the trip so far, what to do now and a big countdown. Tap or swipe up opens the trip.
  */
 @Composable
-fun LiveTripBar(store: io.github.elija7580.publit.data.TripStore, onOpen: (io.github.elija7580.publit.data.SavedTrip) -> Unit) {
+fun LiveTripBar(store: io.github.elija7580.publit.data.TripStore, client: io.github.elija7580.publit.data.TransitousClient? = null,
+                onOpen: (io.github.elija7580.publit.data.SavedTrip) -> Unit) {
     val ink = LocalInk.current
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { ctx.getSharedPreferences("publit", android.content.Context.MODE_PRIVATE) }
+    var hiddenId by remember { mutableStateOf(prefs.getString("liveBarHiddenTrip", "") ?: "") }
     val state by store.state.collectAsStateWithLifecycle()
     val now by androidx.compose.runtime.produceState(java.time.Instant.now()) { while (true) { kotlinx.coroutines.delay(15_000); value = java.time.Instant.now() } }
-    val active = state.activeId?.let { id -> state.trips.firstOrNull { it.id == id } }?.takeIf { it.endTime.plusSeconds(300) >= now }
-    val trip = active ?: state.trips.filter { t -> t.startTime.minusSeconds(1800) <= now && t.endTime.plusSeconds(300) >= now }.minByOrNull { it.startTime }
-    if (trip == null || trip.id in hiddenBars) return
+    val active = state.activeId?.let { id -> state.trips.firstOrNull { it.id == id } }
+        ?.takeIf { it.endTime.plusSeconds(300) >= now && it.startTime.minusSeconds(3 * 3600) <= now }
+    val trip = (active ?: state.trips.filter { t -> t.startTime.minusSeconds(1800) <= now && t.endTime.plusSeconds(300) >= now }.minByOrNull { it.startTime })
+        ?.takeIf { it.id != hiddenId } ?: return
+    // Live times every 90 s while the app is open.
+    if (client != null) LaunchedEffect(trip.id) {
+        while (true) {
+            val t = store.trip(trip.id) ?: break
+            if (t.endTime <= java.time.Instant.now()) break
+            runCatching { TripSession.refresh(ctx, client, store, t) }
+            kotlinx.coroutines.delay(90_000)
+        }
+    }
+    val it = trip.itinerary
     val started = active?.id == trip.id
-    val arrived = now >= trip.endTime
-    val mins = ((if (now < trip.startTime) trip.startTime else trip.endTime).epochSecond - now.epochSecond + 59) / 60
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp).clickable { onOpen(trip) }, shape = RoundedCornerShape(16.dp), color = ink.ink, contentColor = ink.onInk, shadowElevation = 4.dp) {
-        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.foundation.layout.Box(Modifier.width(9.dp).height(9.dp).background(androidx.compose.ui.graphics.Color(0xFFFFC21A), androidx.compose.foundation.shape.CircleShape))
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(if (arrived) L10n.t("Arrived") else L10n.t("Live trip"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                Text(trip.toName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    val status = io.github.elija7580.publit.data.TripStatus.at(now, it, countdown = !started)
+    val leg = it.transitLegs.firstOrNull { l -> l.endTime > now }
+    val total = maxOf(it.endTime.epochSecond - it.startTime.epochSecond, 60).toFloat()
+    val progress = ((now.epochSecond - it.startTime.epochSecond) / total).coerceIn(0f, 1f)
+    val cancelled = status.phase == io.github.elija7580.publit.data.TripStatus.Phase.CANCELLED
+    val arrived = status.phase == io.github.elija7580.publit.data.TripStatus.Phase.ARRIVED
+    val tint = if (cancelled) ink.danger else if (status.delayMinutes > 0) ink.delay else ink.ink
+    var pull by remember { mutableStateOf(0f) }
+    Surface(
+        Modifier.fillMaxWidth().padding(horizontal = 10.dp).padding(bottom = 6.dp)
+            .offset { androidx.compose.ui.unit.IntOffset(0, pull.toInt()) }
+            .pointerInput(trip.id) {
+                detectVerticalDragGestures(onDragEnd = { if (pull < -30) onOpen(trip); pull = 0f }, onDragCancel = { pull = 0f }) { _, d -> pull = (pull + d * 0.4f).coerceIn(-48f, 0f) }
             }
-            if (!arrived) Text(L10n.f("%lld min", mins), fontWeight = FontWeight.Bold, fontSize = 17.sp, modifier = Modifier.padding(horizontal = 8.dp))
-            if (!started && !arrived) androidx.compose.material3.TextButton(onClick = { TripSession.start(ctx, store, trip); onOpen(trip) }) { Text(L10n.t("Start trip"), color = ink.onInk) }
-            else androidx.compose.material3.TextButton(onClick = { onOpen(trip) }) { Text(L10n.t("Open trip"), color = ink.onInk) }
-            if (!started) androidx.compose.material3.IconButton(onClick = { hiddenBars += trip.id }) {
-                androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Clear, L10n.t("Hide"))
+            .clickable { onOpen(trip) },
+        shape = RoundedCornerShape(if (started) 24.dp else 22.dp), color = if (started) ink.ink else ink.surface,
+        border = if (started) null else androidx.compose.foundation.BorderStroke(1.dp, if (cancelled || status.delayMinutes > 0) tint.copy(alpha = 0.35f) else ink.hairline),
+        shadowElevation = 6.dp,
+    ) {
+        Box {
+            Box(Modifier.align(Alignment.TopCenter).padding(top = 3.dp).width(24.dp).height(3.dp)
+                .background(if (started) ink.onInk.copy(alpha = 0.35f) else ink.ink.copy(alpha = 0.2f), RoundedCornerShape(50)))
+            Row(Modifier.padding(horizontal = 12.dp, vertical = if (started) 10.dp else 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (started) {
+                    // Like a running workout: a ring for the trip so far, what to do now, a big countdown.
+                    Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+                        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                            val st = androidx.compose.ui.graphics.drawscope.Stroke(4.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                            drawArc(ink.onInk.copy(alpha = 0.18f), 0f, 360f, false, style = st)
+                            drawArc(androidx.compose.ui.graphics.Color(0xFFFFC21A), -90f, 360f * maxOf(progress, 0.02f), false, style = st)
+                        }
+                        androidx.compose.material3.Icon(when {
+                            arrived -> androidx.compose.material.icons.Icons.Filled.Flag
+                            cancelled -> androidx.compose.material.icons.Icons.Filled.Warning
+                            leg != null && leg.startTime <= now -> modeIcon(leg.mode)
+                            else -> androidx.compose.material.icons.Icons.AutoMirrored.Filled.DirectionsWalk
+                        }, null, Modifier.size(18.dp), tint = ink.onInk)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(6.dp).background(if (cancelled) ink.danger else ink.live, androidx.compose.foundation.shape.CircleShape))
+                            Spacer(Modifier.width(5.dp))
+                            Text(L10n.t("Live trip").uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = ink.onInk.copy(alpha = 0.7f))
+                            if (leg != null && leg.startTime <= now.plusSeconds(1800)) { Spacer(Modifier.width(6.dp)); LineBadge(leg) }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(status.headline, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = ink.onInk, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                            if (status.delayMinutes > 0) Text(" +${status.delayMinutes}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = ink.delay)
+                        }
+                        Text(status.detail.ifEmpty { trip.toName }, fontSize = 12.sp, color = ink.onInk.copy(alpha = 0.7f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    }
+                    val mins = ((status.nextEvent.epochSecond - now.epochSecond + 59) / 60)
+                    if (!arrived && !cancelled && mins >= 0) {
+                        androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 6.dp)) {
+                            if (mins < 60) {
+                                Text("$mins", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = ink.onInk)
+                                Text("min", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = ink.onInk.copy(alpha = 0.7f))
+                            } else Text(io.github.elija7580.publit.core.Fmt.time(status.nextEvent, it.legs.firstOrNull()?.from?.tz), fontWeight = FontWeight.Bold, color = ink.onInk)
+                        }
+                    }
+                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.KeyboardArrowUp, L10n.t("Open trip"), tint = ink.onInk.copy(alpha = 0.5f))
+                } else {
+                    if (leg != null) LineBadge(leg) else androidx.compose.material3.Icon(
+                        if (arrived) androidx.compose.material.icons.Icons.Filled.Flag else androidx.compose.material.icons.Icons.AutoMirrored.Filled.DirectionsWalk, null, Modifier.width(28.dp))
+                    Spacer(Modifier.width(10.dp))
+                    androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(status.headline, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                            if (status.delayMinutes > 0) Text(" +${status.delayMinutes}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = ink.delay)
+                        }
+                        Text(status.detail.ifEmpty { trip.toName }, fontSize = 12.sp, color = ink.muted, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        androidx.compose.material3.LinearProgressIndicator(progress = { progress }, color = tint, trackColor = ink.fill,
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp).height(4.dp))
+                    }
+                    if (!arrived && !cancelled) {
+                        Spacer(Modifier.width(8.dp))
+                        Box(Modifier.size(36.dp).background(androidx.compose.ui.graphics.Color(0xFFFFC21A), androidx.compose.foundation.shape.CircleShape)
+                            .clickable { TripSession.start(ctx, store, trip); onOpen(trip) }, contentAlignment = Alignment.Center) {
+                            androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.PlayArrow, L10n.t("Start trip"), tint = androidx.compose.ui.graphics.Color.Black)
+                        }
+                    }
+                    androidx.compose.material3.IconButton(onClick = { hiddenId = trip.id; prefs.edit().putString("liveBarHiddenTrip", trip.id).apply() }, modifier = Modifier.size(32.dp)) {
+                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Clear, L10n.t("Hide"), tint = ink.muted, modifier = Modifier.size(18.dp))
+                    }
+                }
             }
         }
     }
