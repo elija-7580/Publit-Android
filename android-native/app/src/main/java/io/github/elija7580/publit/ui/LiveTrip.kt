@@ -181,6 +181,14 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
         Box(Modifier.fillMaxSize()) {
             GuideMap(it, steps, live, shown, vehicle, if (index == live) here else null, mapBase,
                 follow = if (turnMap && index == live && here != null && heading != null && step.kind == GuideStep.Kind.WALK) here to heading!! else null, modifier = Modifier.fillMaxSize().padding(bottom = inner.calculateBottomPadding()))
+            // Looking at another stage or the whole trip: one tap back to where you are (as on iOS).
+            if (picked != null || overview) Surface(onClick = { picked = null; overview = false }, shape = RoundedCornerShape(50), color = ink.ink, contentColor = ink.onInk,
+                shadowElevation = 6.dp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = inner.calculateBottomPadding() + 14.dp)) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.MyLocation, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                    Text(L10n.t("Back to now"), fontWeight = FontWeight.SemiBold)
+                }
+            }
             Row(Modifier.statusBarsPadding().padding(8.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 RoundKey(Icons.AutoMirrored.Filled.ArrowBack, L10n.t("Minimize"), onBack)
                 Spacer(Modifier.width(8.dp))
