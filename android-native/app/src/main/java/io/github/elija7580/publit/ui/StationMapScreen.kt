@@ -1,6 +1,7 @@
 package io.github.elija7580.publit.ui
 
 import androidx.compose.material.icons.filled.Close
+import io.github.elija7580.publit.core.Fmt
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -193,7 +194,7 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
     }
 
     Box(Modifier.fillMaxSize()) {
-        PublitMap(content, camera, Modifier.fillMaxSize(), onRegion = { region = it }, base = base, onTap = { id ->
+        PublitMap(content, camera, Modifier.fillMaxSize(), onRegion = { region = it }, base = base, onLongPress = { p -> focus = GeocodeMatch(name = L10n.t("Dropped pin"), lat = p.lat, lon = p.lon) }, onTap = { id ->
             when {
                 id == null -> selected = null
                 id.startsWith("s|") -> stations.firstOrNull { it.id == id.removePrefix("s|") }?.let { s -> onOpenStation(s.id, s.name, s.isPole) }
@@ -278,6 +279,22 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                 }
             }
         }
+        if (selected == null) focus?.let { f ->
+            val at = LatLon(f.lat, f.lon)
+            Surface(Modifier.align(Alignment.BottomCenter).padding(12.dp).padding(bottom = 64.dp).fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = ink.surface, shadowElevation = 4.dp) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(f.name, fontWeight = FontWeight.Bold, fontSize = 17.sp, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { focus = null }) { Icon(Icons.Filled.Close, L10n.t("Close")) }
+                    }
+                    start?.distanceTo(at)?.let { d -> Text(Fmt.distance(d) + " · " + L10n.f("%@ walk", Fmt.duration((d * 1.3 / 1.3).toInt().coerceAtLeast(60))), color = ink.muted) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        androidx.compose.material3.TextButton({ onRoute?.invoke(f.name, at, true) }) { Text(L10n.t("Route here"), color = ink.ink) }
+                        androidx.compose.material3.TextButton({ onRoute?.invoke(f.name, at, false) }) { Text(L10n.t("Route from here"), color = ink.ink) }
+                    }
+                }
+            }
+        }
         selected?.let { sel ->
             Surface(Modifier.align(Alignment.BottomCenter).padding(12.dp).padding(bottom = 64.dp).fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = ink.surface, shadowElevation = 4.dp) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -298,7 +315,9 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                         }
                         sel.startsWith("rs|") -> rentals.stations.firstOrNull { it.id == sel.removePrefix("rs|") }?.let { st ->
                             Text(st.name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                            Text(rentals.groupName(st.providerGroupId) + (st.numVehiclesAvailable?.let { " · $it" } ?: ""), color = ink.muted)
+                            Text(rentals.groupName(st.providerGroupId), color = ink.muted)
+                            st.numVehiclesAvailable?.let { n -> Text(L10n.t("Available now") + ": " + n, fontWeight = FontWeight.SemiBold, color = if (n > 0) ink.live else ink.muted) }
+                            Text(L10n.t("Rent in the provider's app"), color = ink.muted, fontSize = 12.sp)
                             (st.rentalUriAndroid ?: st.rentalUriWeb)?.let { u -> androidx.compose.material3.TextButton({ runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }) { Text(L10n.t("Open in the provider's app"), color = ink.ink) } }
                         }
                         sel.startsWith("rv|") -> rentals.vehicles.firstOrNull { it.id == sel.removePrefix("rv|") }?.let { v ->
