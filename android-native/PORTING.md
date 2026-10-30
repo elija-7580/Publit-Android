@@ -69,3 +69,5 @@ Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktione
 - [x] Live-Benachrichtigung wie die iOS Live Activity (Linie, Countdown, Gleis, "Then", Etappen mit Halten; Android 16 Live Update mit Fortschritt je Abschnitt; Show ticket, End trip)
 - [x] Live-Leiste wie iOS (▶ Start, dunkle Live-Leiste mit Ring und Countdown, Hochwischen öffnet, Live-Zeiten alle 90 s)
 - [x] Ortssuche: Home/Work ("Set Home/Work" wenn leer), Current location, Saved
+- [x] Eigener Navigations-Stapel pro Tab (Tabs öffnen das Richtige, erneutes Tippen → oberste Seite, Zurück auf Tab-Start → In der Nähe); vorher teilten sich alle Tabs einen Stapel
+- [x] Live-Fahrt: "Back to now" als Knopf über dem Panel
