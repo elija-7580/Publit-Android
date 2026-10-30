@@ -181,7 +181,7 @@ fun SettingsScreen(prefs: SharedPreferences, onBack: () -> Unit) {
                 }
             }
             item {
-                var crashes by remember { mutableStateOf(if (io.github.elija7580.publit.CrashLog.peek() != null) 1 else 0) }
+                var crashes by remember { mutableStateOf(if (io.github.elija7580.publit.CrashLog(context).peek() != null) 1 else 0) }
                 Group(L10n.t("Diagnostics"), footer = listOf(L10n.t("Diagnostics stay on this device until you share them. They contain no places, stops or tickets."))) {
                     Text(L10n.f("Crashes: %lld", crashes), modifier = Modifier.padding(16.dp))
                     Line()
@@ -189,7 +189,7 @@ fun SettingsScreen(prefs: SharedPreferences, onBack: () -> Unit) {
                     Line()
                     LinkRow(L10n.t("Report a problem")) { open("$REPOSITORY/issues/new") }
                     Line()
-                    LinkRow(L10n.t("Delete diagnostics")) { io.github.elija7580.publit.CrashLog.clear(); crashes = 0 }
+                    LinkRow(L10n.t("Delete diagnostics")) { io.github.elija7580.publit.CrashLog(context).clear(); crashes = 0 }
                 }
             }
             item {

@@ -29,7 +29,7 @@ object DataExport {
     fun shareDiagnostics(ctx: Context) {
         val text = buildString {
             appendLine("Publit ${BuildConfigInfo.version} · Android ${android.os.Build.VERSION.RELEASE} · ${android.os.Build.MODEL}")
-            appendLine(CrashLog.peek() ?: "No crashes recorded.")
+            appendLine(CrashLog(ctx).peek() ?: "No crashes recorded.")
         }
         send(ctx, "publit-diagnostics.txt", text, "text/plain")
     }
