@@ -20,10 +20,6 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.automirrored.filled.TurnLeft
-import androidx.compose.material.icons.automirrored.filled.TurnRight
-import androidx.compose.material.icons.automirrored.filled.TurnSlightLeft
-import androidx.compose.material.icons.automirrored.filled.TurnSlightRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -482,10 +478,10 @@ private fun WalkStage(it: Itinerary, legIndex: Int, destination: String, now: In
 private fun maneuverIcon(k: WalkManeuver.Kind) = when (k) {
     WalkManeuver.Kind.START -> Icons.AutoMirrored.Filled.DirectionsWalk
     WalkManeuver.Kind.STRAIGHT -> Icons.Filled.Straight
-    WalkManeuver.Kind.SLIGHT_LEFT -> Icons.AutoMirrored.Filled.TurnSlightLeft
-    WalkManeuver.Kind.LEFT, WalkManeuver.Kind.SHARP_LEFT -> Icons.AutoMirrored.Filled.TurnLeft
-    WalkManeuver.Kind.SLIGHT_RIGHT -> Icons.AutoMirrored.Filled.TurnSlightRight
-    WalkManeuver.Kind.RIGHT, WalkManeuver.Kind.SHARP_RIGHT -> Icons.AutoMirrored.Filled.TurnRight
+    WalkManeuver.Kind.SLIGHT_LEFT -> Icons.Filled.TurnSlightLeft
+    WalkManeuver.Kind.LEFT, WalkManeuver.Kind.SHARP_LEFT -> Icons.Filled.TurnLeft
+    WalkManeuver.Kind.SLIGHT_RIGHT -> Icons.Filled.TurnSlightRight
+    WalkManeuver.Kind.RIGHT, WalkManeuver.Kind.SHARP_RIGHT -> Icons.Filled.TurnRight
     WalkManeuver.Kind.U_TURN -> Icons.Filled.UTurnLeft
     WalkManeuver.Kind.STAIRS_UP, WalkManeuver.Kind.STAIRS_DOWN, WalkManeuver.Kind.STAIRS -> Icons.Filled.Stairs
     WalkManeuver.Kind.ELEVATOR -> Icons.Filled.Elevator
