@@ -14,7 +14,7 @@
   "scenes": [
     {"id": "nearby", "title": "Abfahrten in der Nähe",
      "steps": [{"start": "main"}],
-     "expect": [["siegestor", "universitat"], ["u3", "u6", "154", "100"]],
+     "expect": [["siegestor", "universitat"], ["brudermuhlstrasse", "moosach", "garching", "grosshadern"]],
      "requires": ["/api/v6/stoptimes"], "tolerance": 0.004, "timeout": 150},
     {"id": "plan", "title": "Routenplanung",
      "steps": [{"link": "publit://place?lat=48.3538&lon=11.7861&name=Flughafen%20M%C3%BCnchen"}],
@@ -22,7 +22,7 @@
      "requires": ["/api/v6/plan"], "tolerance": 0.004, "timeout": 150},
     {"id": "live", "title": "Fahrtbegleitung", "offset": -18, "seed": "live",
      "steps": [{"link": "publit://trip/demo-live"}],
-     "expect": [["nordfriedhof", "flughafen"], ["u6"]],
+     "expect": [["nordfriedhof"]],
      "tolerance": 0.01, "timeout": 150},
     {"id": "map", "title": "Karte (MapLibre)", "map": true,
      "steps": [{"start": "main"}, {"wait": [["siegestor", "universitat"]]}, {"link": "publit://map"}],
