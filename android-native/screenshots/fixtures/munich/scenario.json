@@ -1,0 +1,17 @@
+{
+  "name": "munich",
+  "note": "Real Transitous (MOTIS) responses for Munich, recorded once for 2026-11-03 09:41 Europe/Berlin, trimmed (fewer polyline points, no debug fields). The demo server moves all times to the day of the run, so the clock always shows 09:41.",
+  "reference": "2026-11-03T08:41:00Z",
+  "timeZone": "Europe/Berlin",
+  "clock": "09:41",
+  "here": {
+    "name": "Universität",
+    "lat": 48.1499,
+    "lon": 11.5803
+  },
+  "destination": {
+    "name": "Flughafen München",
+    "lat": 48.3538,
+    "lon": 11.7861
+  }
+}
