@@ -74,12 +74,13 @@ jobs:
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          export ANDROID_AVD_HOME="$HOME/.android/avd"; mkdir -p "$ANDROID_AVD_HOME"; echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
           SDK="$ANDROID_HOME"; BIN="$SDK/cmdline-tools/latest/bin"
           yes | "$BIN/sdkmanager" --licenses >/dev/null || true
           "$BIN/sdkmanager" --install emulator platform-tools "$SYSTEM_IMAGE" >/dev/null
           DEV=pixel_8_pro; "$BIN/avdmanager" list device -c | grep -qx pixel_8_pro || DEV=pixel_7_pro
           echo no | "$BIN/avdmanager" create avd -n shots -k "$SYSTEM_IMAGE" -d "$DEV" --force
-          CFG="$HOME/.android/avd/shots.avd/config.ini"
+          CFG="$ANDROID_AVD_HOME/shots.avd/config.ini"; echo "AVD config: $CFG"; test -f "$CFG"
           sed -i '/^hw.lcd.width\|^hw.lcd.height\|^hw.lcd.density\|^skin\.\|^showDeviceFrame\|^hw.ramSize\|^disk.dataPartition.size\|^hw.keyboard\|^hw.gpu/d' "$CFG"
           printf '%s\n' hw.lcd.width=1344 hw.lcd.height=2992 hw.lcd.density=480 skin.name=1344x2992 skin.dynamic=yes \
             showDeviceFrame=no hw.ramSize=4096 disk.dataPartition.size=6G hw.keyboard=yes hw.gpu.enabled=yes hw.gpu.mode=swiftshader_indirect >> "$CFG"
@@ -87,7 +88,7 @@ jobs:
           nohup "$SDK/emulator/emulator" -avd shots -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
             -timezone Europe/Berlin -camera-back none -camera-front none -netfast > "$OUT/diagnostics/emulator.log" 2>&1 &
           export PATH="$SDK/platform-tools:$PATH"
-          adb wait-for-device
+          timeout 300 adb wait-for-device || { echo "::error::Emulator did not appear"; tail -50 "$OUT/diagnostics/emulator.log"; exit 1; }
           for i in $(seq 1 120); do [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ] && break; sleep 5; done
           adb shell getprop sys.boot_completed | grep -q 1
           sleep 20; adb shell input keyevent 82 || true
