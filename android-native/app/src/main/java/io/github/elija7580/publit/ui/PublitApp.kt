@@ -106,7 +106,8 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         androidx.compose.material3.Scaffold(
             containerColor = ink.ground,
             contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
-            bottomBar = {
+            bottomBar = { androidx.compose.foundation.layout.Column {
+                if (!route.startsWith("savedtrip")) LiveTripBar(trips) { t -> nav.navigate("savedtrip?id=${t.id}") { launchSingleTop = true } }
                 androidx.compose.material3.NavigationBar(containerColor = ink.surface, tonalElevation = 0.dp) {
                     tabs.forEach { (r, title, icon) ->
                         val selected = route == r || (r == "nearby" && (route.startsWith("stop") || route == "trip" || route == "stationmap" || (route == "settings" && false))) || (r == "tickets" && route.startsWith("pass") && !route.startsWith("past")) || (r == "saved" && (route == "line" || route == "settings" || route == "pasttrips" || route.startsWith("savedtrip")))
@@ -120,7 +121,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                         )
                     }
                 }
-            },
+            } },
         ) { padding ->
             androidx.navigation.compose.NavHost(nav, startDestination = "nearby", modifier = Modifier.padding(padding)) {
                 composable("nearby") {
@@ -403,5 +404,42 @@ private fun Message(title: String, text: String, button: String, onClick: () -> 
         Text(text, color = ink.muted, textAlign = TextAlign.Center)
         Spacer(Modifier.height(20.dp))
         Button(onClick = onClick, colors = ButtonDefaults.buttonColors(containerColor = ink.ink, contentColor = ink.onInk)) { Text(button) }
+    }
+}
+
+/** Trips hidden from the bar this session ("Hide"). */
+private val hiddenBars = androidx.compose.runtime.mutableStateListOf<String>()
+
+/**
+ * The live bar over the tabs (LiveTripBar on iOS): the started trip, or a saved one that is running or
+ * starts within 30 minutes; until 5 minutes after arrival ("Arrived").
+ */
+@Composable
+fun LiveTripBar(store: io.github.elija7580.publit.data.TripStore, onOpen: (io.github.elija7580.publit.data.SavedTrip) -> Unit) {
+    val ink = LocalInk.current
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val state by store.state.collectAsStateWithLifecycle()
+    val now by androidx.compose.runtime.produceState(java.time.Instant.now()) { while (true) { kotlinx.coroutines.delay(15_000); value = java.time.Instant.now() } }
+    val active = state.activeId?.let { id -> state.trips.firstOrNull { it.id == id } }?.takeIf { it.endTime.plusSeconds(300) >= now }
+    val trip = active ?: state.trips.filter { t -> t.startTime.minusSeconds(1800) <= now && t.endTime.plusSeconds(300) >= now }.minByOrNull { it.startTime }
+    if (trip == null || trip.id in hiddenBars) return
+    val started = active?.id == trip.id
+    val arrived = now >= trip.endTime
+    val mins = ((if (now < trip.startTime) trip.startTime else trip.endTime).epochSecond - now.epochSecond + 59) / 60
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp).clickable { onOpen(trip) }, shape = RoundedCornerShape(16.dp), color = ink.ink, contentColor = ink.onInk, shadowElevation = 4.dp) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(9.dp).background(androidx.compose.ui.graphics.Color(0xFFFFC21A), androidx.compose.foundation.shape.CircleShape))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(if (arrived) L10n.t("Arrived") else L10n.t("Live trip"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(trip.toName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+            if (!arrived) Text(L10n.f("%lld min", mins), fontWeight = FontWeight.Bold, fontSize = 17.sp, modifier = Modifier.padding(horizontal = 8.dp))
+            if (!started && !arrived) androidx.compose.material3.TextButton(onClick = { TripSession.start(ctx, store, trip); onOpen(trip) }) { Text(L10n.t("Start trip"), color = ink.onInk) }
+            else androidx.compose.material3.TextButton(onClick = { onOpen(trip) }) { Text(L10n.t("Open trip"), color = ink.onInk) }
+            if (!started) androidx.compose.material3.IconButton(onClick = { hiddenBars += trip.id }) {
+                androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Close, L10n.t("Hide"))
+            }
+        }
     }
 }
