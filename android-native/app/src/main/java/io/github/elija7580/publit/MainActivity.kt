@@ -41,6 +41,17 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         intent.getStringExtra(io.github.elija7580.publit.notify.TripNotifications.EXTRA_TRIP)?.let { openTrip.value = it }
         stopLink(intent)?.let { openTrip.value = it }
+        shared(intent)
+    }
+
+    /** A place shared or opened from another app: a route there (as "place:" for the app's navigation). */
+    private fun shared(i: android.content.Intent?) {
+        i?.data?.takeIf { it.scheme == "publit" && it.host == "go" }?.lastPathSegment?.let { openTrip.value = "go:$it"; return }
+        val text = SharedPlace.text(i) ?: return
+        lifecycleScope.launch {
+            val f = SharedPlace.resolve(text)
+            openTrip.value = if (f == null) "place:" else "place:${f.name}|${f.at.lat}|${f.at.lon}"
+        }
     }
 
     /** A widget tapped: its stop, as a "stop:" link for the app's navigation. */
@@ -54,6 +65,7 @@ class MainActivity : ComponentActivity() {
         val crash = if (savedInstanceState == null) app.crashLog.take() else null
         intent?.getStringExtra(io.github.elija7580.publit.notify.TripNotifications.EXTRA_TRIP)?.let { openTrip.value = it }
         stopLink(intent)?.let { openTrip.value = it }
+        if (savedInstanceState == null) shared(intent)
         lifecycleScope.launch { runCatching { io.github.elija7580.publit.notify.LineAlerts.check(app); io.github.elija7580.publit.notify.LineAlerts.schedule(app) } }
         setContent { PublitApp(nearby, plan, app.client, app.favorites, getSharedPreferences("publit", MODE_PRIVATE), app.trips, app.passes, openTrip, crash) }
     }

@@ -88,10 +88,21 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { vm.permissionResult() }
         LaunchedEffect(Unit) { if (prefs.getString(START_TAB_KEY, "nearby") == "plan") nav.navigate("plan") { popUpTo("nearby") { saveState = true }; launchSingleTop = true } }
         val tripLink by openTrip.collectAsStateWithLifecycle()
+        val linkContext = androidx.compose.ui.platform.LocalContext.current
         LaunchedEffect(tripLink) {
             val link = tripLink ?: return@LaunchedEffect
             openTrip.value = null
-            if (link.startsWith("stop:")) {
+            if (link.startsWith("place:")) {
+                val parts = link.removePrefix("place:").split("|")
+                if (parts.size == 3) {
+                    plan.route(Endpoint.Here, Endpoint.At(parts[0], io.github.elija7580.publit.core.LatLon(parts[1].toDouble(), parts[2].toDouble())))
+                    nav.navigate("plan") { popUpTo("nearby"); launchSingleTop = true }
+                } else android.widget.Toast.makeText(linkContext, L10n.t("No place found in what was shared."), android.widget.Toast.LENGTH_LONG).show()
+            } else if (link.startsWith("go:")) {
+                val role = if (link == "go:work") io.github.elija7580.publit.data.PlaceRole.WORK else io.github.elija7580.publit.data.PlaceRole.HOME
+                val p = favorites.state.value.place(role)
+                if (p == null) nav.navigate("saved") else { plan.route(Endpoint.Here, Endpoint.At(role.title, p.coordinate)); nav.navigate("plan") { popUpTo("nearby"); launchSingleTop = true } }
+            } else if (link.startsWith("stop:")) {
                 val (id, name) = link.removePrefix("stop:").split("|", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
                 nav.navigate("stop?id=${Uri.encode(id)}&name=${Uri.encode(name)}&exact=false")
             } else nav.navigate("savedtrip?id=$link") { launchSingleTop = true }
