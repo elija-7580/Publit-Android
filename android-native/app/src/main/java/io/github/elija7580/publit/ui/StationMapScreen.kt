@@ -52,6 +52,8 @@ import io.github.elija7580.publit.data.ModeStyle
 import io.github.elija7580.publit.data.TransitousClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.material.icons.filled.Layers
 import kotlin.math.log2
 import kotlin.math.max
 import kotlin.math.min
@@ -78,6 +80,52 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
     var searching by remember { mutableStateOf(false) }
     var results by remember { mutableStateOf(emptyList<GeocodeMatch>()) }
     var focus by remember { mutableStateOf<GeocodeMatch?>(null) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { ctx.getSharedPreferences("publit", android.content.Context.MODE_PRIVATE) }
+    var showStations by remember { mutableStateOf(prefs.getBoolean("mapStations", true)) }
+    var showLines by remember { mutableStateOf(prefs.getBoolean("mapLines", true)) }
+    var showVehicles by remember { mutableStateOf(prefs.getBoolean("mapVehicles", true)) }
+    var showSharing by remember { mutableStateOf(prefs.getBoolean("mapSharing", false)) }
+    var standard by remember { mutableStateOf(prefs.getString("mapBase", "muted") == "standard") }
+    var layers by remember { mutableStateOf(false) }
+    var tracks by remember { mutableStateOf(emptyList<io.github.elija7580.publit.data.VehicleTrack>()) }
+    var shapes by remember { mutableStateOf(emptyList<io.github.elija7580.publit.data.LineShape>()) }
+    var liveHidden by remember { mutableStateOf(false) }
+    var rentals by remember { mutableStateOf(io.github.elija7580.publit.data.RentalsResponse()) }
+    var tick by remember { mutableStateOf(java.time.Instant.now()) }
+    var selected by remember { mutableStateOf<String?>(null) }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    // Vehicles glide every 2 s and are fetched again every 30 s, only while the map is in front.
+    LaunchedEffect(region, showLines, showVehicles, filter) {
+        val r = region ?: return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            while (true) {
+                if (r.latSpan > 0.06 || !(showLines || showVehicles)) { liveHidden = r.latSpan > 0.06; tracks = emptyList(); shapes = emptyList() }
+                else {
+                    liveHidden = false
+                    val dl = r.latSpan * 0.75; val dn = r.lonSpan * 0.75
+                    val zoom = max(14, log2(360 / max(r.lonSpan, 0.0001)).roundToInt())
+                    val now = java.time.Instant.now()
+                    runCatching { client.mapTrips(LatLon(r.center.lat - dl, r.center.lon - dn), LatLon(r.center.lat + dl, r.center.lon + dn), zoom, now.minusSeconds(60), now.plusSeconds(300)) }
+                        .onSuccess { segs ->
+                            val snap = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                                io.github.elija7580.publit.data.LiveMap.build(segs, filter, if (zoom >= 14) 5 else 4, io.github.elija7580.publit.data.LiveMap.tolerance(r.latSpan * 111_000))
+                            }
+                            tracks = snap.tracks; shapes = snap.shapes
+                        }
+                }
+                delay(30_000)
+            }
+        }
+    }
+    LaunchedEffect(Unit) { lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) { while (true) { tick = java.time.Instant.now(); delay(2_000) } } }
+    LaunchedEffect(region, showSharing) {
+        val r = region ?: return@LaunchedEffect
+        if (!showSharing || r.latSpan > 0.03) { rentals = io.github.elija7580.publit.data.RentalsResponse(); return@LaunchedEffect }
+        delay(300)
+        val dl = r.latSpan * 0.75; val dn = r.lonSpan * 0.75
+        runCatching { client.rentals(LatLon(r.center.lat - dl, r.center.lon - dn), LatLon(r.center.lat + dl, r.center.lon + dn)) }.onSuccess { rentals = it }
+    }
 
     LaunchedEffect(region) {
         val r = region ?: return@LaunchedEffect
@@ -104,19 +152,31 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
     val stations = remember(raw, separate, filter) {
         MapStation.group(raw, separate).filter { s -> !filter.isActive || s.modes.any { filter.allows(it) } }
     }
-    val content = remember(stations, focus, ink.dark) {
-        val dots = stations.map { s ->
+    val vehicles = remember(tracks, tick, showVehicles, region) {
+        val r = region
+        if (!showVehicles || r == null) emptyList() else io.github.elija7580.publit.data.LiveMap.vehicles(tracks, tick,
+            LatLon(r.center.lat - r.latSpan, r.center.lon - r.lonSpan), LatLon(r.center.lat + r.latSpan, r.center.lon + r.lonSpan))
+    }
+    val content = remember(stations, focus, ink.dark, shapes, showLines, vehicles, rentals, showStations) {
+        val lines = if (showLines) shapes.map { MapContent.Line(it.points, hexColor(io.github.elija7580.publit.data.LineColors.strokeHex(it.colorHex, ink.dark)), 3f) } else emptyList()
+        val rentalDots = rentals.stations.map { MapContent.Dot(LatLon(it.lat, it.lon), Color(0xFF1B7A33), Color.White, 9f, 1.5f, id = "rs|" + it.id) } +
+            rentals.vehicles.filter { it.isAvailable }.map { MapContent.Dot(LatLon(it.lat, it.lon), Color(0xFF00727A), Color.White, 7f, 1f, id = "rv|" + it.id) }
+        val vehicleDots = vehicles.map { v -> MapContent.Dot(v.coordinate, hexColor(v.colorHex), Color.White, 13f, 2f, id = "v|" + v.id, label = v.name) }
+        val dots = (if (showStations) stations else emptyList()).map { s ->
             val c = hexColor(ModeStyle.defaultHex(s.mainMode))
             MapContent.Dot(s.coordinate, if (s.isMajor) c else Color.White, if (s.isMajor) Color.White else c,
                 if (s.isMajor) 14f else 10f, 2f, id = "s|" + s.id, label = if (s.isMajor || separate) MapStation.shortName(s.name) else null)
-        } + listOfNotNull(focus?.let { MapContent.Dot(LatLon(it.lat, it.lon), ink.ink, Color.White, 18f, 3f, label = it.name) })
-        MapContent(dots = dots)
+        } + rentalDots + vehicleDots + listOfNotNull(focus?.let { MapContent.Dot(LatLon(it.lat, it.lon), ink.ink, Color.White, 18f, 3f, label = it.name) })
+        MapContent(lines = lines, dots = dots)
     }
 
     Box(Modifier.fillMaxSize()) {
-        PublitMap(content, camera, Modifier.fillMaxSize(), onRegion = { region = it }, onTap = { id ->
-            val s = id?.removePrefix("s|")?.let { sid -> stations.firstOrNull { it.id == sid } }
-            if (s != null) onOpenStation(s.id, s.name, s.isPole)
+        PublitMap(content, camera, Modifier.fillMaxSize(), onRegion = { region = it }, standard = standard, onTap = { id ->
+            when {
+                id == null -> selected = null
+                id.startsWith("s|") -> stations.firstOrNull { it.id == id.removePrefix("s|") }?.let { s -> onOpenStation(s.id, s.name, s.isPole) }
+                else -> selected = id
+            }
         })
         Column(Modifier.statusBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Surface(shape = RoundedCornerShape(14.dp), color = ink.surface, shadowElevation = 3.dp) {
@@ -155,12 +215,49 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                 }
             } else {
                 ModeChips(ModeGroup.entries.filter { it != ModeGroup.OTHER }, filter.included, filter.isActive) { filter = filter.toggleOnly(it) }
-                val hint = error ?: if (hidden) L10n.t("Zoom in to see stations") else null
+                val hint = error ?: if (hidden && showStations) L10n.t("Zoom in to see stations") else if (liveHidden && (showLines || showVehicles)) L10n.t("Zoom in to see lines and vehicles") else null
                 hint?.let {
                     Surface(shape = RoundedCornerShape(50), color = ink.surface, shadowElevation = 2.dp, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                         Text(it, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
                     }
                 }
+            }
+        }
+        selected?.let { sel ->
+            Surface(Modifier.align(Alignment.BottomCenter).padding(12.dp).padding(bottom = 64.dp).fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = ink.surface, shadowElevation = 4.dp) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    when {
+                        sel.startsWith("v|") -> vehicles.firstOrNull { it.id == sel.removePrefix("v|") }?.let { v ->
+                            Text(v.name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                            Text(L10n.f("Next: %@", v.nextStop), color = ink.muted)
+                            Text(if (!v.realTime) L10n.t("Position estimated from the timetable.") else if (v.delayMinutes > 0) L10n.f("+%lld min", v.delayMinutes) else L10n.t("On time"),
+                                color = if (v.delayMinutes > 0) ink.delay else ink.muted, fontSize = 13.sp)
+                        } ?: Text(L10n.t("Trip"), color = ink.muted)
+                        sel.startsWith("rs|") -> rentals.stations.firstOrNull { it.id == sel.removePrefix("rs|") }?.let { st ->
+                            Text(st.name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                            Text(rentals.groupName(st.providerGroupId) + (st.numVehiclesAvailable?.let { " · $it" } ?: ""), color = ink.muted)
+                            (st.rentalUriAndroid ?: st.rentalUriWeb)?.let { u -> androidx.compose.material3.TextButton({ runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }) { Text(L10n.t("Open in the provider's app"), color = ink.ink) } }
+                        }
+                        sel.startsWith("rv|") -> rentals.vehicles.firstOrNull { it.id == sel.removePrefix("rv|") }?.let { v ->
+                            Text(rentals.groupName(v.providerGroupId), fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                            (v.rentalUriAndroid ?: v.rentalUriWeb)?.let { u -> androidx.compose.material3.TextButton({ runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }) { Text(L10n.t("Open in the provider's app"), color = ink.ink) } }
+                        }
+                    }
+                }
+            }
+        }
+        Surface(shape = CircleShape, color = ink.surface, shadowElevation = 3.dp,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 88.dp)) {
+            IconButton(onClick = { layers = !layers }) { Icon(androidx.compose.material.icons.Icons.Filled.Layers, L10n.t("Map layers")) }
+        }
+        if (layers) Surface(Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = 28.dp).width(260.dp), shape = RoundedCornerShape(14.dp), color = ink.surface, shadowElevation = 4.dp) {
+            Column(Modifier.padding(vertical = 8.dp)) {
+                fun set(key: String, v: Boolean) = prefs.edit().putBoolean(key, v).apply()
+                SwitchRow(L10n.t("Standard"), standard) { standard = it; prefs.edit().putString("mapBase", if (it) "standard" else "muted").apply() }
+                SwitchRow(L10n.t("Stations"), showStations) { showStations = it; set("mapStations", it) }
+                SwitchRow(L10n.t("Lines"), showLines) { showLines = it; set("mapLines", it) }
+                SwitchRow(L10n.t("Vehicles"), showVehicles) { showVehicles = it; set("mapVehicles", it) }
+                SwitchRow(L10n.t("Bikes and scooters"), showSharing) { showSharing = it; set("mapSharing", it) }
             }
         }
         if (start != null) Surface(shape = CircleShape, color = ink.surface, shadowElevation = 3.dp,

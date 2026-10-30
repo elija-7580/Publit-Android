@@ -88,6 +88,16 @@ class TransitousClient(
         json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(MapStop.serializer()),
             get("/api/v6/map/stops", listOf("min" to min.apiValue, "max" to max.apiValue, "zoom" to zoom.toString()), 3600))
 
+    /** Vehicle segments in a box and time window, for the live map. */
+    suspend fun mapTrips(min: LatLon, max: LatLon, zoom: Int, start: java.time.Instant, end: java.time.Instant): List<TripSegment> =
+        json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(TripSegment.serializer()), get("/api/v6/map/trips", listOf(
+            "min" to min.apiValue, "max" to max.apiValue, "zoom" to zoom.toString(), "startTime" to start.toString(), "endTime" to end.toString(),
+            "precision" to if (zoom >= 14) "5" else "4"), 15))
+
+    /** Bike and scooter sharing stations and free vehicles in a box. */
+    suspend fun rentals(min: LatLon, max: LatLon): RentalsResponse = json.decodeFromString(RentalsResponse.serializer(), get("/api/v1/rentals", listOf(
+        "min" to min.apiValue, "max" to max.apiValue, "withProviders" to "false", "withStations" to "true", "withVehicles" to "true", "withZones" to "false"), 60))
+
     /** New live times for a planned route (refresh-itinerary). */
     suspend fun refresh(itineraryId: String): Itinerary =
         io.github.elija7580.publit.live.LiveOverlay.apply(json.decodeFromString(Itinerary.serializer(), get("/api/v6/refresh-itinerary",

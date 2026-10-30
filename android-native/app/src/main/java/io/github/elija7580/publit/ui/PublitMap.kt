@@ -60,7 +60,7 @@ sealed class MapCamera {
  */
 @Composable
 fun PublitMap(content: MapContent, camera: MapCamera, modifier: Modifier = Modifier, description: String? = null,
-              onTap: ((String?) -> Unit)? = null, onRegion: ((MapRegion) -> Unit)? = null) {
+              onTap: ((String?) -> Unit)? = null, onRegion: ((MapRegion) -> Unit)? = null, standard: Boolean = false) {
     val context = LocalContext.current
     val dark = LocalInk.current.dark
     val holder = remember { MapHolder(context) }
@@ -71,7 +71,7 @@ fun PublitMap(content: MapContent, camera: MapCamera, modifier: Modifier = Modif
         onDispose { lifecycle.removeObserver(observer); holder.destroy() }
     }
     AndroidView({ holder.view }, modifier.then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)) {
-        holder.onTap = onTap; holder.onRegion = onRegion
+        holder.onTap = onTap; holder.onRegion = onRegion; holder.standard = standard
         holder.update(content, camera, dark)
     }
 }
@@ -89,6 +89,8 @@ private class MapHolder(ctx: Context) {
     private val density = ctx.resources.displayMetrics.density
     var onTap: ((String?) -> Unit)? = null
     var onRegion: ((MapRegion) -> Unit)? = null
+    /** OSM Liberty instead of the pale "Transit" look (MapBase.standard on iOS). */
+    var standard = false
 
     init {
         MapLibre.getInstance(ctx)
@@ -146,7 +148,7 @@ private class MapHolder(ctx: Context) {
 
     private fun refresh() {
         val m = map ?: return
-        val url = if (dark) "https://tiles.openfreemap.org/styles/dark" else "https://tiles.openfreemap.org/styles/positron"
+        val url = if (dark) "https://tiles.openfreemap.org/styles/dark" else if (standard) "https://tiles.openfreemap.org/styles/liberty" else "https://tiles.openfreemap.org/styles/positron"
         if (url != styleUrl) {
             styleUrl = url
             style = null
