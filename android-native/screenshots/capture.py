@@ -176,7 +176,7 @@ class Device:
         shell("settings put global sysui_demo_allowed 1", check=False)
         b = "am broadcast -a com.android.systemui.demo -e command"
         for c in ("enter", "clock -e hhmm 0941", "battery -e level 100 -e plugged false -e powersave false",
-                  "network -e wifi show -e level 4 -e fully true", "network -e mobile show -e datatype none -e level 4 -e fully true",
+                  "network -e wifi show -e level 4 -e fully true", "network -e mobile show -e datatype 5g -e level 4 -e fully true",
                   "network -e airplane hide", "notifications -e visible false", "status -e volume hide -e bluetooth hide -e location hide -e alarm hide -e sync hide -e tty hide -e eri hide -e mute hide -e speakerphone hide -e managed_profile hide"):
             shell(f"{b} {c}", check=False)
 
