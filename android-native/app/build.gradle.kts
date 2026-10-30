@@ -19,6 +19,8 @@ android {
         // Optional Google Wallet export: the signing service's HTTPS URL (services/google-wallet-signer).
         // Without it the button stays hidden. The issuer key never goes into the app.
         manifestPlaceholders["walletSignerUrl"] = (project.findProperty("publit.walletSignerUrl") as String?) ?: ""
+        // Demo data server for website screenshots; empty = the real Transitous API (every normal build).
+        buildConfigField("String", "DEMO_API", "\"\"")
     }
 
     signingConfigs {
@@ -43,6 +45,15 @@ android {
             applicationIdSuffix = ".debug"
             signingConfig = signingConfigs.getByName("test")
         }
+        // Only for the "Website-Screenshots erstellen" workflow (android-native/screenshots): reproducible demo data
+        // from a local server on the emulator host (10.0.2.2), no extra live sources. Never published.
+        create("screenshots") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".screenshots"
+            versionNameSuffix = "-screenshots"
+            matchingFallbacks += listOf("debug")
+            buildConfigField("String", "DEMO_API", "\"http://10.0.2.2:8765\"")
+        }
     }
 
     compileOptions {
@@ -50,8 +61,12 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     // MapLibre ships native code: one APK per ARM architecture keeps each small (Play uses bundles).
-    splits { abi { isEnable = true; reset(); include("arm64-v8a", "armeabi-v7a"); isUniversalApk = false } }
-    buildFeatures { compose = true }
+    splits { abi {
+        isEnable = true; reset(); include("arm64-v8a", "armeabi-v7a"); isUniversalApk = false
+        // The screenshot workflow runs an x86_64 emulator: -Ppublit.emulatorAbi=true adds that APK.
+        if (project.findProperty("publit.emulatorAbi") == "true") include("x86_64")
+    } }
+    buildFeatures { compose = true; buildConfig = true }
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
 }
 

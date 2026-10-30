@@ -39,6 +39,7 @@ Two test APKs per release: arm64 (`Publit-native.apk`) and 32-bit ARM (`Publit-n
 ## Status 2026-10-30
 - DONE: Coverage atlas (areas without timetable data) on the map, Plan, route details, Nearby and stops.
 - DONE: Home/Work shortcuts in the Plan form; Nearby "Where to now?", route-here; settings on every tab; launch animation.
+- DONE: Website screenshots (workflow "Website-Screenshots erstellen", `screenshots/README.md`): build type `screenshots` (demo data server on 10.0.2.2, no extra live sources, onboarding skipped), link `publit://map` opens the station map.
 - OPEN (next, in order):
   1. LiveTripView map-first port (StagePager/StageStrip, TripPanel, GuideMap, GuideStopRow, TransferCard) from `Sources/Views/LiveTripView.swift`.
   2. Load-time investigation (LiveOverlay budget per call, MapLibre init).

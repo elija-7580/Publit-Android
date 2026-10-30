@@ -124,6 +124,10 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                 val role = if (link == "go:work") io.github.elija7580.publit.data.PlaceRole.WORK else io.github.elija7580.publit.data.PlaceRole.HOME
                 val p = favorites.state.value.place(role)
                 if (p == null) tab = "saved" else { plan.route(Endpoint.Here, Endpoint.At(role.title, p.coordinate)); openPlan() }
+            } else if (link == "map:") {
+                // publit://map: the station map (as the map button on Nearby), e.g. for the website screenshots.
+                tab = "nearby"
+                runCatching { nearbyNav.navigate("stationmap") { launchSingleTop = true } }
             } else if (link.startsWith("stop:")) {
                 val (id, name) = link.removePrefix("stop:").split("|", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
                 nav.navigate("stop?id=${Uri.encode(id)}&name=${Uri.encode(name)}&exact=false")

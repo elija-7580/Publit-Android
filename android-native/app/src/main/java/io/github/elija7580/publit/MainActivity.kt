@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
         val app = raw?.let { u -> if (u.scheme == "publit") u else io.github.elija7580.publit.data.ShareLinks.appUrl(u)?.let(android.net.Uri::parse) }
         when (app?.host) {
             "route" -> { openTrip.value = "route:" + (app.encodedQuery ?: ""); return }
+            "map" -> { openTrip.value = "map:"; return }
             "trip", "tickets" -> { app.lastPathSegment?.let { openTrip.value = it }; return }
             "stop" -> { app.lastPathSegment?.let { id -> openTrip.value = "stop:" + id + "|" + (app.getQueryParameter("name") ?: "") }; return }
             "place" -> {

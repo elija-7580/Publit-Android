@@ -1,0 +1,33 @@
+{
+  "_comment": "Views for the website screenshots (capture.py). Text checks match OCR text, lower case, umlauts folded (ä -> a): every group in 'expect' needs one of its words; no 'forbid' word may appear.",
+  "package": "io.github.elija7580.publit.screenshots",
+  "activity": "io.github.elija7580.publit.MainActivity",
+  "here": {"lat": 48.1499, "lon": 11.5803},
+  "clock": "09:40:40",
+  "languages": {
+    "de": {"locale": "de-DE", "expect": [["gespeichert"]], "forbid": ["nearby", "saved"]},
+    "en": {"locale": "en-GB", "expect": [["saved"]], "forbid": ["gespeichert", "in der nahe", "abfahrten"]}
+  },
+  "forbid": ["wird geladen", "loading", "fehlgeschlagen", "couldn't", "could not", "konnte nicht", "keine verbindungen",
+             "no connections", "keine abfahrten", "no departures", "serverfehler", "server error", "erneut versuchen",
+             "try again", "offline", "demo data", "isn't responding", "keeps stopping", "has stopped", "reagiert nicht"],
+  "scenes": [
+    {"id": "nearby", "title": "Abfahrten in der Nähe",
+     "steps": [{"start": "main"}],
+     "expect": [["siegestor", "universitat"], ["u3", "u6", "154", "100"]],
+     "requires": ["/api/v6/stoptimes"], "tolerance": 0.004, "timeout": 150},
+    {"id": "plan", "title": "Routenplanung",
+     "steps": [{"link": "publit://place?lat=48.3538&lon=11.7861&name=Flughafen%20M%C3%BCnchen"}],
+     "expect": [["flughafen"], ["u6", "s1", "s8"]],
+     "requires": ["/api/v6/plan"], "tolerance": 0.004, "timeout": 150},
+    {"id": "live", "title": "Fahrtbegleitung", "offset": -18, "seed": "live",
+     "steps": [{"link": "publit://trip/demo-live"}],
+     "expect": [["nordfriedhof", "flughafen"], ["u6"]],
+     "tolerance": 0.01, "timeout": 150},
+    {"id": "map", "title": "Karte (MapLibre)", "map": true,
+     "steps": [{"start": "main"}, {"wait": [["siegestor", "universitat"]]}, {"link": "publit://map"}],
+     "expect": [],
+     "requires": ["/api/v6/map/stops", "/api/v6/map/trips"], "tolerance": 0.03, "timeout": 200}
+  ],
+  "live": {"itinerary": 0, "leg": 1, "progress": 0.4, "id": "demo-live", "from": "Universität", "to": "Flughafen München"}
+}

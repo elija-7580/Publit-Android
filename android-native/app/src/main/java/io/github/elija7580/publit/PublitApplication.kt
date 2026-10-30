@@ -25,14 +25,22 @@ class PublitApplication : Application() {
         crashLog = CrashLog(this).also { it.install() }
         runCatching { version()?.let { BuildConfigInfo.version = it } }
         runCatching { loadStrings() }
+        if (BuildConfig.DEMO_API.isNotEmpty()) demoDefaults()
         io.github.elija7580.publit.live.LiveOverlay.enabled = getSharedPreferences("publit", MODE_PRIVATE).getBoolean("extraLiveSources", true)
         io.github.elija7580.publit.data.SmartRouting.prefs = getSharedPreferences("publit", MODE_PRIVATE)
         runCatching { io.github.elija7580.publit.notify.TripNotifications.channels(this) }
         Fmt.timePattern = if (DateFormat.is24HourFormat(this)) "HH:mm" else "h:mm a"
-        client = TransitousClient(cacheDir = cacheDir)
+        client = if (BuildConfig.DEMO_API.isNotEmpty()) TransitousClient(base = BuildConfig.DEMO_API, cacheDir = null)
+            else TransitousClient(cacheDir = cacheDir)
         location = LocationRepository(this)
         Thread { runCatching { io.github.elija7580.publit.data.CoverageAtlas.load(this) } }.start()
         Thread { runCatching { client.pruneDisk() } }.start()
+    }
+
+    /** Screenshot builds only (android-native/screenshots): skip onboarding, no extra live sources besides the demo server. */
+    private fun demoDefaults() {
+        val p = getSharedPreferences("publit", MODE_PRIVATE)
+        if (!p.contains("onboardingDone")) p.edit().putBoolean("onboardingDone", true).putBoolean("extraLiveSources", false).apply()
     }
 
     private fun version(): String? = packageManager.getPackageInfo(packageName, 0).versionName
