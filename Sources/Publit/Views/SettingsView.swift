@@ -214,10 +214,12 @@ struct SettingsView: View {
                 } header: {
                     Text("About")
                 } footer: {
+                    // Licence changed from MIT to AGPL-3.0 (see LICENSING.md). The catalog key keeps the
+                    // old wording so all translations stay; only the licence name is swapped at runtime.
                     if Features.tickets {
-                        Text("Publit is open source (MIT). No account, no ads, no tracking. Saved places, trips and tickets stay on this device.")
+                        Text(verbatim: L10n.t("Publit is open source (MIT). No account, no ads, no tracking. Saved places, trips and tickets stay on this device.").replacingOccurrences(of: "MIT", with: "AGPL-3.0"))
                     } else {
-                        Text("Publit is open source (MIT). No account, no ads, no tracking. Saved places and trips stay on this device.")
+                        Text(verbatim: L10n.t("Publit is open source (MIT). No account, no ads, no tracking. Saved places and trips stay on this device.").replacingOccurrences(of: "MIT", with: "AGPL-3.0"))
                     }
                 }
             }
