@@ -54,12 +54,27 @@ struct GoogleMapContent: Equatable {
             case marker(title: String, color: Color)
             /// A round dot: vehicle, next turn, start.
             case dot(color: Color, border: Color, size: CGFloat, borderWidth: CGFloat)
+            /// A vehicle like on the live map: line name on the line colour (hex), arrow in the direction of travel.
+            case vehicle(label: String, background: String, text: String, heading: Double?)
         }
         var coordinate: LatLon
         var kind: Kind
     }
     var lines: [Line] = []
     var pins: [Pin] = []
+
+    /// Direction of travel at `p` on `path`: along the segment after the nearest point.
+    static func heading(at p: LatLon, along path: [LatLon]) -> Double? {
+        guard path.count >= 2 else { return nil }
+        var best = 0, bestDistance = Double.infinity
+        for (i, q) in path.enumerated() {
+            let d = q.distance(to: p)
+            if d < bestDistance { bestDistance = d; best = i }
+        }
+        let i = min(best, path.count - 2)
+        guard path[i] != path[i + 1] else { return nil }
+        return PathGeometry.bearing(path[i], path[i + 1])
+    }
 }
 
 /// Where a Google map looks.
@@ -190,6 +205,9 @@ struct GoogleMapView: UIViewRepresentable {
                 case let .dot(color, border, size, borderWidth):
                     marker.icon = Self.dot(UIColor(color).resolvedColor(with: traits),
                                            border: UIColor(border).resolvedColor(with: traits), size: size, borderWidth: borderWidth)
+                    marker.groundAnchor = CGPoint(x: 0.5, y: 0.5)
+                case let .vehicle(_, background, _, _):
+                    marker.icon = Self.dot(UIColor(Color(hex: background) ?? .gray), border: .white, size: 18, borderWidth: 3)
                     marker.groundAnchor = CGPoint(x: 0.5, y: 0.5)
                 }
                 marker.zIndex = z

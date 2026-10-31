@@ -234,7 +234,13 @@ final class TransitMapModel {
         let generation = UUID()
         buildGeneration = generation
         let segs = segments, f = filter, precision = segmentPrecision
+        #if os(Android)
+        // MapLibre simplifies per zoom level itself. One fixed tolerance keeps every shape the same
+        // whatever zoom it was loaded at, so lines no longer change shape while zooming.
+        let tolerance = 2.0
+        #else
         let tolerance = LiveMap.tolerance(spanMeters: (region?.span.latitudeDelta ?? 0.02) * 111_000)
+        #endif
         Task {
             let snap = await Task.detached(priority: .userInitiated) {
                 LiveMap.build(segs, filter: f, precision: precision, tolerance: tolerance)

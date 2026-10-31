@@ -884,7 +884,10 @@ struct GuideMap: View {
                                                     color: step.kind == .arrive ? Color.danger : Color.ink)))
         }
         if let vehicle {
-            content.pins.append(.init(coordinate: vehicle, kind: .dot(color: current.lineStroke, border: .white, size: 18, borderWidth: 3)))
+            let colors = current.lineColors
+            content.pins.append(.init(coordinate: vehicle, kind: .vehicle(label: current.lineName, background: colors.background,
+                                                                          text: colors.text,
+                                                                          heading: GoogleMapContent.heading(at: vehicle, along: current.mapPath))))
         }
         if let focus {
             content.pins.append(.init(coordinate: focus, kind: .dot(color: Color.signature, border: .black.opacity(0.6), size: 14, borderWidth: 2)))

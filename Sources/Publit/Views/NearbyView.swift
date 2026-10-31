@@ -397,6 +397,16 @@ struct StopDeparturesView: View {
     /// Includes the other platforms of the station (feeds often split them across IDs).
     static let stationRadius = 150
 
+    static func sameStation(_ list: [StopTime], stopId: String, name: String) -> [StopTime] {
+        let n = StopGrouping.normalizedName(name)
+        let kept = list.filter { st in
+            if st.place.stationId == stopId || st.place.stopId == stopId { return true }
+            let m = StopGrouping.normalizedName(st.place.name)
+            return m == n || m.hasPrefix(n + " ") || n.hasPrefix(m + " ")
+        }
+        return kept.isEmpty ? list : kept
+    }
+
     let stopId: String
     let name: String
     let coordinate: LatLon
@@ -547,8 +557,11 @@ struct StopDeparturesView: View {
             let res = try await TransitousClient.shared.departures(stopId: stopId, count: 60, radius: exact ? nil : Self.stationRadius,
                                                                   modes: filter.apiValue)
             guard !Task.isCancelled else { return }
-            departures = StopTime.upcoming(res.stopTimes)
-            if !filter.isActive { available = ModeGroup.present(in: res.stopTimes.map(\.mode)) }
+            // The radius catches the station's other platforms, but also a different stop next door:
+            // only platforms of this station (same name or parent) count, so two nearby stops are not fused.
+            let own = exact ? res.stopTimes : Self.sameStation(res.stopTimes, stopId: stopId, name: name)
+            departures = StopTime.upcoming(own)
+            if !filter.isActive { available = ModeGroup.present(in: own.map(\.mode)) }
             alerts = Alert.relevant((res.place?.alertsList ?? []) + res.stopTimes.flatMap { $0.place.alertsList })
             errorMessage = nil
             lastUpdated = Date()

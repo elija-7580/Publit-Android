@@ -122,6 +122,7 @@ struct GoogleMapView: View {
         }
         var dots: [[String: Any]] = []
         var markers: [[String: Any]] = []
+        var vehicles: [[String: Any]] = []
         for (i, p) in content.pins.enumerated() where p.coordinate.isValidCoordinate {
             switch p.kind {
             case .dot(let color, let border, let size, let borderWidth):
@@ -130,6 +131,11 @@ struct GoogleMapView: View {
             case .marker(let title, let color):
                 markers.append(["id": "m\(i)", "lat": p.coordinate.lat, "lon": p.coordinate.lon, "title": title,
                                 "c": colors.index(color), "glyph": "mappin", "rank": i])
+            case .vehicle(let label, let background, let text, let heading):
+                var o: [String: Any] = ["id": "v\(i)", "lat": p.coordinate.lat, "lon": p.coordinate.lon, "label": label,
+                                        "bg": background, "fg": text]
+                if let h = heading, h.isFinite { o["heading"] = h }
+                vehicles.append(o)
             }
         }
         let version = content == shown ? contentVersion : contentVersion + 1
@@ -141,11 +147,13 @@ struct GoogleMapView: View {
             "camera": Self.cameraSpec(camera, version: camVersion),
         ]
         let linesJSON = MapJSON.encode(lines), dotsJSON = MapJSON.encode(dots), markersJSON = MapJSON.encode(markers)
+        let vehiclesJSON = MapJSON.encode(vehicles)
         // The colours are resolved by Kotlin each render (dark mode), so their payloads are rebuilt each time too.
         return DroidMap(mapId: mapId, base: base, layers: [
             ("lines", version * 2 + (colorScheme == .dark ? 1 : 0), { linesJSON }),
             ("dots", version * 2 + (colorScheme == .dark ? 1 : 0), { dotsJSON }),
             ("markers", version * 2 + (colorScheme == .dark ? 1 : 0), { markersJSON }),
+            ("vehicles", version * 2 + (colorScheme == .dark ? 1 : 0), { vehiclesJSON }),
         ], colors: colors.colors)
         .onAppear { sync() }
         .onChange(of: content) { _, _ in sync() }

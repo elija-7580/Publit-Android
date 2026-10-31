@@ -235,7 +235,8 @@ class PublitMapHolder(val mapId: String, val ctx: Context) {
 
     private fun setupLayers(s: Style) {
         val empty = FeatureCollection.fromFeatures(emptyList())
-        s.addSource(GeoJsonSource("pub-lines", empty))
+        // Shapes arrive finely simplified; MapLibre thins them per zoom level (tiles are cut once, not on every zoom).
+        s.addSource(GeoJsonSource("pub-lines", empty, GeoJsonOptions().withTolerance(0.5f).withBuffer(64)))
         s.addSource(GeoJsonSource("pub-dots", empty))
         s.addSource(GeoJsonSource("pub-stations", empty))
         s.addSource(GeoJsonSource("pub-rentals", empty, GeoJsonOptions().withCluster(true).withClusterRadius(45).withClusterMaxZoom(17)))
@@ -444,15 +445,14 @@ class PublitMapHolder(val mapId: String, val ctx: Context) {
                     val bg = parseHex(o.optString("bg", "4D4D59")); val fg = parseHex(o.optString("fg", "FFFFFF"))
                     val label = o.optString("label", "")
                     val icon = "vh|$label|$bg|$fg"
-                    if (s.getImage(icon) == null) {
-                        val bmp = vehicleBitmap(label, bg, fg)
-                        s.addImage(icon, bmp)
-                        val r = max(bmp.width, bmp.height) / 2 + (4 * density).toInt()
-                        val arrow = "ar|$r"
-                        if (s.getImage(arrow) == null) s.addImage(arrow, arrowBitmap(r))
-                    }
+                    if (s.getImage(icon) == null) s.addImage(icon, vehicleBitmap(label, bg, fg))
+                    // Like iOS: the badge sits in a box at least 44 wide; the arrow runs 4 outside it.
+                    val r = max(vehicleWidth(label), dp(44f).toInt()) / 2 + dp(4f).toInt()
+                    val dark = base.optBoolean("dark", false) || styleKey == satelliteStyle
+                    val arrow = "ar|$r|$dark"
+                    if (s.getImage(arrow) == null) s.addImage(arrow, arrowBitmap(r, dark))
                     o.put("icon", icon)
-                    o.put("arrowKey", "ar|${max(vehicleWidth(label), (24 * density).toInt()) / 2 + (4 * density).toInt()}")
+                    o.put("arrowKey", arrow)
                     list.add(o)
                 }
                 glideVehicles(s, list, base.optDouble("glide", 1.0))
@@ -801,13 +801,13 @@ class PublitMapHolder(val mapId: String, val ctx: Context) {
     }
 
     /// A small triangle on a ring of radius r around the badge; rotated by the heading.
-    private fun arrowBitmap(r: Int): Bitmap {
+    private fun arrowBitmap(r: Int, dark: Boolean): Bitmap {
         val size = 2 * r + dp(10f).toInt()
         val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val cx = size / 2f; val top = size / 2f - r
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
-        p.color = if (base.optBoolean("dark", false)) 0xFFFFFFFF.toInt() else 0xFF1C1C1E.toInt()
+        p.color = if (dark) 0xFFFFFFFF.toInt() else 0xFF1C1C1E.toInt()
         val path = android.graphics.Path()
         path.moveTo(cx, top - dp(5f)); path.lineTo(cx + dp(4f), top + dp(2f)); path.lineTo(cx - dp(4f), top + dp(2f)); path.close()
         c.drawPath(path, p)

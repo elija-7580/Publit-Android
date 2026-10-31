@@ -54,7 +54,8 @@ struct TripView: View {
                     OfflineNote()
                     TripMap(generation: generation, shape: shape, stops: stops.map(\.coordinate),
                             color: leg.lineStroke, textColor: leg.lineTextColor, mode: leg.mode,
-                            vehicle: TripProgress.position(progress, stops: stops))
+                            vehicle: TripProgress.position(progress, stops: stops),
+                            badge: (leg.lineName, leg.lineColors.background, leg.lineColors.text))
                         .equatable()
                         .frame(height: 240)
                         .listRowInsets(EdgeInsets())
@@ -185,6 +186,8 @@ struct TripMap: View, Equatable {
     let textColor: Color
     let mode: String
     let vehicle: LatLon?
+    /// Line name and colours (hex) for the vehicle tile.
+    var badge = (label: "", background: "4D4D59", text: "FFFFFF")
 
     static func == (a: TripMap, b: TripMap) -> Bool {
         a.generation == b.generation && a.vehicle?.lat == b.vehicle?.lat && a.vehicle?.lon == b.vehicle?.lon
@@ -196,7 +199,9 @@ struct TripMap: View, Equatable {
         var content = GoogleMapContent(lines: [.init(points: shape, color: color, width: 5)])
         content.pins = stops.map { .init(coordinate: $0, kind: .dot(color: .white, border: color, size: 8, borderWidth: 2)) }
         if let vehicle {
-            content.pins.append(.init(coordinate: vehicle, kind: .dot(color: color, border: textColor, size: 22, borderWidth: 3)))
+            let heading = GoogleMapContent.heading(at: vehicle, along: shape.isEmpty ? stops : shape)
+            content.pins.append(.init(coordinate: vehicle, kind: .vehicle(label: badge.label, background: badge.background,
+                                                                          text: badge.text, heading: heading)))
         }
         return GoogleMapView(content: content, camera: .fit(shape.isEmpty ? stops : shape))
             .accessibilityLabel(Text(L10n.t("Estimated vehicle position")))
