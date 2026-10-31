@@ -13,7 +13,7 @@ Android remains in development. APK availability does not imply completed device
 ![Android 8+](https://img.shields.io/badge/Android-8.0%2B%20(API%2026)-black)
 ![target 36](https://img.shields.io/badge/targetSdk-36-black)
 ![Swift](https://img.shields.io/badge/Swift-SwiftUI%20%E2%86%92%20Compose-orange)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](upstream/LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
 > **Status: debug builds pass; runtime/UI QA is not complete.** Current ARM64 and x86_64 phone APKs
 > and the Wear OS debug APK build successfully. The native-services bridge regression tests pass (2/2),
@@ -133,4 +133,4 @@ Map tiles come from [OpenFreeMap](https://openfreemap.org), nearby places from t
 
 ## License
 
-MIT, like the iOS app ([LICENSE](upstream/LICENSE)).
+AGPL-3.0-only, like the iOS app, see [LICENSE](LICENSE). A commercial license is available from the author; details, earlier MIT versions and third-party terms in [LICENSING.md](LICENSING.md). The Publit name and logo are not licensed, see [TRADEMARKS.md](TRADEMARKS.md). Contributions require the [CLA](https://github.com/elija-7580/Publit/blob/main/CLA.md).
