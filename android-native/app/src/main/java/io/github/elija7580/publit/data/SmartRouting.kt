@@ -27,20 +27,25 @@ enum class RouteSort {
     val title: String get() = L10n.t(when (this) {
         RECOMMENDED -> "Recommended"; DEPARTURE -> "Departure"; FASTEST -> "Fastest"; FEWEST_CHANGES -> "Fewest changes"; LEAST_WALKING -> "Least walking"
     })
-    /** "Recommended" falls back to departure while smart routing is off. */
-    val effective: RouteSort get() = if (this == RECOMMENDED && !SmartRouting.isEnabled) DEPARTURE else this
+    /**
+     * The list is always in time order unless the person picks another order: the recommended route keeps
+     * its badge but no longer jumps to the top (UX feedback 2026-11-03: one order for depart and arrive searches).
+     */
+    val effective: RouteSort get() = if (this == RECOMMENDED) DEPARTURE else this
 
     /** Stable: ties keep the planner's order. */
     fun apply(list: List<Itinerary>, arriveBy: Boolean = false): List<Itinerary> = when (effective) {
-        DEPARTURE -> list
-        RECOMMENDED -> SmartRouting.ranked(list, arriveBy)
+        DEPARTURE, RECOMMENDED -> chronological(list)
         FASTEST -> list.withIndex().sortedWith(compareBy({ it.value.duration }, { it.value.transfers }, { it.index })).map { it.value }
         FEWEST_CHANGES -> list.withIndex().sortedWith(compareBy({ it.value.transfers }, { it.value.duration }, { it.index })).map { it.value }
         LEAST_WALKING -> list.withIndex().sortedWith(compareBy({ walkSeconds(it.value) }, { it.value.duration }, { it.index })).map { it.value }
     }
 
     companion object {
-        val offered: List<RouteSort> get() = if (SmartRouting.isEnabled) entries else entries.filter { it != RECOMMENDED }
+        val offered: List<RouteSort> get() = entries.filter { it != RECOMMENDED }
+        /** Earliest departure first, later ones further down; same departure: earlier arrival first. */
+        fun chronological(list: List<Itinerary>): List<Itinerary> =
+            list.withIndex().sortedWith(compareBy({ it.value.startTime }, { it.value.endTime }, { it.index })).map { it.value }
         /** Seconds on foot. */
         fun walkSeconds(it: Itinerary) = it.legs.filter { l -> l.mode == "WALK" }.sumOf { l -> l.duration }
     }

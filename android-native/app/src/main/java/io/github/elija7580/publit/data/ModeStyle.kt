@@ -47,6 +47,37 @@ object ModeStyle {
 object TransitLabels {
     fun clean(value: String?): String? = value?.trim()?.takeIf { it.isNotEmpty() }
     fun identity(value: String): String = value.uppercase().filter { it.isLetterOrDigit() }
+
+    /*
+     * Austrian regional trains (ÖBB feed in Transitous): the feed puts the train number in the short name
+     * ("REX 2855", "R 6050"), which changes with every run, while people and the ÖBB app know the line
+     * ("REX 4" Krems – Wien, "R 44" Krems – St. Pölten). The line is in the route ID: "…Data-2026_2-RW4-j26-…"
+     * = category 2 (REX), line 4; "_3-R44-" = R 44; "_4-CJ5-" = CJX 5. Only REX, R and CJX are renamed;
+     * S-Bahn already carries its line, long-distance trains are known by their number (RJX 769).
+     */
+    private val austrianRailRoute = Regex("(?:_|\\|)([234])-([A-Z]{1,3})(\\d{1,3})(?:-|$)")
+    private val trainNumber = Regex("^(REX|R|CJX)\\s*\\d{3,}$")
+
+    private fun austrianRail(routeId: String?): MatchResult? {
+        val id = routeId ?: return null
+        if (!id.contains("Railway-Current-Reference-Data") && !id.startsWith(AT_RAIL)) return null
+        return austrianRailRoute.find(id)
+    }
+
+    /** "REX 4" for an ÖBB train labelled "REX 2855" on line RW4; null when the label is already a line. */
+    fun railLine(routeId: String?, shortName: String?): String? {
+        val m = austrianRail(routeId) ?: return null
+        val product = trainNumber.matchEntire(clean(shortName) ?: return null)?.groupValues?.get(1) ?: return null
+        return product + " " + m.groupValues[3]
+    }
+
+    /** One key per Austrian rail line instead of one per train (the feed has a route per train). */
+    fun lineKey(routeId: String?): String? {
+        val m = austrianRail(routeId) ?: return routeId
+        return AT_RAIL + m.groupValues[1] + "-" + m.groupValues[2] + m.groupValues[3]
+    }
+
+    private const val AT_RAIL = "at-rail|"
 }
 
 /** Transport modes as people choose them ("no buses", "only trains"). */

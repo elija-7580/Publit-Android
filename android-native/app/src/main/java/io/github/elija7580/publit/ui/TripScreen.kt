@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -224,11 +225,12 @@ private fun StopTimeRow(stop: Place, isFocus: Boolean, isPast: Boolean, realTime
     val weight = if (isFocus) FontWeight.Bold else FontWeight.Normal
     Row(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(time?.let { Fmt.time(it, stop.tz) } ?: "–", fontSize = 15.sp, fontWeight = weight, color = color,
-            modifier = Modifier.widthIn(min = 52.dp), maxLines = 1)
-        if (realTime && delay > 0) Text("+$delay", fontSize = 12.sp, color = ink.delay)
+        // Stop on the left, time on the right, like the departure rows on the start screen.
         Text(stop.name, fontSize = 15.sp, fontWeight = weight, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis,
             textDecoration = if (stop.cancelled == true) TextDecoration.LineThrough else null, modifier = Modifier.weight(1f))
         stop.track?.takeIf { it.isNotEmpty() }?.let { Text(L10n.f("Pl. %@", it), fontSize = 12.sp, color = ink.muted) }
+        if (realTime && delay > 0) Text("+$delay", fontSize = 12.sp, color = ink.delay)
+        Text(time?.let { Fmt.time(it, stop.tz) } ?: "–", fontSize = 15.sp, fontWeight = weight, color = color,
+            textAlign = TextAlign.End, modifier = Modifier.widthIn(min = 44.dp), maxLines = 1)
     }
 }

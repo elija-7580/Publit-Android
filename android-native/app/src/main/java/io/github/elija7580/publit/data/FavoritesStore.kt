@@ -61,13 +61,15 @@ data class SavedLine(
     val lat: Double,
     val lon: Double,
 ) : RouteStyled {
+    /** The route identity doubles as route ID, so saved ÖBB lines show their line ("REX 4"), not one train. */
+    override val routeId: String? get() = routeKey
     val id: String get() = "$routeKey@$stopId"
     val coordinate: LatLon get() = LatLon(lat, lon)
     fun matches(st: StopTime) = key(st) == routeKey
 
     companion object {
         /** Route identity: the feed's route ID when present, else agency and line name. */
-        fun key(st: StopTime) = st.routeId ?: "${st.agencyName ?: ""}|${st.lineName}"
+        fun key(st: StopTime) = TransitLabels.lineKey(st.routeId) ?: "${st.agencyName ?: ""}|${st.lineName}"
         fun of(st: StopTime, stopId: String, stopName: String, at: LatLon) = SavedLine(key(st), st.mode, st.routeShortName,
             st.displayName, st.routeColor, st.routeTextColor, stopId, stopName, at.lat, at.lon)
     }

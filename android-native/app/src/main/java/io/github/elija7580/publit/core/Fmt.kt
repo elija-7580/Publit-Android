@@ -42,4 +42,15 @@ object Fmt {
         val f = formatters.getOrPut(key) { DateTimeFormatter.ofPattern(timePattern, L10n.locale).withZone(zone) }
         return f.format(instant)
     }
+
+    /**
+     * The day of a connection when it is not today in the stop's time zone ("Wednesday, November 4, 2026"),
+     * null for today. Marks connections on the next day in the route list.
+     */
+    fun dayIfNotToday(instant: Instant, tz: String? = null, now: Instant = Instant.now()): String? {
+        val zone = zone(tz)
+        val day = instant.atZone(zone).toLocalDate()
+        if (day == now.atZone(zone).toLocalDate()) return null
+        return DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.FULL).withLocale(L10n.locale).format(day)
+    }
 }
