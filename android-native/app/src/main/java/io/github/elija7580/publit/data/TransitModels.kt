@@ -70,10 +70,12 @@ interface RouteStyled {
     val routeTextColor: String?
     val routeShortName: String?
     val displayName: String?
+    val routeId: String? get() = null
 
     /** The compact, operator-defined line identifier. Never a destination. */
     val lineName: String
-        get() = TransitLabels.clean(routeShortName) ?: TransitLabels.clean(displayName) ?: ModeStyle.label(mode)
+        get() = TransitLabels.railLine(routeId, routeShortName) ?: TransitLabels.clean(routeShortName)
+            ?: TransitLabels.clean(displayName) ?: ModeStyle.label(mode)
 
     /** Additional service identity (e.g. ICE 615), kept apart from the line badge. */
     val serviceDetail: String?
@@ -93,7 +95,7 @@ data class StopTime(
     val realTime: Boolean = false,
     val headsign: String = "",
     val agencyName: String? = null,
-    val routeId: String? = null,
+    override val routeId: String? = null,
     val tripId: String,
     override val routeShortName: String? = null,
     override val displayName: String? = null,

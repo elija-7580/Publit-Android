@@ -72,3 +72,10 @@ Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktione
 - [x] Ortssuche: Home/Work ("Set Home/Work" wenn leer), Current location, Saved
 - [x] Eigener Navigations-Stapel pro Tab (Tabs öffnen das Richtige, erneutes Tippen → oberste Seite, Zurück auf Tab-Start → In der Nähe); vorher teilten sich alle Tabs einen Stapel
 - [x] Live-Fahrt: "Back to now" als Knopf über dem Panel
+
+## Feedback 2026-11-03 (Alltagstest, Notion „Publit — UX-Feedback aus Alltagstest“)
+- [x] Fahrtansicht (TripScreen): Haltestelle links, Zeit rechts, wie die Abfahrten am Startbildschirm
+- [x] Planer: Suchknopf „Routen suchen“ über die ganze Breite unter Von/Nach/Zeit (wie ÖBB-App); Ortssuche mit Lupe, Löschen-✕ und Tastatur-Suchtaste (nimmt den ersten Treffer)
+- [x] Verbindungen immer chronologisch (Abfahrt und Ankunft gleich), „Empfohlen“ bleibt Abzeichen statt nach oben zu springen; Tagesüberschrift über Verbindungen an einem anderen Tag
+- [x] ÖBB-Regionalzüge zeigen die Linie statt der Zugnummer (REX 2855 → „REX 4“, R 6050 → „R 44“; Zugnummer daneben), aus der Route-ID des ÖBB-Feeds; Nearby und gespeicherte Linien fassen alle Züge einer Linie zusammen
+- [ ] Bus 240 Krems → St. Pölten: in Transitous gibt es keine Linie 240 auf dieser Strecke (dort fahren 101/102/103); Beispiel vom Tester bestätigen lassen

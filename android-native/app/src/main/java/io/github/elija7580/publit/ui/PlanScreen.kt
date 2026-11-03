@@ -7,6 +7,9 @@ import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.AssistChip
 import kotlinx.coroutines.launch
@@ -144,6 +147,18 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
                     label = { Text(if (state.time != null && state.arriveBy) L10n.t("Arrive") + " " + Fmt.time(state.time) else L10n.t("Arrive")) })
             }
         }
+        // One clear search key under From, To and the time, full width, as in the ÖBB app (UX feedback 2026-11-03).
+        // Picking a place still searches right away; the key searches again with the current settings.
+        if (state.to != null) item("search") {
+            Button(onClick = vm::plan, enabled = !state.loading,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = ink.ink, contentColor = ink.onInk)) {
+                Icon(Icons.Filled.Search, null, Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(L10n.t("Search routes"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            }
+        }
         if (pinned.isNotEmpty()) item("pinned") {
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 pinned.forEach { p ->
@@ -188,7 +203,7 @@ private fun EndpointRow(label: String, value: String, placeholder: Boolean = fal
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.data.SmartRouting.Badge>, reason: String?, axis: Pair<java.time.Instant, java.time.Instant>? = null, leave: Boolean = false, onClick: () -> Unit) {
+private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.data.SmartRouting.Badge>, reason: String?, axis: Pair<java.time.Instant, java.time.Instant>? = null, leave: Boolean = false, day: String? = null, onClick: () -> Unit) {
     val ink = LocalInk.current
     val tz = it.legs.firstOrNull()?.from?.tz
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable(onClick = onClick), shape = RoundedCornerShape(14.dp), color = ink.surface) {
@@ -199,6 +214,7 @@ private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.dat
                 Text(if (it.isDirect) L10n.t("Walk all the way") else if (mins <= 0) L10n.t("Leave now") else L10n.f("Leave in %lld min", mins),
                     fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (!it.isDirect && mins <= 2) ink.delay else ink.muted)
             }
+            day?.let { d -> Text(d, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = ink.ink) }
             if (badges.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 badges.forEach { b ->
                     val main = b == io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED
@@ -550,6 +566,15 @@ fun PlaceSearch(vm: PlanViewModel, allowHere: Boolean, onBack: () -> Unit, onMat
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 12.dp)) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
             OutlinedTextField(text, { text = it; vm.query(it) }, singleLine = true, placeholder = { Text(L10n.t("Search")) },
+                leadingIcon = { Icon(Icons.Filled.Search, null) },
+                trailingIcon = { if (text.isNotEmpty()) IconButton(onClick = { text = ""; vm.query("") }) { Icon(Icons.Filled.Close, L10n.t("Remove")) } },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                // The keyboard's search key takes the first suggestion, like tapping it.
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
+                    matches.firstOrNull()?.let { m ->
+                        if (onMatch != null) onMatch(m) else onPick(Endpoint.At(m.name, LatLon(m.lat, m.lon)))
+                    }
+                }),
                 modifier = Modifier.fillMaxWidth().focusRequester(focus))
         }
         // "Set Home": the next place picked is saved as Home and used right away.
@@ -770,9 +795,25 @@ private fun androidx.compose.foundation.lazy.LazyListScope.routeResults(state: P
         val axis = if (timelines && state.routes.isNotEmpty()) state.routes.minOf { r -> r.startTime } to state.routes.maxOf { r -> r.endTime } else null
         if (axis != null) item("axis") { TimeAxis(axis.first, axis.second, state.routes.first().legs.firstOrNull()?.from?.tz) }
         val rec = state.badges.entries.firstOrNull { io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED in it.value }?.key
-        items(state.sorted, key = { it.routeKey }) { r ->
-            RouteCard(r, state.badges[r.routeKey].orEmpty(),
-                if (r.routeKey == rec) io.github.elija7580.publit.data.SmartRouting.reason(r, state.routes) else null, axis, leave = state.from == Endpoint.Here && state.time == null) { vm.open(r) }
+        // Time order: a heading where the day changes, so connections tomorrow are not mistaken for today's.
+        // Other orders (fastest, …) show the day on the card instead.
+        val inTimeOrder = state.options.sort.effective == io.github.elija7580.publit.data.RouteSort.DEPARTURE
+        val list = state.sorted
+        val days = list.map { r -> Fmt.dayIfNotToday(r.startTime, r.legs.firstOrNull()?.from?.tz) }
+        list.forEachIndexed { i, r ->
+            val day = days[i]
+            if (inTimeOrder && day != null && (i == 0 || day != days[i - 1])) item("day-" + r.routeKey) {
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(day, color = ink.ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(10.dp))
+                    HorizontalDivider(color = ink.hairline, modifier = Modifier.weight(1f))
+                }
+            }
+            item(r.routeKey) {
+                RouteCard(r, state.badges[r.routeKey].orEmpty(),
+                    if (r.routeKey == rec) io.github.elija7580.publit.data.SmartRouting.reason(r, state.routes) else null, axis,
+                    leave = state.from == Endpoint.Here && state.time == null, day = if (inTimeOrder) null else day) { vm.open(r) }
+            }
         }
         if (state.street.isNotEmpty()) item("street") {
             Text(L10n.t("Other ways").uppercase(), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 28.dp, bottom = 6.dp))
@@ -842,7 +883,8 @@ fun GoNowScreen(vm: PlanViewModel, onBack: () -> Unit, saved: List<io.github.eli
                             modifier = Modifier.weight(1f).clickable { searching = true })
                     }
                 }
-                state.sorted.firstOrNull { !it.isDirect }?.let { first -> item("map") {
+                (state.badges.entries.firstOrNull { io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED in it.value }?.key
+                    ?.let { k -> state.routes.firstOrNull { it.routeKey == k } } ?: state.sorted.firstOrNull { !it.isDirect })?.let { first -> item("map") {
                     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
                         RouteMap(first, Modifier.fillMaxWidth().height(220.dp))
                     }
