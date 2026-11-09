@@ -165,6 +165,8 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
             // Back on a tab's top screen goes to Nearby, as leaving a tab on iOS.
             androidx.activity.compose.BackHandler(enabled = tab != "nearby" && entry?.destination?.route == tab) { tab = "nearby" }
             androidx.compose.runtime.key(tab) {
+            // A ride's line in route details or a live trip opens the vehicle's whole trip.
+            androidx.compose.runtime.CompositionLocalProvider(LocalOpenLeg provides { leg -> TripTarget.of(leg)?.let(openTrip) }) {
             androidx.navigation.compose.NavHost(nav, startDestination = tab, modifier = Modifier.padding(padding)) {
                 composable("nearby") {
                     NearbyScreen(vm, onOpenMap = { nav.navigate("stationmap") }, onSettings = { nav.navigate("settings") },
@@ -192,7 +194,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                 composable("trip") {
                     val t = tripTarget
                     if (t == null) LaunchedEffect(Unit) { nav.popBackStack() } else
-                    TripScreen(client, favorites, t, onBack = { nav.popBackStack() }) { from, to ->
+                    TripScreen(client, favorites, t, onBack = { nav.popBackStack() }, onOpenLine = { l -> savedLine = l; nav.navigate("line") }) { from, to ->
                         fun ep(p: io.github.elija7580.publit.data.Place) = Endpoint.At(p.name, p.coordinate)
                         plan.route(from?.let(::ep) ?: Endpoint.Here, to?.let(::ep))
                         openPlan()
@@ -263,6 +265,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                         onStarted = { t -> nav.navigate("savedtrip?id=${t.id}") })
                 }
                 composable("settings") { SettingsScreen(prefs) { nav.popBackStack() } }
+            }
             }
             }
         }

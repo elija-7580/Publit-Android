@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Star
@@ -65,8 +66,31 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import java.time.Instant
 
-/** A departure opened as a trip (TripTarget on iOS). */
-data class TripTarget(val stopTime: StopTime, val stationName: String, val stationId: String, val coordinate: io.github.elija7580.publit.core.LatLon)
+/** A departure opened as a trip (TripTarget on iOS). [exitName]: where the user gets off, also in bold. */
+data class TripTarget(val stopTime: StopTime, val stationName: String, val stationId: String, val coordinate: io.github.elija7580.publit.core.LatLon,
+                      val exitName: String? = null) {
+    companion object {
+        /** The vehicle behind one ride of a planned trip: its whole trip, also the stops before boarding. */
+        fun of(leg: io.github.elija7580.publit.data.Leg): TripTarget? {
+            if (!leg.isTransit) return null
+            val tripId = leg.tripId ?: return null
+            val st = StopTime(place = leg.from, mode = leg.mode, realTime = leg.realTime, headsign = leg.headsign.orEmpty(),
+                agencyName = leg.agencyName, routeId = leg.routeId, tripId = tripId, routeShortName = leg.routeShortName,
+                displayName = leg.displayName, routeColor = leg.routeColor, routeTextColor = leg.routeTextColor, cancelled = leg.cancelled)
+            return TripTarget(st, leg.from.name, leg.from.stationId, leg.from.coordinate, leg.to.name)
+        }
+    }
+}
+
+/** Opens the whole trip of a ride's vehicle (set by PublitApp; null where nothing can be pushed). */
+val LocalOpenLeg = androidx.compose.runtime.staticCompositionLocalOf<((io.github.elija7580.publit.data.Leg) -> Unit)?> { null }
+
+/** The open action for [leg], or null when it has no vehicle trip to show. */
+@Composable
+fun legOpener(leg: io.github.elija7580.publit.data.Leg): (() -> Unit)? {
+    val open = LocalOpenLeg.current ?: return null
+    return if (leg.isTransit && leg.tripId != null) ({ open(leg) }) else null
+}
 
 /**
  * One vehicle's whole trip, as TripView on iOS: every stop with live times and the estimated position.
@@ -74,7 +98,7 @@ data class TripTarget(val stopTime: StopTime, val stationName: String, val stati
  */
 @Composable
 fun TripScreen(client: TransitousClient, favorites: io.github.elija7580.publit.data.FavoritesStore, target: TripTarget, onBack: () -> Unit,
-               onRoute: (from: Place?, to: Place?) -> Unit) {
+               onOpenLine: ((SavedLine) -> Unit)? = null, onRoute: (from: Place?, to: Place?) -> Unit) {
     val ink = LocalInk.current
     val stopTime = target.stopTime
     var trip by remember { mutableStateOf<Itinerary?>(null) }
@@ -93,7 +117,8 @@ fun TripScreen(client: TransitousClient, favorites: io.github.elija7580.publit.d
                     val station = StopGrouping.normalizedName(target.stationName)
                     val leg = fresh.legs.firstOrNull { it.isTransit }
                     val all = leg?.allStops.orEmpty()
-                    focus = all.indices.filter { StopGrouping.normalizedName(all[it].name) == station }.toSet()
+                    val exit = target.exitName?.let(StopGrouping::normalizedName)
+                    focus = all.indices.filter { StopGrouping.normalizedName(all[it].name).let { n -> n == station || n == exit } }.toSet()
                     alerts = Alerts.relevant(stopTime.serviceAlerts + leg?.serviceAlerts.orEmpty())
                     stops = all
                     trip = fresh
@@ -179,6 +204,17 @@ fun TripScreen(client: TransitousClient, favorites: io.github.elija7580.publit.d
                                     DropdownMenuItem(text = { Text(L10n.t("Route from here")) }, onClick = { menu = false; onRoute(stop, null) })
                                 }
                             }
+                        }
+                    }
+                }
+                if (onOpenLine != null) item("line") {
+                    val anchor = stops.indices.firstOrNull { it in focus }?.let { stops[it] } ?: stops.firstOrNull()
+                    if (anchor != null) Card {
+                        Row(Modifier.fillMaxWidth().clickable {
+                            onOpenLine(SavedLine.of(stopTime.copy(place = anchor), anchor.stationId, anchor.name, anchor.coordinate))
+                        }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(L10n.f("Line %@: route and timetable", stopTime.lineName), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            Icon(Icons.Filled.ChevronRight, null, tint = ink.muted)
                         }
                     }
                 }

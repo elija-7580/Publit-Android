@@ -512,9 +512,7 @@ private fun WaitStage(it: Itinerary, legIndex: Int, now: Instant) {
     val ink = LocalInk.current
     val leg = it.legs[legIndex]
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LineBadge(leg); leg.shownDirection?.let { d -> Text(L10n.f("Towards %@", d), fontWeight = FontWeight.SemiBold, maxLines = 1) }
-        }
+        LegHeader(leg)
         Text(departure(leg, now), fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(Fmt.time(leg.startTime, leg.from.tz), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
@@ -528,6 +526,19 @@ private fun WaitStage(it: Itinerary, legIndex: Int, now: Instant) {
         SmartRouting.changes(it).firstOrNull { c -> c.outgoingIndex == legIndex }?.let { c -> ChangeLine(c) }
         leg.alerts.orEmpty().take(2).forEach { a -> Text(a.headerText, color = ink.delay, fontSize = 13.sp) }
         Text(listOf(L10n.f("%lld stops", max(leg.allStops.size - 1, 1)), Fmt.duration(leg.duration), L10n.f("Get off at %@", leg.to.name)).joinToString(" · "), color = ink.muted, fontSize = 14.sp)
+    }
+}
+
+/** Line and direction of a ride; a tap opens the vehicle's whole trip (all stops, map, line). */
+@Composable
+private fun LegHeader(leg: io.github.elija7580.publit.data.Leg) {
+    val ink = LocalInk.current
+    val open = legOpener(leg)
+    Row((if (open != null) Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClickLabel = L10n.f("Line %@: all stops and map", leg.lineName)) { open() } else Modifier),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        LineBadge(leg)
+        leg.shownDirection?.let { d -> Text(L10n.f("Towards %@", d), fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.weight(1f, fill = false)) }
+        if (open != null) Icon(Icons.Filled.ChevronRight, null, tint = ink.muted, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -548,9 +559,7 @@ private fun RideStage(it: Itinerary, legIndex: Int, now: Instant, progress: Trip
     val arrivalDelay = ((leg.endTime.epochSecond - leg.scheduledEnd.epochSecond) / 60.0).roundToInt()
     val value = progress.stopValue(stops.size) / max(stops.size - 1, 1)
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LineBadge(leg); leg.shownDirection?.let { d -> Text(L10n.f("Towards %@", d), fontWeight = FontWeight.SemiBold, maxLines = 1) }
-        }
+        LegHeader(leg)
         Text(L10n.f("Get off at %@", leg.to.name), fontWeight = FontWeight.Bold, fontSize = 20.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text((if (left == 0) L10n.t("Next stop") else L10n.f("in %@", L10n.f("%lld stops", left))) + " · " + Fmt.time(leg.endTime, leg.to.tz), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)

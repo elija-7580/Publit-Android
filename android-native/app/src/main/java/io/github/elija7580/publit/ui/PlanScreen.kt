@@ -1,5 +1,6 @@
 package io.github.elija7580.publit.ui
 
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Star
@@ -520,11 +521,16 @@ fun SmartRoutingSettings() {
 @Composable
 private fun TransitLeg(leg: Leg) {
     val ink = LocalInk.current
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    // Tapping the ride opens the vehicle's whole trip (all stops, map, line), like a departure on a board.
+    val open = legOpener(leg)
+    Column((if (open != null) Modifier.clickable(onClickLabel = L10n.f("Line %@: all stops and map", leg.lineName)) { open() } else Modifier).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             LegBadge(leg)
             Spacer(Modifier.width(8.dp))
-            Text(leg.shownDirection?.let { L10n.t("Towards") + " " + it } ?: "", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 2)
+            Text(leg.shownDirection?.let { L10n.t("Towards") + " " + it } ?: "", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 2,
+                modifier = Modifier.weight(1f))
+            if (open != null) Icon(Icons.Filled.ChevronRight, null, tint = ink.muted)
         }
         StopLine(leg.startTime, leg.from.tz, leg.from.name, leg.from.track, leg.delayMinutes, leg.realTime)
         val n = leg.intermediateStops?.size ?: 0

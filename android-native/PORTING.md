@@ -79,3 +79,6 @@ Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktione
 - [x] Verbindungen immer chronologisch (Abfahrt und Ankunft gleich), „Empfohlen“ bleibt Abzeichen statt nach oben zu springen; Tagesüberschrift über Verbindungen an einem anderen Tag
 - [x] ÖBB-Regionalzüge zeigen die Linie statt der Zugnummer (REX 2855 → „REX 4“, R 6050 → „R 44“; Zugnummer daneben), aus der Route-ID des ÖBB-Feeds; Nearby und gespeicherte Linien fassen alle Züge einer Linie zusammen
 - [ ] Bus 240 Krems → St. Pölten: in Transitous gibt es keine Linie 240 auf dieser Strecke (dort fahren 101/102/103); Beispiel vom Tester bestätigen lassen
+
+## Feedback 2026-11-09
+- [x] In einer Fahrt (Routendetails und Live-Fahrt, auch frühere/spätere Etappen) öffnet ein Tipp auf die Linie die ganze Fahrt des Fahrzeugs (TripScreen): alle Halte inkl. der vor dem Einstieg, Karte, Position; Ein- und Ausstieg fett. TripScreen verlinkt auf das Linien-Detail ("Line …: route and timetable"). iOS: PR elija-7580/Publit#53; IOS_COMMIT auf dessen Stand (neuer String "Line %@: all stops and map").
