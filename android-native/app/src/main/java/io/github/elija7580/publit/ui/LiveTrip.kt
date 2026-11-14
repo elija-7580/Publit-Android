@@ -429,7 +429,9 @@ private fun WalkStage(it: Itinerary, legIndex: Int, destination: String, now: In
     val leg = it.legs[legIndex]
     val target = walkTarget(it, legIndex, destination)
     val next = it.legs.drop(legIndex + 1).firstOrNull { l -> l.isTransit }
-    val route = remember(leg) { WalkRoute(leg) }
+    // Exit numbers of underground stations ("Take exit B2") arrive from OpenStreetMap a moment later.
+    val exitsLoaded by produceState(false, it.id) { value = StationExits.load(it) }
+    val route = remember(leg, exitsLoaded) { WalkRoute(leg) }
     val pos = route.livePosition(here, isLive)
     val pace = if ((leg.distance ?: 0.0) > 0) leg.duration / leg.distance!! else 1 / 1.3
     // Away from the planned path: straight-line distance (no Apple Maps detour on Android).

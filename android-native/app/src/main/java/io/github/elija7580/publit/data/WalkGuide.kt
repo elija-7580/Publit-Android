@@ -16,6 +16,9 @@ data class StepInstruction(
     val streetName: String? = null,
     val exit: String? = null,
     val area: Boolean? = null,
+    /** OpenStreetMap nodes at the ends of this piece: a station entrance the walk passes through is one of them. */
+    val fromOsmNode: Long? = null,
+    val toOsmNode: Long? = null,
 )
 
 /** Compass words (Compass on iOS). */
@@ -76,11 +79,14 @@ object PathGeometry {
 data class WalkManeuver(
     val kind: Kind, val along: Double, var distance: Double = 0.0, var street: String?, val level: Double?, val coordinate: LatLon,
     var exitTowards: String? = null, var exitSide: Int? = null,
+    /** The station exit's signed number or letter ("B2"), from OpenStreetMap. */
+    var exitRef: String? = null,
 ) {
     enum class Kind { START, STRAIGHT, SLIGHT_LEFT, LEFT, SHARP_LEFT, SLIGHT_RIGHT, RIGHT, SHARP_RIGHT, U_TURN,
         STAIRS_UP, STAIRS_DOWN, STAIRS, ELEVATOR, LEVEL_UP, LEVEL_DOWN, ARRIVE }
 
-    val exitNote: String? get() = exitTowards?.let { L10n.f("Exit towards %@", it) } ?: exitSide?.let(Compass::exit)
+    val exitNote: String? get() = exitRef?.let { r -> exitTowards?.let { L10n.f("Take exit %1\$@ towards %2\$@", r, it) } ?: L10n.f("Take exit %@", r) }
+        ?: exitTowards?.let { L10n.f("Exit towards %@", it) } ?: exitSide?.let(Compass::exit)
 
     fun instruction(destination: String): String {
         val s = street
@@ -199,7 +205,12 @@ class WalkRoute(leg: Leg) {
         out += WalkManeuver(WalkManeuver.Kind.ARRIVE, walked, street = null, level = null, coordinate = path.last())
         scale = leg.distance?.let { if (walked > 0) it / walked else 1.0 }?.takeIf { it in 0.7..1.6 } ?: 1.0
         for (i in 0 until out.size - 1) out[i].distance = max(0.0, out[i + 1].along - out[i].along) * scale
-        markExit(out, marks.firstOrNull()?.second?.fromLevel, leg.from.coordinate)
+        val exitAt = markExit(out, marks.firstOrNull()?.second?.fromLevel, leg.from.coordinate)
+        StationExits.entrances(leg)?.let { entrances ->
+            val nodes = leg.steps.orEmpty().flatMap { listOf(it.fromOsmNode, it.toOsmNode) }.filterNotNull().toSet()
+            val e = StationExits.pick(entrances, path, exitAt?.let { out[it].coordinate }, exitAt?.let { out[it].along }, nodes)
+            if (e != null) out[exitAt ?: 0].exitRef = e.ref
+        }
         maneuvers = out
     }
 
@@ -226,9 +237,10 @@ class WalkRoute(leg: Leg) {
         const val MIN_TURN = 35.0
         const val MIN_SPACING = 10.0
 
-        private fun markExit(out: MutableList<WalkManeuver>, startLevel: Double?, start: LatLon) {
-            var level = startLevel ?: return
-            if (level >= 0) return
+        /** Returns the instruction that reaches the street. */
+        private fun markExit(out: MutableList<WalkManeuver>, startLevel: Double?, start: LatLon): Int? {
+            var level = startLevel ?: return null
+            if (level >= 0) return null
             for (i in out.indices) {
                 val next = out[i].level ?: continue
                 if (level < 0 && next >= 0) {
@@ -236,10 +248,11 @@ class WalkRoute(leg: Leg) {
                     val street = out.drop(i + 1).firstOrNull { it.street != null && it.along - at <= 150 }?.street
                     if (street != null) out[i].exitTowards = street
                     else if (start.distanceTo(out[i].coordinate) >= 40) out[i].exitSide = Compass.point(PathGeometry.bearing(start, out[i].coordinate))
-                    return
+                    return i
                 }
                 level = next
             }
+            return null
         }
 
         private fun street(step: StepInstruction): String? {
