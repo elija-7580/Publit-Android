@@ -104,6 +104,32 @@ object Reach {
         return maxOf(1, Math.ceil(meters * 1.3 / 80).toInt())
     }
 
+    /** Within this distance you are at the stop: no walk to it, no "1 min" before boarding (iOS Reach.atStopMeters). */
+    const val AT_STOP_METERS = 50.0
+
+    fun isAtStop(meters: Double): Boolean = meters.isFinite() && meters <= AT_STOP_METERS
+
+    /** "Leave in 6 min", or "Departs in 4 min" when the route starts with the ride. */
+    fun leaveText(it: Itinerary, minutes: Long): String =
+        if (it.legs.firstOrNull()?.isTransit == true) {
+            if (minutes >= 1) L10n.f("Departs in %lld min", minutes) else L10n.t("Board here")
+        } else {
+            if (minutes >= 1) L10n.f("Leave in %lld min", minutes) else L10n.t("Leave now")
+        }
+
+    /**
+     * Routes planned from your position while you stand at the first stop start with the ride:
+     * the leading walk goes when it and you are both within [AT_STOP_METERS] (the stop across the road keeps its walk).
+     */
+    fun boardingHere(list: List<Itinerary>, here: LatLon): List<Itinerary> = list.map { it ->
+        val lead = it.legs.takeWhile { l -> !l.isTransit }
+        val first = it.legs.firstOrNull { l -> l.isTransit }
+        if (lead.isEmpty() || first == null || lead.any { l -> l.mode != "WALK" } ||
+            !isAtStop(here.distanceTo(first.from.coordinate)) || !isAtStop(lead.sumOf { l -> l.distance ?: 0.0 })) it
+        else it.copy(legs = it.legs.drop(lead.size), startTime = first.startTime,
+            duration = maxOf(0L, it.endTime.epochSecond - first.startTime.epochSecond).toInt())
+    }
+
     fun farNote(meters: Double): String =
         L10n.f("The nearest departures are %@ away, about %lld min on foot.", Fmt.distance(meters), walkMinutes(meters))
 }

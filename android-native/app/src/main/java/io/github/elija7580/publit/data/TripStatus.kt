@@ -53,8 +53,7 @@ data class TripStatus(val phase: Phase, val nextEvent: Instant, val headline: St
             if (now < it.startTime) {
                 val mins = ceil((it.startTime.toEpochMilli() - now.toEpochMilli()) / 60_000.0).toInt()
                 val head = when {
-                    mins <= 0 -> L10n.t("Leave now")
-                    mins < 60 && countdown -> L10n.f("Leave in %lld min", mins)
+                    mins <= 0 || (mins < 60 && countdown) -> Reach.leaveText(it, mins.toLong())
                     else -> L10n.f("Leave at %@", Fmt.time(it.startTime, tz))
                 }
                 val det = transit.firstOrNull()?.let(::describe) ?: L10n.f("Walk %@", Fmt.duration(it.duration))

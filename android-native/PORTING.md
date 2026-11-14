@@ -82,3 +82,7 @@ Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktione
 
 ## Feedback 2026-11-09
 - [x] In einer Fahrt (Routendetails und Live-Fahrt, auch frühere/spätere Etappen) öffnet ein Tipp auf die Linie die ganze Fahrt des Fahrzeugs (TripScreen): alle Halte inkl. der vor dem Einstieg, Karte, Position; Ein- und Ausstieg fett. TripScreen verlinkt auf das Linien-Detail ("Line …: route and timetable"). iOS: PR elija-7580/Publit#53; IOS_COMMIT auf dessen Stand (neuer String "Line %@: all stops and map").
+
+## Feedback 2026-11-14
+- [x] An der Haltestelle (≤ 50 m, `Reach.AT_STOP_METERS`) kein „1 min“-Fußweg: Route vom Standort beginnt mit der Fahrt (`Reach.boardingHere`), „Departs in x min“ / „Board here“ statt „Leave in“ (Go-Now-Karte, `TripStatus`), Stationskopf „Here“ statt Entfernung, Live-Fußweg „Board here“. iOS: PR elija-7580/Publit#57; IOS_COMMIT auf den Stand von elija-7580/Publit `design/tiles` (neuer String "Here").
+- [ ] Zeilen-Design wie iOS `design/tiles` (Abfahrt in zwei Zeilen, Live als Symbol, Routen-/Fahrtzeilen, Live-Fahrt ohne Zähler) – folgt nach Abnahme auf iOS.

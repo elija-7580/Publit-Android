@@ -212,7 +212,7 @@ private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.dat
             // From your location, leaving now (GoNowView on iOS): when to set off is the first thing.
             if (leave) {
                 val mins = kotlin.math.ceil((it.startTime.epochSecond - java.time.Instant.now().epochSecond) / 60.0).toLong()
-                Text(if (it.isDirect) L10n.t("Walk all the way") else if (mins <= 0) L10n.t("Leave now") else L10n.f("Leave in %lld min", mins),
+                Text(if (it.isDirect) L10n.t("Walk all the way") else io.github.elija7580.publit.data.Reach.leaveText(it, mins),
                     fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (!it.isDirect && mins <= 2) ink.delay else ink.muted)
             }
             day?.let { d -> Text(d, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = ink.ink) }

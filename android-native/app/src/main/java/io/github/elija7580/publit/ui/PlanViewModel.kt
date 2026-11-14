@@ -164,6 +164,8 @@ class PlanViewModel(
                         .filter { !it.isDetour }.distinctBy { it.routeKey }
                     if (found.isNotEmpty()) break
                 }
+                // Standing at the first stop: board there, no "walk 1 min" first.
+                if (s.from == Endpoint.Here) found = io.github.elija7580.publit.data.Reach.boardingHere(found, a)
                 io.github.elija7580.publit.data.SmartRouting.offered = found
                 io.github.elija7580.publit.data.SmartRouting.offeredArriveBy = s.arriveBy
                 val best = found.filter { !it.isDirect }.minOfOrNull { it.duration }

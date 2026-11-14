@@ -435,13 +435,15 @@ private fun WalkStage(it: Itinerary, legIndex: Int, destination: String, now: In
     // Away from the planned path: straight-line distance (no Apple Maps detour on Android).
     val away = isLive && here != null && pos == null
     val remaining = pos?.remaining ?: if (away) here!!.distanceTo(leg.to.coordinate) * 1.3 else leg.distance ?: route.length * route.scale
-    val walkSeconds = (remaining * pace).toInt()
+    // At the stop already (by GPS): nothing left to walk, so no "40 m · 1 min".
+    val atStop = next != null && isLive && here != null && io.github.elija7580.publit.data.Reach.isAtStop(remaining)
+    val walkSeconds = if (atStop) 0 else (remaining * pace).toInt()
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null, Modifier.size(28.dp)); Spacer(Modifier.width(10.dp))
             Text(L10n.f("Walk to %@", target), fontWeight = FontWeight.Bold, fontSize = 20.sp)
         }
-        Text(Fmt.distance(remaining) + " · " + Fmt.duration(max(60, walkSeconds)), color = ink.muted, fontWeight = FontWeight.SemiBold)
+        Text(if (atStop) L10n.t("Board here") else Fmt.distance(remaining) + " · " + Fmt.duration(max(60, walkSeconds)), color = ink.muted, fontWeight = FontWeight.SemiBold)
         if (now < leg.startTime) Text(TripStatus.at(now, it).headline, color = ink.live, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
         next?.let { n ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

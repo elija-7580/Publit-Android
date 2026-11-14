@@ -164,7 +164,8 @@ fun StationHeader(group: StopGroup, nearest: Boolean) {
             group.distance?.let { d ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     if (nearest) Box(Modifier.size(7.dp).clip(CircleShape).background(Signature))
-                    Text(Fmt.distance(d), color = ink.muted, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                    // At the stop: "Here", not "18 m".
+                    Text(if (Reach.isAtStop(d)) L10n.t("Here") else Fmt.distance(d), color = ink.muted, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                     if (d >= Reach.WALK_HINT_DISTANCE) {
                         Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null, Modifier.size(15.dp), tint = ink.muted)
                         Text(L10n.f("%lld min", Reach.walkMinutes(d)), color = ink.muted, fontWeight = FontWeight.Medium, fontSize = 14.sp)
