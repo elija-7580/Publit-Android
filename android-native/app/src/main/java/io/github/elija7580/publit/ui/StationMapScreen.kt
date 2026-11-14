@@ -177,7 +177,7 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
         if (!showVehicles || r == null) emptyList() else io.github.elija7580.publit.data.LiveMap.vehicles(tracks, tick,
             LatLon(r.center.lat - r.latSpan, r.center.lon - r.lonSpan), LatLon(r.center.lat + r.latSpan, r.center.lon + r.lonSpan))
     }
-    val content = remember(stations, focus, ink.dark, shapes, showLines, vehicles, rentals, showStations, categoryHits, region?.center, showGaps) {
+    val content = remember(stations, focus, ink.dark, shapes, showLines, vehicles, rentals, showStations, categoryHits, region?.center, showGaps, io.github.elija7580.publit.data.CoverageAtlas.version) {
         val categoryDots = categoryHits.mapIndexed { i, c -> MapContent.Dot(c.at, hexColor(c.category.colorHex), Color.White, 14f, 2f, id = "c|$i", label = c.name) }
         val lines = if (showLines) shapes.map { MapContent.Line(it.points, hexColor(io.github.elija7580.publit.data.LineColors.strokeHex(it.colorHex, ink.dark)), 3f) } else emptyList()
         val rentalDots = rentals.stations.map { MapContent.Dot(LatLon(it.lat, it.lon), Color(0xFF1B7A33), Color.White, 9f, 1.5f, id = "rs|" + it.id) } +

@@ -79,15 +79,59 @@ class CoverageArea(val id: String, val level: CoverageLevel, val gaps: List<Cove
     }
 }
 
-/** All known gaps, bundled in the app (assets/coverage.txt, generated with the iOS tools): offline, nothing leaves the phone. */
+/**
+ * All known gaps. publit.eu rebuilds the atlas every week from all Transitous sources worldwide
+ * (https://publit.eu/abdeckung/data/atlas.txt); the app loads it at most once a day and keeps it in the cache,
+ * so new regions need no app update. Until then, and offline, the copy in assets/coverage.txt is used.
+ * Only that one public file is fetched; nothing about where someone is leaves the phone.
+ */
 object CoverageAtlas {
+    const val REMOTE = "https://publit.eu/abdeckung/data/atlas.txt"
     @Volatile var areas: List<CoverageArea> = emptyList(); private set
-    var date = ""; private set
+    @Volatile var date = ""; private set
+    /** Changes whenever the areas are replaced, so a map can redraw its data-gap layer. */
+    @Volatile var version = 0; private set
 
     fun load(ctx: Context) {
-        val lines = runCatching { ctx.assets.open("coverage.txt").bufferedReader().readLines() }.getOrDefault(emptyList())
-        date = lines.firstOrNull().orEmpty()
-        areas = lines.drop(1).mapNotNull(::parse)
+        val bundled = runCatching { ctx.assets.open("coverage.txt").bufferedReader().readText() }.getOrDefault("")
+        install(bundled, minAreas = 1)
+        runCatching { install(cacheFile(ctx).readText()) }
+        refresh(ctx)
+    }
+
+    private fun cacheFile(ctx: Context) = java.io.File(ctx.cacheDir, "coverage-atlas.txt")
+
+    /** Downloads the newest atlas, at most once a day; failures are silent (the current one stays). */
+    fun refresh(ctx: Context, now: Long = System.currentTimeMillis()) {
+        val prefs = ctx.getSharedPreferences("publit", Context.MODE_PRIVATE)
+        if (now - prefs.getLong("coverageAtlasChecked", 0) < 20 * 3600_000L) return
+        prefs.edit().putLong("coverageAtlasChecked", now).apply()
+        runCatching {
+            val c = java.net.URL(REMOTE).openConnection() as java.net.HttpURLConnection
+            c.connectTimeout = 15_000; c.readTimeout = 20_000
+            c.setRequestProperty("Accept", "text/plain")
+            try {
+                if (c.responseCode == 200) {
+                    val text = c.inputStream.bufferedReader().readText()
+                    if (install(text)) cacheFile(ctx).writeText(text)
+                }
+            } finally { c.disconnect() }
+        }
+    }
+
+    /**
+     * Takes an atlas if it looks whole and is not older than the current one. First line: the date
+     * (`D|2026-11-14` from publit.eu, or just the date in the bundled file); then one area per line.
+     */
+    @Synchronized
+    fun install(text: String, minAreas: Int = 20): Boolean {
+        val lines = text.lines()
+        val d = lines.firstOrNull().orEmpty().removePrefix("D|").trim()
+        if (d.isEmpty() || !d.first().isDigit()) return false
+        val list = lines.drop(1).mapNotNull(::parse)
+        if (list.size < minAreas || d < date) return false
+        areas = list; date = d; version++
+        return true
     }
 
     /** One area per line: A|id|level|gaps|name en|name de|link|shape. */
