@@ -46,6 +46,14 @@ Two test APKs per release: arm64 (`Publit-native.apk`) and 32-bit ARM (`Publit-n
   3. Full iOS feature audit: GoNowView, LinesView/LineDetailView, SharedRouteView, ConnectionGuideView, RecentSearches, WalkThereRow, ArrivalUpdates, DataExport, Diagnostics, ServiceAlertsView, "Open in maps".
   4. Better satellite imagery: needs a decision and key from the owner (Google Maps SDK, MapTiler or Esri).
 
+## iOS Build 81 (2026-11-15)
+- [x] Kompakte Umstiegskarte zwischen den Abschnitten im Routendetail (`TransferCard` in PlanScreen: „Change at …“ + Puffer-Kapsel, „Zeit · Steig → Zeit · Steig“, „Linie → Linie · Fußweg“)
+- [x] Smart-Badges brechen nicht mehr um (FlowRow, Begründung rutscht bei Platzmangel darunter)
+- [x] Community zuerst: `CommunityCard` ganz oben in den Einstellungen, Wunschliste (`WishesScreen`, publit.eu/api/wishes, gleiche Voter-ID-Regeln), Start-Bildschirm unter „General“
+- [x] „What's new“ nach Updates (`WhatsNewDialog`, `data/Community.kt` `WhatsNew.entries`; bei jeder Android-Version mit sichtbaren Änderungen einen Eintrag ergänzen, `release` hochzählen), nicht bei Neuinstallation
+- [x] Unterstützen (`SupportScreen`, `billing/SupportBilling.kt`, Play Billing 7): Abos 1,50/3/5/10/20/50 € monatlich zuerst, einmalig 3/5/10/20/50 €; gleiche Produkt-IDs wie iOS (`io.github.elija7580.publit.support.monthly.<Cent>` als Abo mit einem monatlichen Basis-Abo, `…support.tip.<Cent>` als In-App-Produkt, wird verbraucht). Produkte muss der Owner in der Play Console anlegen.
+- IOS_COMMIT auf den iOS-Stand mit den neuen Strings gesetzt.
+
 ## Abgleich mit iOS docs/FUNKTIONEN.md (Stand #44, 2026-10-30)
 Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktionen in Android:
 - [x] Live-Fahrt kartenzentriert inkl. Turn-by-turn (WalkRoute-Port aus MOTIS steps) und Kompass

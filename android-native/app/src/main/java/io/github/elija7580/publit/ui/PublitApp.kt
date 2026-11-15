@@ -104,6 +104,8 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         var savedLine by remember { mutableStateOf<io.github.elija7580.publit.data.SavedLine?>(null) }
         var pickFor by remember { mutableStateOf<Pair<String, (io.github.elija7580.publit.data.SavedPlace) -> Unit>?>(null) }
         var onboarding by remember { mutableStateOf(!prefs.getBoolean(ONBOARDING_DONE_KEY, false)) }
+        /** A fresh install gets the onboarding, not the "What's new" note. */
+        val freshInstall = remember { onboarding }
         val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { vm.permissionResult() }
         val tripLink by openTrip.collectAsStateWithLifecycle()
         val linkContext = androidx.compose.ui.platform.LocalContext.current
@@ -262,7 +264,9 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                         onSearch = { plan.route(Endpoint.At(r.fromName, r.from), Endpoint.At(r.toName, r.to)); openPlan() },
                         onStarted = { t -> nav.navigate("savedtrip?id=${t.id}") })
                 }
-                composable("settings") { SettingsScreen(prefs) { nav.popBackStack() } }
+                composable("settings") { SettingsScreen(prefs, onWishes = { nav.navigate("wishes") }, onSupport = { nav.navigate("support") }) { nav.popBackStack() } }
+                composable("wishes") { WishesScreen(prefs) { nav.popBackStack() } }
+                composable("support") { SupportScreen { nav.popBackStack() } }
             }
             }
         }
@@ -283,6 +287,9 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         androidx.compose.animation.AnimatedVisibility(splash, enter = androidx.compose.animation.EnterTransition.None,
             exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(250))) { LaunchSplash() }
         CrashDialog(crashReport)
+        // After each update: what's new and the community card (wishes, support); never over the onboarding.
+        WhatsNewDialog(prefs, freshInstall, ready = !onboarding && !splash,
+            onWishes = { nav.navigate("wishes") }, onSupport = { nav.navigate("support") })
     }
 }
 

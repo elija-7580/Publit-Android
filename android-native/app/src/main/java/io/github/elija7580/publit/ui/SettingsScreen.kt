@@ -77,7 +77,7 @@ fun PublitAppIcon(size: Dp) {
 
 /** Settings (SettingsView on iOS), the parts that exist on Android so far. */
 @Composable
-fun SettingsScreen(prefs: SharedPreferences, onBack: () -> Unit) {
+fun SettingsScreen(prefs: SharedPreferences, onWishes: () -> Unit = {}, onSupport: () -> Unit = {}, onBack: () -> Unit) {
     val ink = LocalInk.current
     val context = LocalContext.current
     fun open(url: String) = runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
@@ -100,8 +100,13 @@ fun SettingsScreen(prefs: SharedPreferences, onBack: () -> Unit) {
                     }
                 }
             }
+            // Publit is a community project: what comes next is voted on, so this comes first.
             item {
-                Group(null) {
+                Text(L10n.t("Community"), color = ink.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 28.dp, top = 8.dp, bottom = 6.dp))
+                CommunityCard(onWishes, onSupport, Modifier.padding(horizontal = 12.dp))
+            }
+            item {
+                Group(L10n.t("General")) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(L10n.t("Start screen"), fontSize = 16.sp)
                         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {

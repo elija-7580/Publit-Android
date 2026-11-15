@@ -1,5 +1,6 @@
 package io.github.elija7580.publit.ui
 
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Star
@@ -199,13 +200,14 @@ private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.dat
                 Text(if (it.isDirect) L10n.t("Walk all the way") else if (mins <= 0) L10n.t("Leave now") else L10n.f("Leave in %lld min", mins),
                     fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (!it.isDirect && mins <= 2) ink.delay else ink.muted)
             }
-            if (badges.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Chips never wrap or hyphenate ("Recommend-ed"); the reason moves below when it does not fit beside them.
+            if (badges.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 badges.forEach { b ->
                     val main = b == io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED
-                    Text(b.title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (main) ink.onInk else ink.ink,
+                    Text(b.title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (main) ink.onInk else ink.ink, maxLines = 1, softWrap = false,
                         modifier = Modifier.background(if (main) ink.ink else ink.fill, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 3.dp))
                 }
-                reason?.let { r -> Text(r, fontSize = 12.sp, color = ink.muted) }
+                reason?.let { r -> Text(r, fontSize = 12.sp, color = ink.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.CenterVertically)) }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(Fmt.time(it.startTime, tz) + " – " + Fmt.time(it.endTime, it.legs.lastOrNull()?.to?.tz),
@@ -280,6 +282,7 @@ fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, to
         if (it.transitLegs.any { l -> l.endTime > java.time.Instant.now() }) item("getoff") { GetOffCard(it) }
         items(it.legs.size) { i ->
             val leg = it.legs[i]
+            TransferCard(it, i)
             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
                 if (leg.isTransit) TransitLeg(leg) else Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null, tint = ink.muted)
@@ -498,6 +501,44 @@ fun SmartRoutingSettings() {
             SwitchRow(L10n.t("Learn from my choices"), learn) { learn = it; p.edit().putBoolean(S.LEARN, it).apply() }
             TextButton({ S.resetLearning(); minutes = S.DEFAULT_TRANSFER_MINUTES.toFloat() }, Modifier.padding(horizontal = 4.dp)) { Text(L10n.t("Reset learned preferences")) }
         }
+    }
+}
+
+/**
+ * The change before the transit leg at [index] (TransferCard on iOS), kept short: line, direction and stops
+ * are in the legs around it.  "⇄ Change at Krems Bahnhof [6 min to spare] / 5:43 · Platform E2 → 5:52 · Platform 2 / 700 → REX 2807 · 3 min walk"
+ */
+@Composable
+private fun TransferCard(it: Itinerary, index: Int) {
+    val leg = it.legs[index]
+    if (!leg.isTransit) return
+    val p = (index - 1 downTo 0).firstOrNull { j -> it.legs[j].isTransit } ?: return
+    val arriving = it.legs[p]
+    val walk = (p + 1 until index).sumOf { j -> it.legs[j].duration }
+    val spare = (leg.startTime.epochSecond - arriving.endTime.epochSecond).toInt() - walk
+    val ink = LocalInk.current
+    fun end(t: Instant, tz: String?, track: String?) = Fmt.time(t, tz) + (track?.takeIf { s -> s.isNotBlank() }?.let { s -> " · " + L10n.f("Platform %@", s) } ?: "")
+    val changesStation = arriving.to.stationId != leg.from.stationId && arriving.to.name != leg.from.name
+    Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.SwapHoriz, null, Modifier.size(18.dp), tint = ink.ink)
+            Spacer(Modifier.width(6.dp))
+            Text(L10n.f("Change at %@", arriving.to.name), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.weight(1f), maxLines = 2)
+            if (spare >= 0) {
+                val tight = spare < 120
+                val tint = if (tight) ink.delay else ink.muted
+                Text(if (spare >= 60) L10n.f("%@ to spare", Fmt.duration(spare)) else L10n.t("Very tight change"),
+                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = tint, maxLines = 1, softWrap = false,
+                    modifier = Modifier.background(tint.copy(alpha = 0.15f), RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 3.dp))
+            }
+        }
+        if (changesStation) Text(L10n.t("Station change") + " · " + leg.from.name, color = ink.delay, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Text(end(arriving.endTime, arriving.to.tz, arriving.to.track) + "  →  " + end(leg.startTime, leg.from.tz, leg.from.track),
+            fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        Text(listOfNotNull(arriving.lineName + " → " + leg.lineName, if (walk > 0) L10n.f("%@ walk", Fmt.duration(maxOf(60, walk))) else null).joinToString(" · "),
+            color = ink.muted, fontSize = 12.sp)
+        if (arriving.cancelled == true || leg.cancelled == true) Text(L10n.t("Connection cancelled"), color = ink.danger, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        else if (spare < 0) Text(L10n.f("Change at %@ no longer works", arriving.to.name), color = ink.danger, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     }
 }
 
