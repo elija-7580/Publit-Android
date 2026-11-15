@@ -367,7 +367,6 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onSettings: ()
                         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     })
-                    }
                 }
             }
         }
