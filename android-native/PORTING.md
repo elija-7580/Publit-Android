@@ -72,4 +72,5 @@ Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktione
 - [x] Ortssuche: Home/Work ("Set Home/Work" wenn leer), Current location, Saved
 - [x] Eigener Navigations-Stapel pro Tab (Tabs öffnen das Richtige, erneutes Tippen → oberste Seite, Zurück auf Tab-Start → In der Nähe); vorher teilten sich alle Tabs einen Stapel
 - [x] Live-Fahrt: "Back to now" als Knopf über dem Panel
+- [x] Nearby: Karte als Bildschirm, ganze Liste als Sheet darüber (startet halb, oben bleibt ein Kartenstreifen), „Where to now?“ als fester Kopf; Einstellungen, Standort und Stationskarte (mit Suche) als Knöpfe oben; abschaltbar unter Einstellungen → Nearby → Map, wie iOS PR #61 (`NearbyMap.kt`; Hinweistext bis zum nächsten IOS_COMMIT englisch)
 - [x] Live-Fahrt: Ausgangsnummer beim Aufgang aus der U-Bahn ("Take exit B2", OpenStreetMap über Overpass, `StationExits`), wie iOS #8 (iOS-Strings kommen mit dem nächsten IOS_COMMIT-Update, bis dahin englisch)

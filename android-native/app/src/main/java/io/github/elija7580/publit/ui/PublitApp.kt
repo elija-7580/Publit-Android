@@ -325,6 +325,18 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onSettings: ()
         onPauseOrDispose { vm.setActive(false) }
     }
 
+    // The map as the screen and the board as a sheet over it, like the live trip (Settings → Nearby → Map).
+    val mapOn = remember { context.getSharedPreferences("publit", android.content.Context.MODE_PRIVATE).getBoolean(NEARBY_MAP_KEY, true) }
+    val located = state.access != LocationAccess.NOT_ASKED && state.servicesOn
+    if (mapOn && located) {
+        NearbyMapLayout(state, onOpenMap, onSettings, onOpenStop, header = { WhereToRow(onWhereTo) }) {
+            nearbyBoard(this, state, vm, now, pinned, nextTrip, onWhereTo = null, onOpenSaved, onRoute, onOpenTrip, onOpenStop, onSettingsApp = {
+                context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            })
+        }
+        return
+    }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(L10n.t("Nearby"), fontWeight = FontWeight.Bold, fontSize = 32.sp, modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp))
@@ -351,81 +363,95 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onSettings: ()
             else -> PullToRefreshBox(isRefreshing = false, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
                 LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
-                    io.github.elija7580.publit.data.CoverageGuide.notice(state.fix?.coordinate)?.let { n -> item("coverage") { CoverageBanner(listOf(n)) } }
-                    item("go") {
-                        // "Where to now?", Home and Work: a route from here in one tap (goSection on iOS).
-                        Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
-                            Column {
-                                Row(Modifier.fillMaxWidth().clickable(onClick = onWhereTo).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(L10n.t("To"), color = ink.muted, fontSize = 14.sp, modifier = Modifier.width(56.dp))
-                                    Text(L10n.t("Where to now?"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = ink.muted, modifier = Modifier.weight(1f))
-                                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Search, null,
-                                        Modifier.background(ink.ink, androidx.compose.foundation.shape.CircleShape).padding(8.dp), tint = ink.onInk)
-                                }
-                                nextTrip?.let { t ->
-                                    HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
-                                    Row(Modifier.fillMaxWidth().clickable { onOpenSaved(t.id) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.DateRange, null, Modifier.width(20.dp))
-                                        Spacer(Modifier.width(12.dp))
-                                        Column(Modifier.weight(1f)) {
-                                            Text(L10n.f("Next trip: %@", t.toName), fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                            Text(io.github.elija7580.publit.data.TripStatus.at(java.time.Instant.now(), t.itinerary).headline, color = ink.muted, fontSize = 14.sp)
-                                        }
-                                    }
-                                }
-                                pinned.forEach { p ->
-                                    HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
-                                    Row(Modifier.fillMaxWidth().clickable { onRoute(p.name, p.coordinate) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        androidx.compose.material3.Icon(if (p.role == io.github.elija7580.publit.data.PlaceRole.HOME) androidx.compose.material.icons.Icons.Filled.Home
-                                            else androidx.compose.material.icons.Icons.Filled.Work, null, Modifier.width(20.dp))
-                                        Spacer(Modifier.width(12.dp))
-                                        Text(p.role?.title ?: p.name, fontWeight = FontWeight.SemiBold)
-                                        Spacer(Modifier.weight(1f))
-                                        Text(p.name, color = ink.muted, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
-                                    }
-                                }
-                            }
-                        }
+                    nearbyBoard(this, state, vm, now, pinned, nextTrip, onWhereTo, onOpenSaved, onRoute, onOpenTrip, onOpenStop, onSettingsApp = {
+                        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    })
                     }
-                    if (state.available.size > 1 || state.filter.isActive) item("chips") {
-                        ModeChips(state.available, state.filter.included, state.filter.isActive) { vm.setFilter(state.filter.toggleOnly(it)) }
-                    }
-                    if (state.groups.isEmpty()) item("status") {
-                        Status(state, onShowAll = { vm.setFilter(ModeFilter()) }, onSettings = {
-                            context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                        })
-                    }
-                    state.farDistance?.let { d -> if (state.groups.isNotEmpty()) item("far") {
-                        Text(Reach.farNote(d), color = ink.muted, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 16.dp))
-                    } }
-                    if (state.groups.isNotEmpty() && state.error != null) item("stale") {
-                        Text(L10n.t("Couldn't refresh. Times may be out of date."), color = ink.muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp))
-                    }
-                    items(state.groups, key = { it.id }) { group ->
-                        Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f).clickable { onOpenStop(group) }) {
-                                        StationHeader(group, nearest = group.id == state.groups.first().id)
-                                    }
-                                    // The arrow plans a route there from here, now.
-                                    androidx.compose.material3.IconButton(onClick = { onRoute(group.name, group.coordinate) }, modifier = Modifier.padding(end = 8.dp)) {
-                                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Directions, L10n.t("Route here"),
-                                            Modifier.background(ink.fill, androidx.compose.foundation.shape.CircleShape).padding(8.dp))
-                                    }
-                                }
-                                group.departures.take(5).forEachIndexed { i, st ->
-                                    HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
-                                    DepartureRow(st, now) { onOpenTrip(st, group) }
-                                }
-                                HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
-                                Text(L10n.t("All departures"), fontWeight = FontWeight.Medium, fontSize = 15.sp,
-                                    modifier = Modifier.fillMaxWidth().clickable { onOpenStop(group) }.padding(16.dp))
-                            }
+                }
+            }
+        }
+    }
+}
+
+/** The board (iOS: the List of NearbyView): where to, next trip, Home/Work, chips, notes and the stations.
+ *  With the map the "Where to now?" row heads the sheet instead (`onWhereTo` null). */
+private fun nearbyBoard(scope: androidx.compose.foundation.lazy.LazyListScope, state: NearbyState, vm: NearbyViewModel, now: Instant,
+                        pinned: List<io.github.elija7580.publit.data.SavedPlace>, nextTrip: io.github.elija7580.publit.data.SavedTrip?,
+                        onWhereTo: (() -> Unit)?, onOpenSaved: (String) -> Unit,
+                        onRoute: (String, io.github.elija7580.publit.core.LatLon) -> Unit,
+                        onOpenTrip: (io.github.elija7580.publit.data.StopTime, io.github.elija7580.publit.data.StopGroup) -> Unit,
+                        onOpenStop: (io.github.elija7580.publit.data.StopGroup) -> Unit, onSettingsApp: () -> Unit) = with(scope) {
+    io.github.elija7580.publit.data.CoverageGuide.notice(state.fix?.coordinate)?.let { n -> item("coverage") { CoverageBanner(listOf(n)) } }
+    if (onWhereTo != null || nextTrip != null || pinned.isNotEmpty()) item("go") {
+        val ink = LocalInk.current
+        // "Where to now?", Home and Work: a route from here in one tap (goSection on iOS).
+        Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+            Column {
+                var first = onWhereTo == null
+                if (onWhereTo != null) WhereToRow(onWhereTo)
+                nextTrip?.let { t ->
+                    if (!first) HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                    first = false
+                    Row(Modifier.fillMaxWidth().clickable { onOpenSaved(t.id) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.DateRange, null, Modifier.width(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(L10n.f("Next trip: %@", t.toName), fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            Text(io.github.elija7580.publit.data.TripStatus.at(java.time.Instant.now(), t.itinerary).headline, color = ink.muted, fontSize = 14.sp)
                         }
                     }
                 }
+                pinned.forEach { p ->
+                    if (!first) HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                    first = false
+                    Row(Modifier.fillMaxWidth().clickable { onRoute(p.name, p.coordinate) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Icon(if (p.role == io.github.elija7580.publit.data.PlaceRole.HOME) androidx.compose.material.icons.Icons.Filled.Home
+                            else androidx.compose.material.icons.Icons.Filled.Work, null, Modifier.width(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text(p.role?.title ?: p.name, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.weight(1f))
+                        Text(p.name, color = ink.muted, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
+                    }
+                }
+            }
+        }
+    }
+    if (state.available.size > 1 || state.filter.isActive) item("chips") {
+        ModeChips(state.available, state.filter.included, state.filter.isActive) { vm.setFilter(state.filter.toggleOnly(it)) }
+    }
+    if (state.groups.isEmpty()) item("status") {
+        Status(state, onShowAll = { vm.setFilter(ModeFilter()) }, onSettings = onSettingsApp)
+    }
+    state.farDistance?.let { d -> if (state.groups.isNotEmpty()) item("far") {
+        val ink = LocalInk.current
+        Text(Reach.farNote(d), color = ink.muted, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 16.dp))
+    } }
+    if (state.groups.isNotEmpty() && state.error != null) item("stale") {
+        val ink = LocalInk.current
+        Text(L10n.t("Couldn't refresh. Times may be out of date."), color = ink.muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp))
+    }
+    items(state.groups, key = { it.id }) { group ->
+        val ink = LocalInk.current
+        Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f).clickable { onOpenStop(group) }) {
+                        StationHeader(group, nearest = group.id == state.groups.first().id)
+                    }
+                    // The arrow plans a route there from here, now.
+                    androidx.compose.material3.IconButton(onClick = { onRoute(group.name, group.coordinate) }, modifier = Modifier.padding(end = 8.dp)) {
+                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Directions, L10n.t("Route here"),
+                            Modifier.background(ink.fill, androidx.compose.foundation.shape.CircleShape).padding(8.dp))
+                    }
+                }
+                group.departures.take(5).forEachIndexed { i, st ->
+                    HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                    DepartureRow(st, now) { onOpenTrip(st, group) }
+                }
+                HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                Text(L10n.t("All departures"), fontWeight = FontWeight.Medium, fontSize = 15.sp,
+                    modifier = Modifier.fillMaxWidth().clickable { onOpenStop(group) }.padding(16.dp))
             }
         }
     }

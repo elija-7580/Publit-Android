@@ -175,6 +175,11 @@ fun SettingsScreen(prefs: SharedPreferences, onBack: () -> Unit) {
                 }
                 if (guide) ConnectionGuide { guide = false }
                 Spacer(Modifier.height(12.dp))
+                var nearbyMap by remember { mutableStateOf(prefs.getBoolean(NEARBY_MAP_KEY, true)) }
+                Group(L10n.t("Nearby"), footer = listOf(L10n.t("The map fills the screen and the departures sit in a panel you pull up, with “Where to now?” always on top. Off: just the list."))) {
+                    SwitchRow(L10n.t("Map"), nearbyMap) { nearbyMap = it; prefs.edit().putBoolean(NEARBY_MAP_KEY, it).apply() }
+                }
+                Spacer(Modifier.height(12.dp))
                 Group(L10n.t("Map")) {
                     Text(L10n.t("Open directions in"), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(16.dp)) {
