@@ -352,6 +352,17 @@ private fun ChangesCard(changes: List<io.github.elija7580.publit.data.SmartRouti
 fun RouteOptionsScreen(initial: io.github.elija7580.publit.data.RouteOptions, onDone: (io.github.elija7580.publit.data.RouteOptions) -> Unit) {
     val ink = LocalInk.current
     var o by remember { mutableStateOf(initial) }
+    var pickingTickets by remember { mutableStateOf(false) }
+    val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as io.github.elija7580.publit.PublitApplication
+    val passes by app.passes.passes.collectAsStateWithLifecycle()
+    val savedTickets = remember(passes) { passes.mapNotNull { io.github.elija7580.publit.data.OwnTicket.recognise(it.title) }.toSet() }
+    if (pickingTickets) {
+        BackHandler { pickingTickets = false }
+        OwnTicketsScreen(o.ownTickets, savedTickets, onBack = { pickingTickets = false }) { sel ->
+            o = o.copy(tickets = io.github.elija7580.publit.data.OwnTicket.entries.filter { it in sel }.map { it.raw })
+        }
+        return
+    }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton({ o = io.github.elija7580.publit.data.RouteOptions(compareStreetModes = o.compareStreetModes, sort = o.sort) }, enabled = !o.isDefault) { Text(L10n.t("Reset")) }
@@ -370,6 +381,19 @@ fun RouteOptionsScreen(initial: io.github.elija7580.publit.data.RouteOptions, on
                             val next = if (v) base + g else base - g
                             o = o.copy(modes = if (next.size == io.github.elija7580.publit.data.ModeGroup.entries.size) emptyList() else next.map { it.raw })
                         }
+                    }
+                }
+            }
+            item {
+                val own = o.ownTickets
+                val saved = io.github.elija7580.publit.data.OwnTicket.entries.firstOrNull { it in savedTickets }
+                val footer = L10n.t("Routes only use rides your tickets cover, e.g. no ICE with the Deutschlandticket.") +
+                    (if (own.isEmpty() && saved != null) "\n" + L10n.f("Your %@ is saved in Tickets.", saved.title) else "")
+                OptionGroup(null, footer) {
+                    Row(Modifier.fillMaxWidth().clickable { pickingTickets = true }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(L10n.t("My tickets"), Modifier.weight(1f))
+                        Text(if (own.isEmpty()) L10n.t("None") else io.github.elija7580.publit.data.OwnTicket.summary(own), color = ink.muted, maxLines = 1)
+                        Text("  ›", color = ink.muted)
                     }
                 }
             }
@@ -410,6 +434,44 @@ fun RouteOptionsScreen(initial: io.github.elija7580.publit.data.RouteOptions, on
                 OptionGroup(null, L10n.t("Driving times are without traffic and parking.")) {
                     SwitchRow(L10n.t("Compare with walking, cycling and driving"), o.compareStreetModes) { o = o.copy(compareStreetModes = it) }
                 }
+            }
+        }
+    }
+}
+
+/** Tickets that cover a whole country or region, by country (OwnTicketsView on iOS). */
+@Composable
+fun OwnTicketsScreen(initial: Set<io.github.elija7580.publit.data.OwnTicket>, saved: Set<io.github.elija7580.publit.data.OwnTicket>,
+                     onBack: () -> Unit, onChange: (Set<io.github.elija7580.publit.data.OwnTicket>) -> Unit) {
+    val ink = LocalInk.current
+    var sel by remember { mutableStateOf(initial) }
+    fun set(v: Set<io.github.elija7580.publit.data.OwnTicket>) { sel = v; onChange(v) }
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onBack) { Text(L10n.t("Done"), fontWeight = FontWeight.SemiBold, color = ink.ink) }
+            Text(L10n.t("My tickets"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            TextButton({ set(emptySet()) }, enabled = sel.isNotEmpty()) { Text(L10n.t("None")) }
+        }
+        LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            io.github.elija7580.publit.data.OwnTicket.Country.entries.forEach { c ->
+                item {
+                    OptionGroup(c.title, null) {
+                        io.github.elija7580.publit.data.OwnTicket.inCountry(c).forEach { t ->
+                            Row(Modifier.fillMaxWidth().clickable { set(if (t in sel) sel - t else sel + t) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(t.title)
+                                    Text(if (t in saved) L10n.f("%@ · %@", t.detail, L10n.t("Saved in Tickets")) else t.detail, color = ink.muted, fontSize = 12.sp)
+                                }
+                                if (t in sel) Text("✓", fontWeight = FontWeight.Bold, color = ink.ink)
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Text(L10n.t("Publit checks the kind of train and where each ride starts and ends. Tourist and mountain railways, supplements and single exceptions are not included; ask the operator when in doubt."),
+                    color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp))
             }
         }
     }

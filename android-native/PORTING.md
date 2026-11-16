@@ -46,6 +46,11 @@ Two test APKs per release: arm64 (`Publit-native.apk`) and 32-bit ARM (`Publit-n
   3. Full iOS feature audit: GoNowView, LinesView/LineDetailView, SharedRouteView, ConnectionGuideView, RecentSearches, WalkThereRow, ArrivalUpdates, DataExport, Diagnostics, ServiceAlertsView, "Open in maps".
   4. Better satellite imagery: needs a decision and key from the owner (Google Maps SDK, MapTiler or Esri).
 
+## iOS Build 82 (2026-11-16) – Meine Tickets
+- [x] Routenoptionen → „My tickets“ (`OwnTicketsScreen`, `data/OwnTickets.kt`, Port von `OwnTicket.swift`): Deutschlandticket, BahnCard 100, KlimaTicket Ö, VOR MetropolRegion/Region, Jahreskarte Wien, KlimaTickets OÖ/Salzburg/Tirol/Steiermark/Kärnten/VMOBIL, GA; Mehrfachauswahl, gespeicherte Pässe am Titel erkannt.
+- [x] Prüfung je Fahrt über Zugart und Land/Bundesland aus der Haltestellen-ID (`StopArea`); Suche ohne Modi, die kein Ticket abdeckt, Rest wird nach der Antwort gefiltert (`TransitousClient.plan`); Meldung, wenn keine Route abgedeckt ist. Gleiche Rohwerte wie iOS (`RouteOptions.tickets`).
+- [x] What's new Release 2; Tests `OwnTicketsTest`.
+
 ## iOS Build 81 (2026-11-15)
 - [x] Kompakte Umstiegskarte zwischen den Abschnitten im Routendetail (`TransferCard` in PlanScreen: „Change at …“ + Puffer-Kapsel, „Zeit · Steig → Zeit · Steig“, „Linie → Linie · Fußweg“)
 - [x] Smart-Badges brechen nicht mehr um (FlowRow, Begründung rutscht bei Platzmangel darunter)

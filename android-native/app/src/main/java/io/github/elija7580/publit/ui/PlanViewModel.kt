@@ -173,7 +173,7 @@ class PlanViewModel(
                 _state.update {
                     it.copy(loading = false, routes = found, walkOnly = res?.direct?.firstOrNull(), nextCursor = res?.nextPageCursor, previousCursor = res?.previousPageCursor, street = comparisons,
                         badges = if (io.github.elija7580.publit.data.SmartRouting.isEnabled) io.github.elija7580.publit.data.SmartRouting.badges(found, s.arriveBy) else emptyMap(),
-                        error = if (found.isEmpty() && res?.direct.isNullOrEmpty()) L10n.t("No connections found.") else null)
+                        error = if (found.isEmpty() && res?.direct.isNullOrEmpty()) (if (o.ownTickets.isNotEmpty()) L10n.t("No connection is fully covered by your tickets. Change them in Route options to see all.") else L10n.t("No connections found.")) else null)
                 }
             } catch (e: CancellationException) { throw e } catch (e: Exception) {
                 log.note("plan error ${e.javaClass.simpleName}")

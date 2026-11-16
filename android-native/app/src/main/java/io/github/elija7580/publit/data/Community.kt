@@ -134,6 +134,10 @@ object WhatsNew {
 
     /** Newest first. `release` counts Android releases with a note; raise it for each new entry. */
     val entries = listOf(
+        Entry(2, listOf(
+            Item("ticket", "Routes for your ticket", "Choose Deutschlandticket, KlimaTicket, GA and more in Route options; routes stay within what they cover."),
+            Item("map", "Regional KlimaTickets", "VOR, Vienna and each state's ticket only use rides in their region."),
+        )),
         Entry(1, listOf(
             Item("swap", "Clearer changes", "Each change shows times, platforms and your buffer in one glance."),
             Item("community", "Community first", "Wishes, voting and support are now at the top of Settings."),
