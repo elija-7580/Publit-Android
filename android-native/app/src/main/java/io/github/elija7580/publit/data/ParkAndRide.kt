@@ -1,5 +1,7 @@
 package io.github.elija7580.publit.data
 
+import io.github.elija7580.publit.core.L10n
+
 /**
  * Driving to the station (Park & Ride), port of `ParkAndRide` in iOS Reach.swift.
  * First up to 15 min; when the nearest station is further than 5 min, once more up to that drive + 10 min,
@@ -60,5 +62,36 @@ object ParkAndRide {
             }
         }
         return if (kept.isEmpty()) null else Result(res, kept, drive, nearest)
+    }
+
+    /** Above routes that start with a drive because no stop was within walking reach. */
+    val fallbackNote: String get() = L10n.t("No stop within walking distance: these routes start with a drive to the station (Park & Ride).")
+
+    /** What a search with walking first found: routes behind a walk (and how long), or Park & Ride in its place. */
+    sealed class Found {
+        data class Walk(val walk: Int, val response: PlanResponse?, val routes: List<Itinerary>) : Found()
+        data class Car(val result: Result) : Found()
+    }
+
+    /**
+     * Walking first, with longer walks (45 min, then 2 h) while nothing is found (Reach.walkSteps on iOS).
+     * Before a two-hour walk: drive to the nearest station instead, when there is one. Not when the user chose
+     * a shorter walk: that limit is theirs. `walk` returns the response and the routes kept from it.
+     */
+    suspend fun walkingFirst(firstWalk: Int, userLimit: Boolean, walk: suspend (Int) -> Pair<PlanResponse, List<Itinerary>>,
+                             car: suspend () -> Result?): Found {
+        var last = Found.Walk(firstWalk, null, emptyList())
+        var triedCar = false
+        for (w in listOf(firstWalk, maxOf(firstWalk, 2700), maxOf(firstWalk, 7200)).distinct()) {
+            if (!userLimit && !triedCar && w > 2700) {
+                triedCar = true
+                val found = try { car() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { null }
+                if (found != null && found.routes.isNotEmpty()) return Found.Car(found)
+            }
+            val (res, routes) = walk(w)
+            last = Found.Walk(w, res, routes)
+            if (routes.isNotEmpty()) break
+        }
+        return last
     }
 }

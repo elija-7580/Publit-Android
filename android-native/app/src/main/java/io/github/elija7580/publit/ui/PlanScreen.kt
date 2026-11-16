@@ -878,6 +878,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.routeResults(state: P
             state.loading -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = ink.ink) } }
             state.error != null -> item { Text(state.error, color = ink.muted, modifier = Modifier.padding(horizontal = 16.dp)) }
         }
+        if (!state.loading && state.note != null && state.routes.isNotEmpty()) item("note") {
+            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.DirectionsCar, null, tint = ink.muted, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                Text(state.note, color = ink.muted, fontSize = 13.sp)
+            }
+        }
         if (state.routes.isNotEmpty() && state.previousCursor != null) item("earlier") {
             TextButton(onClick = vm::earlier, modifier = Modifier.padding(horizontal = 8.dp)) { Text(L10n.t("Earlier connections")) }
         }
