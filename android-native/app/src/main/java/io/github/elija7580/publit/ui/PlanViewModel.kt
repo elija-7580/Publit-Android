@@ -198,6 +198,7 @@ class PlanViewModel(
                     }
                 }
                 io.github.elija7580.publit.data.SmartRouting.offered = found
+                if (io.github.elija7580.publit.data.SmartRouting.isEnabled) Thread { runCatching { io.github.elija7580.publit.data.DelayHistoryStore.refresh(found) } }.start()
                 io.github.elija7580.publit.data.SmartRouting.offeredArriveBy = s.arriveBy
                 val best = found.filter { !it.isDirect }.minOfOrNull { it.duration }
                 val comparisons = io.github.elija7580.publit.data.StreetComparison.from(res?.direct.orEmpty() + street.flatMap { it.await() })

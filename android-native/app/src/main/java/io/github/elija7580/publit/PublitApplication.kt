@@ -28,6 +28,8 @@ class PublitApplication : Application() {
         if (BuildConfig.DEMO_API.isNotEmpty()) demoDefaults()
         io.github.elija7580.publit.live.LiveOverlay.enabled = getSharedPreferences("publit", MODE_PRIVATE).getBoolean("extraLiveSources", true)
         io.github.elija7580.publit.data.SmartRouting.prefs = getSharedPreferences("publit", MODE_PRIVATE)
+        io.github.elija7580.publit.data.DelayHistoryStore.init(this)
+        io.github.elija7580.publit.data.TripLearning.file = java.io.File(filesDir, "trip-learning.json")
         runCatching { io.github.elija7580.publit.notify.TripNotifications.channels(this) }
         Fmt.timePattern = if (DateFormat.is24HourFormat(this)) "HH:mm" else "h:mm a"
         client = if (BuildConfig.DEMO_API.isNotEmpty()) TransitousClient(base = BuildConfig.DEMO_API, cacheDir = null)

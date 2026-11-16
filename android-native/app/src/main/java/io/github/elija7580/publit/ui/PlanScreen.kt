@@ -338,6 +338,13 @@ private fun FareCard(it: Itinerary, products: List<io.github.elija7580.publit.da
     }
 }
 
+/** Where a change's chance comes from, in small print. */
+fun changeSource(s: io.github.elija7580.publit.data.SmartRouting.Change.Source): String = when (s) {
+    is io.github.elija7580.publit.data.SmartRouting.Change.Source.History -> L10n.f("Based on %lld past trips", s.observations)
+    io.github.elija7580.publit.data.SmartRouting.Change.Source.Estimate -> L10n.t("Estimate")
+    io.github.elija7580.publit.data.SmartRouting.Change.Source.ThroughRun -> L10n.t("Same vehicle continues")
+}
+
 @Composable
 private fun ChangesCard(changes: List<io.github.elija7580.publit.data.SmartRouting.Change>) {
     val ink = LocalInk.current
@@ -350,9 +357,11 @@ private fun ChangesCard(changes: List<io.github.elija7580.publit.data.SmartRouti
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(L10n.f("Change at %@", c.stopName), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${c.percent} %", color = color, fontWeight = FontWeight.Bold)
+                        if (!c.isEstimate) Text("${c.percent} %", color = color, fontWeight = FontWeight.Bold)
                     }
-                    Text("$verdict · $spare", color = ink.muted, fontSize = 12.sp)
+                    val v = if (c.source == io.github.elija7580.publit.data.SmartRouting.Change.Source.ThroughRun) L10n.t("Stay on board") else verdict
+                    Text("$v · $spare", color = ink.muted, fontSize = 12.sp)
+                    Text(changeSource(c.source), color = ink.muted, fontSize = 11.sp)
                     val b = io.github.elija7580.publit.data.SmartRouting.backup(c.outgoing)
                     if (b != null) {
                         val then = if (i == changes.lastIndex) L10n.f("Arrive %@", Fmt.time(b.arrival, c.outgoing.to.tz)) else L10n.t("still makes the next change")
@@ -578,7 +587,15 @@ fun SmartRoutingSettings() {
             WalkingSpeedRows(p)
             SwitchRow(L10n.t("Avoid steep walks"), flat) { flat = it; p.edit().putBoolean(S.FLAT_WALKS, it).apply() }
             SwitchRow(L10n.t("Learn from my choices"), learn) { learn = it; p.edit().putBoolean(S.LEARN, it).apply() }
-            TextButton({ S.resetLearning(); minutes = S.DEFAULT_TRANSFER_MINUTES.toFloat() }, Modifier.padding(horizontal = 4.dp)) { Text(L10n.t("Reset learned preferences")) }
+            var learnTrips by remember { mutableStateOf(p.getBoolean(S.LEARN_TRIPS, false)) }
+            var learned by remember { mutableStateOf(io.github.elija7580.publit.data.TripLearning.observations().size) }
+            SwitchRow(L10n.t("Learn from my trips"), learnTrips) { learnTrips = it; p.edit().putBoolean(S.LEARN_TRIPS, it).apply() }
+            Text((if (learned > 0) L10n.f("Learned from %lld changes. Stays on this iPhone.", learned)
+                else L10n.t("How long your changes take, from your started trips. Stays on this iPhone.")).replace("iPhone", "Android"),
+                color = LocalInk.current.muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp))
+            var alerts by remember { mutableStateOf(p.getBoolean(io.github.elija7580.publit.data.ChangeWatch.ENABLED, true)) }
+            SwitchRow(L10n.t("Change alerts"), alerts) { alerts = it; p.edit().putBoolean(io.github.elija7580.publit.data.ChangeWatch.ENABLED, it).apply() }
+            TextButton({ S.resetLearning(); learned = 0; minutes = S.DEFAULT_TRANSFER_MINUTES.toFloat() }, Modifier.padding(horizontal = 4.dp)) { Text(L10n.t("Reset learned preferences")) }
         }
     }
 }

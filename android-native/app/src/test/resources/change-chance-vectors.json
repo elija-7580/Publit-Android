@@ -1,0 +1,149 @@
+{
+ "about": "Shared test cases for the change chance (Python reference, iOS SmartRoutingTests, Android). Times in seconds; arr/dep are 5/20/50/80/95 % delay quantiles.",
+ "cases": [
+  {
+   "name": "roomy subway",
+   "gap": 300,
+   "arr": [
+    -30,
+    0,
+    30,
+    60,
+    120
+   ],
+   "dep": [
+    -30,
+    0,
+    0,
+    30,
+    60
+   ],
+   "walk": 120,
+   "cin": 0,
+   "cout": 0,
+   "n": null,
+   "expected": 0.991429
+  },
+  {
+   "name": "tight regional train",
+   "gap": 240,
+   "arr": [
+    -60,
+    0,
+    90,
+    240,
+    480
+   ],
+   "dep": [
+    -30,
+    0,
+    30,
+    90,
+    180
+   ],
+   "walk": 180,
+   "cin": 0,
+   "cout": 0,
+   "n": null,
+   "expected": 0.475357
+  },
+  {
+   "name": "connection often late helps",
+   "gap": 240,
+   "arr": [
+    -60,
+    0,
+    90,
+    240,
+    480
+   ],
+   "dep": [
+    0,
+    60,
+    180,
+    300,
+    600
+   ],
+   "walk": 180,
+   "cin": 0,
+   "cout": 0,
+   "n": null,
+   "expected": 0.714643
+  },
+  {
+   "name": "cancellations",
+   "gap": 600,
+   "arr": [
+    0,
+    0,
+    30,
+    60,
+    120
+   ],
+   "dep": [
+    0,
+    0,
+    30,
+    60,
+    120
+   ],
+   "walk": 120,
+   "cin": 0.02,
+   "cout": 0.05,
+   "n": null,
+   "expected": 0.931
+  },
+  {
+   "name": "few observations capped",
+   "gap": 900,
+   "arr": [
+    0,
+    0,
+    0,
+    30,
+    60
+   ],
+   "dep": [
+    0,
+    0,
+    0,
+    30,
+    60
+   ],
+   "walk": 60,
+   "cin": 0,
+   "cout": 0,
+   "n": 20,
+   "expected": 0.954545
+  },
+  {
+   "name": "broken",
+   "gap": 60,
+   "arr": [
+    60,
+    120,
+    180,
+    240,
+    300
+   ],
+   "dep": [
+    0,
+    0,
+    0,
+    0,
+    30
+   ],
+   "walk": 120,
+   "cin": 0,
+   "cout": 0,
+   "n": null,
+   "expected": 0.0
+  }
+ ],
+ "walk": {
+  "medianFactor": 1.05,
+  "sigma": 0.1,
+  "factorSD": 0.2,
+  "overheadSD": 15
+ }
+}

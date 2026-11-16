@@ -195,7 +195,11 @@ object TripSession {
         store.trip(t.id)?.let { u ->
             TripNotifications.followLeave(ctx, t, u)
             TripNotifications.followGetOff(ctx, t.itinerary, u.itinerary, u.id)
-            if (u.followLive == true || store.state.value.activeId == u.id) TripNotifications.showLive(ctx, u)
+            if (u.followLive == true || store.state.value.activeId == u.id) {
+                TripNotifications.showLive(ctx, u)
+                // Changes recomputed with the new live data; warns when one becomes unlikely.
+                runCatching { io.github.elija7580.publit.notify.ChangeRiskNotifier.follow(ctx, u) }
+            }
         }
         true
     } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { false }

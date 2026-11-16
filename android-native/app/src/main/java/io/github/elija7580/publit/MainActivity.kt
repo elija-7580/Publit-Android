@@ -63,6 +63,11 @@ class MainActivity : ComponentActivity() {
         when (app?.host) {
             "route" -> { openTrip.value = "route:" + (app.encodedQuery ?: ""); return }
             "map" -> { openTrip.value = "map:"; return }
+            "alternatives" -> {
+                // A change at risk: other routes from the change stop (or from here) to the destination.
+                val q = { n: String -> app.getQueryParameter(n).orEmpty() }
+                openTrip.value = "alt:${q("fn")}|${q("flat")}|${q("flon")}|${q("tn")}|${q("tlat")}|${q("tlon")}"; return
+            }
             "trip", "tickets" -> { app.lastPathSegment?.let { openTrip.value = it }; return }
             "stop" -> { app.lastPathSegment?.let { id -> openTrip.value = "stop:" + id + "|" + (app.getQueryParameter("name") ?: "") }; return }
             "place" -> {
