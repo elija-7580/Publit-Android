@@ -68,14 +68,16 @@ class TransitousClient(
         )
         if (options.preTransitModes != listOf("WALK")) q += "preTransitModes" to options.preTransitModes.joinToString(",")
         if (options.postTransitModes != listOf("WALK")) q += "postTransitModes" to options.postTransitModes.joinToString(",")
-        options.filter.apiValue?.let { q += "transitModes" to it }
+        options.transitModesValue?.let { q += "transitModes" to it }
         options.maxTransfers?.let { q += "maxTransfers" to it.toString() }
         if (options.wheelchair) q += "pedestrianProfile" to "WHEELCHAIR"
         time?.let { q += "time" to it.toString() }
         pageCursor?.let { q += "pageCursor" to it }
         q += SmartRouting.queryItems()
         val res = json.decodeFromString(PlanResponse.serializer(), get("/api/v6/plan", q, if (time == null) 20 else 60, if (options.isSlowSearch) 45_000 else 20_000))
-        return res.copy(itineraries = io.github.elija7580.publit.live.LiveOverlay.apply(res.itineraries))
+        // Own tickets: rides they do not cover (an IC filed as plain RAIL, a train abroad) come out here.
+        val covered = if (options.ownTickets.isEmpty()) res.itineraries else res.itineraries.filter(options::allows)
+        return res.copy(itineraries = io.github.elija7580.publit.live.LiveOverlay.apply(covered))
     }
 
     /** Cycling or driving the whole way, for the comparison under the routes (reused for 15 min). */

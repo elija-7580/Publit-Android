@@ -58,9 +58,21 @@ data class RouteOptions(
     val sharing: Boolean = false,
     val firstMile: FirstMile = FirstMile.WALK,
     @SerialName("order") val sort: RouteSort = RouteSort.RECOMMENDED,
+    /** Own tickets (OwnTicket raw values): routes only use rides they cover. */
+    val tickets: List<String> = emptyList(),
 ) {
+    val ownTickets: Set<OwnTicket> get() = tickets.mapNotNull { OwnTicket.of(it) }.toSet()
+    /** `transitModes` for the search: the chosen modes without those none of the tickets covers. null = all. */
+    val transitModesValue: String?
+        get() {
+            val own = ownTickets
+            if (own.isEmpty()) return filter.apiValue
+            val excluded = OwnTicket.excludedModes(own)
+            return ModeGroup.entries.filter { filter.allows(it) }.flatMap { it.apiModes }.filter { it !in excluded }.joinToString(",")
+        }
+    fun allows(it: Itinerary) = OwnTicket.covers(it, ownTickets)
     val filter: ModeFilter get() = ModeFilter(modes.mapNotNull { ModeGroup.fromRaw(it) }.toSet())
-    val isDefault get() = !filter.isActive && maxTransfers == null && maxWalkMinutes == DEFAULT_WALK && !wheelchair && !sharing && firstMile == FirstMile.WALK
+    val isDefault get() = !filter.isActive && maxTransfers == null && maxWalkMinutes == DEFAULT_WALK && !wheelchair && !sharing && firstMile == FirstMile.WALK && ownTickets.isEmpty()
     val preTransitModes: List<String> get() = listOfNotNull("WALK", firstMile.apiMode, if (sharing) "RENTAL" else null)
     val postTransitModes: List<String> get() = if (sharing) listOf("WALK", "RENTAL") else listOf("WALK")
     val comparisonModes: List<String> get() = if (compareStreetModes) listOf("BIKE", "CAR") else emptyList()
@@ -77,6 +89,7 @@ data class RouteOptions(
             if (wheelchair) parts += L10n.t("Step-free")
             if (firstMile != FirstMile.WALK) parts += firstMile.summary
             if (sharing) parts += L10n.t("With sharing")
+            ownTickets.takeIf { it.isNotEmpty() }?.let { parts += OwnTicket.summary(it) }
             return parts.joinToString(" · ").ifEmpty { null }
         }
 

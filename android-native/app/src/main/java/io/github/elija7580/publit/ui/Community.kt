@@ -27,7 +27,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -141,6 +143,8 @@ private fun icon(name: String): ImageVector = when (name) {
     "swap" -> Icons.Filled.SwapHoriz
     "community" -> Icons.Filled.Groups
     "heart" -> Icons.Filled.Favorite
+    "ticket" -> Icons.Filled.ConfirmationNumber
+    "map" -> Icons.Filled.Map
     else -> Icons.Filled.Lightbulb
 }
 
