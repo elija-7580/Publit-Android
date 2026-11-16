@@ -93,7 +93,7 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
                             KeyRow(icon, role.title, p.name, onClick = { onRoute(p) }, onLong = { menu = true })
                             DropdownMenu(menu, { menu = false }) {
                                 DropdownMenuItem({ Text(L10n.t("Change")) }, { menu = false; change() })
-                                DropdownMenuItem({ Text(L10n.t("Remove")) }, { menu = false; store.clear(role) })
+                                DropdownMenuItem({ Text(L10n.t("Remove"), color = LocalInk.current.danger) }, { menu = false; store.clear(role) })
                             }
                         }
                     }
@@ -193,7 +193,7 @@ private fun RemovableRow(onClick: () -> Unit, onRemove: () -> Unit, extra: List<
             verticalAlignment = Alignment.CenterVertically) { content() }
         DropdownMenu(menu, { menu = false }) {
             extra.forEach { (t, a) -> DropdownMenuItem({ Text(t) }, { menu = false; a() }) }
-            DropdownMenuItem({ Text(L10n.t("Remove")) }, { menu = false; onRemove() })
+            DropdownMenuItem({ Text(L10n.t("Remove"), color = LocalInk.current.danger) }, { menu = false; onRemove() })
         }
     }
 }

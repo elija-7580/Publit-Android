@@ -75,6 +75,9 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                      onOpenStation: (id: String, name: String, exact: Boolean) -> Unit) {
     val ink = LocalInk.current
     var region by remember { mutableStateOf<MapRegion?>(null) }
+    /** Local lines running in the area last loaded: many of them make a "next to no data" notice wrong (iOS #76). */
+    var localLines by remember { mutableStateOf(0) }
+    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
     var raw by remember { mutableStateOf(emptyList<MapStop>()) }
     var hidden by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -120,7 +123,7 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
         val r = region ?: return@LaunchedEffect
         lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
             while (true) {
-                if (r.latSpan > 0.06 || !(showLines || showVehicles)) { liveHidden = r.latSpan > 0.06; tracks = emptyList(); shapes = emptyList() }
+                if (r.latSpan > 0.06 || !(showLines || showVehicles)) { liveHidden = r.latSpan > 0.06; tracks = emptyList(); shapes = emptyList(); localLines = 0 }
                 else {
                     liveHidden = false
                     val dl = r.latSpan * 0.75; val dn = r.lonSpan * 0.75
@@ -132,6 +135,10 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                                 io.github.elija7580.publit.data.LiveMap.build(segs, filter, if (zoom >= 14) 5 else 4, io.github.elija7580.publit.data.LiveMap.tolerance(r.latSpan * 111_000))
                             }
                             tracks = snap.tracks; shapes = snap.shapes
+                            localLines = io.github.elija7580.publit.data.CoverageGuide.localLines(segs)
+                            val notice = io.github.elija7580.publit.data.CoverageGuide.notice(r.center)
+                            if (notice != null && io.github.elija7580.publit.data.CoverageGuide.isContradicted(notice, localLines))
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { io.github.elija7580.publit.data.CoverageAtlas.recheck(appContext) }
                         }
                 }
                 delay(30_000)
@@ -251,7 +258,7 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                 }
             } else {
                 ModeChips(ModeGroup.entries.filter { it != ModeGroup.OTHER }, filter.included, filter.isActive) { filter = filter.toggleOnly(it) }
-                io.github.elija7580.publit.data.CoverageGuide.notice(region?.center)?.let { n -> Box(Modifier.align(Alignment.CenterHorizontally)) { CoverageMapNote(n) } }
+                io.github.elija7580.publit.data.CoverageGuide.notice(region?.center)?.takeIf { n -> !io.github.elija7580.publit.data.CoverageGuide.isContradicted(n, localLines) }?.let { n -> Box(Modifier.align(Alignment.CenterHorizontally)) { CoverageMapNote(n) } }
                 category?.let { c ->
                     val moved = categoryRegion?.let { a -> region?.let { b -> a.center.distanceTo(b.center) > 300 || kotlin.math.abs(a.latSpan - b.latSpan) > a.latSpan * 0.3 } } == true
                     Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
