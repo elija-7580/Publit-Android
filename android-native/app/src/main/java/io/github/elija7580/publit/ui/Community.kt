@@ -35,6 +35,10 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.GpsFixed
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -145,6 +149,10 @@ private fun icon(name: String): ImageVector = when (name) {
     "heart" -> Icons.Filled.Favorite
     "ticket" -> Icons.Filled.ConfirmationNumber
     "map" -> Icons.Filled.Map
+    "bell" -> Icons.Filled.NotificationsActive
+    "scope" -> Icons.Filled.GpsFixed
+    "walk" -> Icons.AutoMirrored.Filled.DirectionsWalk
+    "car" -> Icons.Filled.DirectionsCar
     else -> Icons.Filled.Lightbulb
 }
 

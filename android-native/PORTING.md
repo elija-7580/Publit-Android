@@ -40,11 +40,31 @@ Two test APKs per release: arm64 (`Publit-native.apk`) and 32-bit ARM (`Publit-n
 - DONE: Coverage atlas (areas without timetable data) on the map, Plan, route details, Nearby and stops.
 - DONE: Home/Work shortcuts in the Plan form; Nearby "Where to now?", route-here; settings on every tab; launch animation.
 - DONE: Website screenshots (workflow "Website-Screenshots erstellen", `screenshots/README.md`): build type `screenshots` (demo data server on 10.0.2.2, no extra live sources, onboarding skipped), link `publit://map` opens the station map. Status: the workflow runs green on `native-android` (emulator Pixel 8 Pro screen, API 35, 4 views × DE/EN, framed + posters + WebP; also on `main` for "Run workflow"). The AVD lives in `~/.android/avd` (explicit `ANDROID_AVD_HOME`), checks use destination names, not the white-on-colour line badges that OCR cannot read.
-- OPEN (next, in order):
+- OPEN: siehe „Weiterhin offen“ oben (Stand 2026-11-16). Alte Liste:
   1. LiveTripView map-first port (StagePager/StageStrip, TripPanel, GuideMap, GuideStopRow, TransferCard) from `Sources/Views/LiveTripView.swift`.
   2. Load-time investigation (LiveOverlay budget per call, MapLibre init).
   3. Full iOS feature audit: GoNowView, LinesView/LineDetailView, SharedRouteView, ConnectionGuideView, RecentSearches, WalkThereRow, ArrivalUpdates, DataExport, Diagnostics, ServiceAlertsView, "Open in maps".
   4. Better satellite imagery: needs a decision and key from the owner (Google Maps SDK, MapTiler or Esri).
+
+## iOS Build 82–84 nachgezogen (2026-11-16, Android 0.9.0, IOS_COMMIT 9848d21)
+- [x] Von/Nach „Choose on map“ (#67): `ChooseOnMap.kt`, Adresse über MOTIS reverse-geocode (`MapPick`), PR #7
+- [x] Abfahrt „Track vehicle“ mit Positionsquelle (#68): `VehicleTracking.kt`, `VehiclePositionSource`, PR #8
+- [x] Live-Fahrt: kein zweiter Fahrzeugpunkt im Fahrzeug (7104c05): Port von `TripProgress.located` + `TripGuide.ridePosition` (Standort auf die Linie gelegt), PR #9
+- [x] Aussteige-Erinnerung nach Standort (#69): `GetOffWatch.kt`, `notify/GetOffAlerts.kt` (`GetOffService`, Vordergrund-Dienst Typ location, nur während einer gestarteten Fahrt mit noch kommender Fahrt), Einstellung „Started trips“, „Next stop … · n stops to go“ in der Live-Mitteilung, PR #10. Anders als iOS läuft der Standort ab Fahrtbeginn (Android darf ihn später nicht aus dem Hintergrund starten). Play Console: Begründung für FOREGROUND_SERVICE_LOCATION nötig (Owner).
+- [x] Fußweg-Navigation (#66): „Start walking navigation“, nächste Abbiegung über der Karte, Sprachknopf auf der Karte, „Follow my location“ (`PublitMap.onUserMove`), PR #11
+- [x] Wischaktionen im Dunkelmodus (#64): Android hat Langdruck-Menüs statt Wischaktionen; „Remove“ dort rot, PR #12
+- [x] Veralteter Abdeckungsatlas (#76): Atlas-Download von publit.eu wie `CoverageAtlasStore` (≤1×/20 h), Recheck ≤1×/h, Hinweis entfällt bei ≥8 Lokallinien, PR #12
+- [x] Park & Ride statt 2 h Fußweg ohne Halt in Gehweite (iOS PlanModel), Hinweistext über den Routen, PR #13
+- [x] UX-Feedback 2026-11-03 aus PR #3 (Fahrtansicht, Suchknopf, Zeitreihenfolge, ÖBB-Linien), PR #14; #3 geschlossen
+- [x] Strings: IOS_COMMIT 9848d21, Android-eigene Texte in `tools/strings-android.json` (15 Sprachen), keine englischen Platzhalter mehr; CI läuft auch für PRs (PR #6)
+- [x] What's new Release 3, versionName 0.9.0
+
+## Weiterhin offen (ehrlich)
+1. Live-Fahrt mit der Karte im Mittelpunkt wie iOS `LiveTripView`: Android hat die Karte mit Bottom-Sheet und Etappenkarten, aber nicht StagePager/StageStrip, TripPanel, GuideStopRow und die iOS-Kamera, die beim Gehen dem Standort folgt (Android zeigt den ganzen Fußweg, folgt nur mit „Turn the map with you“).
+2. Ladezeiten: nicht untersucht (LiveOverlay-Budget pro Aufruf, MapLibre-Start auf älteren Geräten wie dem Mate 20 Lite). Neu hinzugekommen: Atlas-Download beim Start (im Hintergrund-Thread, ≤1×/20 h).
+3. Vollständiger Abgleich mit iOS: nur per Textsuche gegen `docs/FUNKTIONEN.md` (Stand #44) und die Build-Commits; kein Schirm-für-Schirm-Vergleich. Bekannt fehlend: Hinweis auf lange Fußwege über den Routen (`Reach.longWalkNote`), Fußweg-Umweg über Karten-App, „Choose on map“ auch im Von-Feld von Go Now (Android-Go-Now hat kein Von-Feld).
+4. Nichts davon wurde auf einem echten Gerät getestet (nur Unit-Tests und CI-Build).
+5. Besseres Satellitenbild (Entscheidung und Schlüssel vom Owner), Play-Upload-Key als CI-Secret, danach `Sources/` entfernen.
 
 ## iOS Build 82 (2026-11-16) – Meine Tickets
 - [x] Routenoptionen → „My tickets“ (`OwnTicketsScreen`, `data/OwnTickets.kt`, Port von `OwnTicket.swift`): Deutschlandticket, BahnCard 100, KlimaTicket Ö, VOR MetropolRegion/Region, Jahreskarte Wien, KlimaTickets OÖ/Salzburg/Tirol/Steiermark/Kärnten/VMOBIL, GA; Mehrfachauswahl, gespeicherte Pässe am Titel erkannt.
@@ -87,4 +107,4 @@ Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktione
 - [x] Live-Fahrt: "Back to now" als Knopf über dem Panel
 - [x] Nearby: Karte als Bildschirm, ganze Liste als Sheet darüber (startet halb, oben bleibt ein Kartenstreifen), „Where to now?“ als fester Kopf; Einstellungen, Standort und Stationskarte (mit Suche) als Knöpfe oben; abschaltbar unter Einstellungen → Nearby → Map, wie iOS PR #61 (`NearbyMap.kt`; Hinweistext bis zum nächsten IOS_COMMIT englisch)
 - [x] Live-Fahrt: Ausgangsnummer beim Aufgang aus der U-Bahn ("Take exit B2", OpenStreetMap über Overpass, `StationExits`), wie iOS #8 (iOS-Strings kommen mit dem nächsten IOS_COMMIT-Update, bis dahin englisch)
-- [x] Park & Ride wie iOS (`ParkAndRide.kt`, iOS Build 66 + PR #77): erst max. 15 min Fahrt, ist der nächste Bahnhof weiter als 5 min, zweite Suche bis nächster Bahnhof + 10 min (max. 25), damit ein zweiter Bahnhof an anderer Linie mitkonkurriert; „fast ganz hingefahren“ und weiter entfernte Bahnhöfe fallen raus, auch beim Nachladen. Offen: der iOS-Fallback „kein Halt in Gehweite → Park & Ride vor 2 h Fußweg“ mit Hinweistext
+- [x] Park & Ride wie iOS (`ParkAndRide.kt`, iOS Build 66 + PR #77): erst max. 15 min Fahrt, ist der nächste Bahnhof weiter als 5 min, zweite Suche bis nächster Bahnhof + 10 min (max. 25), damit ein zweiter Bahnhof an anderer Linie mitkonkurriert; „fast ganz hingefahren“ und weiter entfernte Bahnhöfe fallen raus, auch beim Nachladen. Der iOS-Fallback „kein Halt in Gehweite → Park & Ride vor 2 h Fußweg“ mit Hinweistext ist seit PR #13 drin
