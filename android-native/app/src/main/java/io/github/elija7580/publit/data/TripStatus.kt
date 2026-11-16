@@ -80,6 +80,16 @@ data class TripStatus(val phase: Phase, val nextEvent: Instant, val headline: St
                 L10n.f("Arrive %@", Fmt.time(it.endTime, last?.to?.tz)), 0)
         }
 
+        /**
+         * The trip begins on foot and soon (within the hour, or already under way): the start button says
+         * "Start walking navigation" and opens the guide on that walk, turn by turn (iOS #66).
+         */
+        fun startsOnFoot(it: Itinerary, now: Instant): Boolean {
+            val first = it.legs.firstOrNull() ?: return false
+            if (first.mode != "WALK" || !(it.legs.any { l -> l.isTransit } || it.legs.size == 1)) return false
+            return first.startTime.epochSecond - now.epochSecond <= 3600 && first.endTime > now
+        }
+
         /** Why a route cannot be started, or null when it can. */
         fun startBlocked(it: Itinerary, now: Instant): String? {
             if (it.endTime < now) return L10n.t("This connection is already over. Plan again for a new one.")

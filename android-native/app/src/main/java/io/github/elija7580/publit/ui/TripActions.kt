@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -82,7 +83,11 @@ fun TripActions(store: TripStore, it: Itinerary, fromName: String, toName: Strin
                 Button(onClick = { withNotifications { val t = ensureSaved(); TripSession.start(ctx, store, t); onStarted(t) } },
                     Modifier.fillMaxWidth().height(50.dp), enabled = blocked == null,
                     colors = ButtonDefaults.buttonColors(containerColor = ink.ink, contentColor = ink.onInk)) {
-                    Text(L10n.t("Start trip"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    // Starting on foot: the button says so and opens the walk turn by turn (iOS #66).
+                    if (TripStatus.startsOnFoot(it, Instant.now())) {
+                        Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null); Spacer(Modifier.width(8.dp))
+                        Text(L10n.t("Start walking navigation"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    } else Text(L10n.t("Start trip"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 }
                 blocked?.let { b -> Text(b, color = ink.muted, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
             }

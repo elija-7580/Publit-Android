@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.List
@@ -118,6 +119,14 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
     fun show(i: Int?) { if (i == null) overview = true else { overview = false; picked = if (i == live) null else i } }
 
     var turnMap by remember { mutableStateOf(prefs.getBoolean("guideTurnMap", false)) }
+    // On a walk you are on: the next turn over the map, and "Follow my location" after moving the map (iOS #66).
+    val liveWalk = index == live && !overview && step.kind == GuideStep.Kind.WALK
+    val walkRoute = remember(leg, liveWalk) { if (liveWalk) WalkRoute(leg) else null }
+    val walkPos = walkRoute?.livePosition(here, true)
+    val nextTurn = walkPos?.let { p -> walkRoute.maneuvers.getOrNull(p.index + 1)?.let { m -> m to p.toNext } }
+    var movedByHand by remember { mutableStateOf(false) }
+    var recenter by remember { mutableStateOf(0) }
+    LaunchedEffect(index, overview) { movedByHand = false }
     val heading by io.github.elija7580.publit.location.rememberHeading()
     val sheet = rememberBottomSheetScaffoldState()
     var menu by remember { mutableStateOf(false) }
@@ -184,7 +193,21 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
     ) { inner ->
         Box(Modifier.fillMaxSize()) {
             GuideMap(it, steps, live, shown, vehicle, if (index == live) here else null, mapBase,
-                follow = if (turnMap && index == live && here != null && heading != null && step.kind == GuideStep.Kind.WALK) here to heading!! else null, modifier = Modifier.fillMaxSize().padding(bottom = inner.calculateBottomPadding()))
+                follow = if (turnMap && index == live && here != null && heading != null && step.kind == GuideStep.Kind.WALK) here to heading!! else null, modifier = Modifier.fillMaxSize().padding(bottom = inner.calculateBottomPadding()),
+                recenter = recenter, onUserMove = { movedByHand = true })
+            Column(Modifier.statusBarsPadding().padding(top = 60.dp, start = 8.dp, end = 8.dp).fillMaxWidth()) {
+                nextTurn?.let { (m, meters) -> TurnCard(maneuverIcon(m.kind), meters, m.instruction(walkTarget(it, step.legIndex, trip.toName))) }
+                Column(Modifier.align(Alignment.End).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Spoken directions, the same switch as in the menu.
+                    RoundKey(if (voice) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                        L10n.t(if (voice) "Turn off spoken directions" else "Turn on spoken directions")) {
+                        voice = !voice; prefs.edit().putBoolean("guideVoice", voice).apply()
+                        if (!voice) io.github.elija7580.publit.notify.GuideVoice.stop() else cue?.let { c -> io.github.elija7580.publit.notify.GuideVoice.say(ctx, c.text) }
+                    }
+                    if (liveWalk && !turnMap && movedByHand && here != null)
+                        RoundKey(Icons.Filled.NearMe, L10n.t("Follow my location")) { recenter++; movedByHand = false }
+                }
+            }
             // Looking at another stage or the whole trip: one tap back to where you are (as on iOS).
             if (picked != null || overview) Surface(onClick = { picked = null; overview = false }, shape = RoundedCornerShape(50), color = ink.ink, contentColor = ink.onInk,
                 shadowElevation = 6.dp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = inner.calculateBottomPadding() + 14.dp)) {
@@ -227,6 +250,22 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
                             onClick = { menu = false; TripSession.stop(ctx, store, trip) })
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+/** The next turn over the walking map: arrow, metres to go and the instruction (TurnCard on iOS). */
+@Composable
+private fun TurnCard(icon: androidx.compose.ui.graphics.vector.ImageVector, meters: Double?, text: String) {
+    val ink = LocalInk.current
+    Surface(shape = RoundedCornerShape(14.dp), color = ink.surface, shadowElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, Modifier.size(32.dp)); Spacer(Modifier.width(10.dp))
+            Column {
+                meters?.let { m -> Text(Fmt.distance(m), fontWeight = FontWeight.Bold, fontSize = 17.sp) }
+                Text(text, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -629,7 +668,8 @@ private fun ArriveStage(it: Itinerary, destination: String, now: Instant, here: 
  * or your position as the yellow dot. Frames the stage shown, or the whole trip.
  */
 @Composable
-private fun GuideMap(it: Itinerary, steps: List<GuideStep>, live: Int, shown: Int?, vehicle: LatLon?, here: LatLon?, base: String, follow: Pair<LatLon, Double>? = null, modifier: Modifier) {
+private fun GuideMap(it: Itinerary, steps: List<GuideStep>, live: Int, shown: Int?, vehicle: LatLon?, here: LatLon?, base: String, follow: Pair<LatLon, Double>? = null, modifier: Modifier,
+                     recenter: Int = 0, onUserMove: (() -> Unit)? = null) {
     val ink = LocalInk.current
     val ahead = if (ink.dark) Color(0xFF409CFF) else Color(0xFF0A7CFF)
     val done = if (ink.dark) Color(0xFF5A6B80) else Color(0xFFB7CDE6)
@@ -647,8 +687,10 @@ private fun GuideMap(it: Itinerary, steps: List<GuideStep>, live: Int, shown: In
         vehicle?.let { p -> dots += MapContent.Dot(p, Color(0xFFFFC21A), ink.ink, 18f, 3f) }
         MapContent(lines, dots)
     }
-    val camera = remember(it.routeKey, shown, follow) {
+    val camera = remember(it.routeKey, shown, follow, recenter) {
         if (follow != null) MapCamera.Follow(follow.first, follow.second)
+        // "Follow my location" after moving the map by hand on a walk: back to where you are.
+        else if (recenter > 0 && here != null) MapCamera.Around(here, 300.0)
         else if (shown == null) MapCamera.Fit(it.legs.flatMap { l -> l.mapPath + listOf(l.from.coordinate, l.to.coordinate) })
         else {
             val step = steps[shown]; val l = it.legs[step.legIndex]
@@ -656,5 +698,5 @@ private fun GuideMap(it: Itinerary, steps: List<GuideStep>, live: Int, shown: In
             else MapCamera.Fit(l.mapPath + listOf(l.from.coordinate, l.to.coordinate))
         }
     }
-    PublitMap(content, camera, modifier, L10n.t("Trip overview"), base = base)
+    PublitMap(content, camera, modifier, L10n.t("Trip overview"), base = base, onUserMove = onUserMove)
 }
