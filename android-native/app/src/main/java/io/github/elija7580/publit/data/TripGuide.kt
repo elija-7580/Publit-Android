@@ -62,6 +62,22 @@ object TripGuide {
         return location != null && now >= lastRideEnd && location.distanceTo(last.to.coordinate) < 80
     }
 
+    /** Where you are on a ride, and whether that comes from your own position (on board) or the clock. */
+    data class RidePosition(val progress: TripProgress, val fromGps: Boolean)
+
+    /**
+     * Your place on a ride (TripGuide.ridePosition on iOS): from your fix when it lies on the line during the
+     * ride and is no more than three stops off the timetable estimate, else by the clock.
+     */
+    fun ridePosition(leg: Leg, now: Instant, location: LatLon?): RidePosition {
+        val stops = leg.allStops
+        val byTime = TripProgress.at(now, stops)
+        if (location == null || now < leg.startTime.minusSeconds(60) || now > leg.endTime.plusSeconds(600)) return RidePosition(byTime, false)
+        val gps = TripProgress.located(location, stops, leg.legGeometry?.mapPoints.orEmpty()) ?: return RidePosition(byTime, false)
+        if (kotlin.math.abs(gps.stopValue(stops.size) - byTime.stopValue(stops.size)) > 3) return RidePosition(byTime, false)
+        return RidePosition(gps, true)
+    }
+
     /** Stops still to come before (and including) the one to get off at. */
     fun stopsLeft(p: TripProgress, count: Int): Int = when (p) {
         TripProgress.NotStarted -> maxOf(count - 1, 0)

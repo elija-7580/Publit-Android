@@ -51,6 +51,28 @@ sealed class TripProgress {
             else -> null
         }
 
+        /**
+         * Where you are along the ride from your own position (TripProgress.located on iOS): your fix laid onto
+         * the line, stops in their order. Null when the fix is more than `maxOffset` metres away from the line.
+         */
+        fun located(p: LatLon, stops: List<Place>, path: List<LatLon>, maxOffset: Double = 200.0): TripProgress? {
+            if (stops.size < 2) return null
+            val line = if (path.size >= 2) path else stops.map { it.coordinate }
+            val me = PathGeometry.locate(p, line)?.takeIf { it.offset <= maxOffset } ?: return null
+            val marks = ArrayList<Double>(stops.size)
+            var last = 0.0
+            for (s in stops) { last = maxOf(last, PathGeometry.locate(s.coordinate, line)?.along ?: last); marks += last }
+            // At a stop when within a platform's length of it.
+            val nearest = marks.indices.minByOrNull { kotlin.math.abs(marks[it] - me.along) } ?: 0
+            if (kotlin.math.abs(marks[nearest] - me.along) < 60) return AtStop(nearest)
+            if (me.along <= marks[0]) return AtStop(0)
+            for (i in 0 until marks.size - 1) if (me.along < marks[i + 1]) {
+                val span = marks[i + 1] - marks[i]
+                return Between(i, if (span > 0) (me.along - marks[i]) / span else 0.0)
+            }
+            return AtStop(stops.size - 1)
+        }
+
         /** Index of the next stop the vehicle has not left yet. */
         fun nextStopIndex(p: TripProgress, count: Int): Int? = when (p) {
             NotStarted -> 0

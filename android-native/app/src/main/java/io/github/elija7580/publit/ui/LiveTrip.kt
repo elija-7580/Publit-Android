@@ -81,7 +81,9 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
     val index = picked ?: live
     val step = steps[index]
     val leg = it.legs[step.legIndex]
-    val ride = if (step.kind == GuideStep.Kind.RIDE || step.kind == GuideStep.Kind.WAIT) TripProgress.at(now, leg.allStops) else null
+    // On board your own fix (laid onto the line) says where you are; else the clock does.
+    val rideFix = if (step.kind == GuideStep.Kind.RIDE || step.kind == GuideStep.Kind.WAIT) TripGuide.ridePosition(leg, now, here) else null
+    val ride = rideFix?.progress
     val check = if (index == live) TripGuide.check(step, it, now, here, fix?.accuracy?.toDouble() ?: 50.0) else TripGuide.Check.FINE
     val risk = if (index == live && SmartRouting.isEnabled) SmartRouting.changeAtRisk(it, now) else null
     val cancelled = it.isCancelled && it.endTime > now
@@ -109,7 +111,9 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
     val finished = steps[live].kind == GuideStep.Kind.ARRIVE && TripGuide.isFinished(it, now, here)
     LaunchedEffect(finished) { if (finished) TripSession.stop(ctx, store, trip) }
 
-    val vehicle = if (step.kind == GuideStep.Kind.RIDE && ride != null) TripProgress.position(ride, leg.allStops) else null
+    // On board (your fix lies on the line) your own dot is the vehicle: a second, estimated marker
+    // beside it (straight between stops, or from the timetable) only looks like another bus (iOS 7104c05).
+    val vehicle = if (step.kind == GuideStep.Kind.RIDE && rideFix != null && !rideFix.fromGps) TripProgress.position(rideFix.progress, leg.allStops) else null
     val shown: Int? = if (overview) null else index
     fun show(i: Int?) { if (i == null) overview = true else { overview = false; picked = if (i == live) null else i } }
 
