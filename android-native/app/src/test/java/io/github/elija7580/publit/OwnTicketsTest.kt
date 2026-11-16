@@ -68,7 +68,7 @@ class OwnTicketsTest {
         val o = RouteOptions(tickets = listOf("deutschlandticket"))
         val modes = o.transitModesValue!!.split(",").toSet()
         assertTrue(modes.containsAll(listOf("REGIONAL_RAIL", "BUS", "SUBWAY")))
-        assertTrue(modes.none { it in setOf("HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL", "COACH", "AIRPLANE") })
+        assertTrue(modes.none { it in setOf("RAIL", "HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL", "COACH", "AIRPLANE") })
         assertTrue(RouteOptions(tickets = listOf("deutschlandticket", "klimaticket")).transitModesValue!!.contains("HIGHSPEED_RAIL"))
         assertNull(RouteOptions().transitModesValue)
         assertFalse(o.isDefault)

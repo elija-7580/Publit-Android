@@ -67,7 +67,8 @@ data class RouteOptions(
         get() {
             val own = ownTickets
             if (own.isEmpty()) return filter.apiValue
-            val excluded = OwnTicket.excludedModes(own)
+            // "RAIL" stands for every train in MOTIS (ICE included); the train classes are listed one by one.
+            val excluded = OwnTicket.excludedModes(own) + "RAIL"
             return ModeGroup.entries.filter { filter.allows(it) }.flatMap { it.apiModes }.filter { it !in excluded }.joinToString(",")
         }
     fun allows(it: Itinerary) = OwnTicket.covers(it, ownTickets)
