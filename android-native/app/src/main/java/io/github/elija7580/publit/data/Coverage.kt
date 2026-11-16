@@ -84,10 +84,61 @@ object CoverageAtlas {
     @Volatile var areas: List<CoverageArea> = emptyList(); private set
     var date = ""; private set
 
+    /** The copy built into the app, or the newer one downloaded from publit.eu (CoverageAtlasStore on iOS). */
     fun load(ctx: Context) {
-        val lines = runCatching { ctx.assets.open("coverage.txt").bufferedReader().readLines() }.getOrDefault(emptyList())
-        date = lines.firstOrNull().orEmpty()
-        areas = lines.drop(1).mapNotNull(::parse)
+        val bundled = runCatching { ctx.assets.open("coverage.txt").bufferedReader().readText() }.getOrDefault("")
+        val cached = runCatching { java.io.File(ctx.filesDir, CACHE).readText() }.getOrNull()
+        val pick = listOfNotNull(accept(bundled, 1), cached?.let { accept(it) }).maxByOrNull { it.first }
+        pick?.let { (d, a) -> date = d; areas = a }
+    }
+
+    /** publit.eu rebuilds this every week from all Transitous sources; nothing about the user is sent. */
+    const val REMOTE = "https://publit.eu/abdeckung/data/atlas.txt"
+    private const val CACHE = "coverage-atlas.txt"
+    /** "Next to no data" is contradicted by this many local lines running on the map (iOS #76). */
+    const val CONTRADICTING_LINES = 8
+
+    /** Date and areas, when the text looks whole: a date line and enough areas (a download may be cut off). */
+    fun accept(text: String, minAreas: Int = 20): Pair<String, List<CoverageArea>>? {
+        val lines = text.lines()
+        val d = lines.firstOrNull()?.removePrefix("D|")?.substringBefore('|')?.trim().orEmpty()
+        if (d.isEmpty()) return null
+        val a = lines.drop(1).mapNotNull(::parse)
+        return if (a.size >= minAreas) d to a else null
+    }
+
+    /** Takes a newer atlas (or the same date, rebuilt); older ones are ignored. */
+    fun install(ctx: Context, text: String): Boolean {
+        val (d, a) = accept(text) ?: return false
+        if (d < date) return false
+        date = d; areas = a
+        runCatching { java.io.File(ctx.filesDir, CACHE).writeText(text) }
+        return true
+    }
+
+    @Volatile private var lastRecheck = 0L
+
+    /** True at most once an hour: for an atlas the map has just contradicted. */
+    @Synchronized fun claimRecheck(nowMs: Long): Boolean {
+        if (lastRecheck != 0L && nowMs - lastRecheck <= 3_600_000) return false
+        lastRecheck = nowMs; return true
+    }
+
+    /** At most one small download in 20 hours (also across launches); failures are silent. Off the main thread. */
+    fun refreshIfNeeded(ctx: Context, nowMs: Long = System.currentTimeMillis()) {
+        val p = ctx.getSharedPreferences("publit", Context.MODE_PRIVATE)
+        if (nowMs - p.getLong("coverageAtlasChecked", 0) < 20 * 3_600_000L) return
+        p.edit().putLong("coverageAtlasChecked", nowMs).apply()
+        download(ctx)
+    }
+
+    /** Many lines running where the atlas says there is next to no data: fetch it now, at most once an hour. */
+    fun recheck(ctx: Context, nowMs: Long = System.currentTimeMillis()) { if (claimRecheck(nowMs)) download(ctx) }
+
+    private fun download(ctx: Context) = runCatching {
+        val c = java.net.URL(REMOTE).openConnection() as java.net.HttpURLConnection
+        c.connectTimeout = 15_000; c.readTimeout = 20_000; c.setRequestProperty("Accept", "text/plain")
+        try { if (c.responseCode == 200) install(ctx, c.inputStream.bufferedReader().readText()) } finally { c.disconnect() }
     }
 
     /** One area per line: A|id|level|gaps|name en|name de|link|shape. */
@@ -139,6 +190,18 @@ data class CoverageNotice(val area: CoverageArea, val roles: Set<Role>) {
 }
 
 object CoverageGuide {
+    /** True when the map contradicts the notice: a "no data" or "very little data" area with many local lines running.
+     *  Partial notices ("Missing: metro") are kept, lines or not (iOS #76). */
+    fun isContradicted(notice: CoverageNotice, localLines: Int): Boolean =
+        notice.area.level >= CoverageLevel.SPARSE && localLines >= CoverageAtlas.CONTRADICTING_LINES
+
+    /** Distinct local lines among the map's running trips (trains do not count: a sparse area has stations only). */
+    fun localLines(segments: List<TripSegment>): Int = segments.mapNotNull { s ->
+        val m = s.mode.uppercase()
+        if (m.contains("RAIL") || m.contains("LONG_DISTANCE") || m.contains("SUBURBAN") || m.contains("COACH")) null
+        else s.trips.firstOrNull()?.let { t -> t.routeShortName ?: t.displayName }
+    }.toSet().size
+
     /** Warnings for the places of a search, worst first, each area once. */
     fun notices(places: List<Pair<LatLon?, CoverageNotice.Role>>): List<CoverageNotice> {
         val by = LinkedHashMap<String, Pair<CoverageArea, MutableSet<CoverageNotice.Role>>>()
