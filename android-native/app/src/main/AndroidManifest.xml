@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Get-off alert by location during a started trip (Settings → Started trips), only while a ride is ahead. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <!-- Walking pace from your steps (Health Connect, only when chosen) -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_DISTANCE" />
@@ -58,6 +61,7 @@
             </intent-filter>
         </activity>
         <receiver android:name=".notify.ReminderReceiver" android:exported="false" />
+        <service android:name=".notify.GetOffService" android:exported="false" android:foregroundServiceType="location" />
         <receiver android:name=".notify.LineAlertReceiver" android:exported="false" />
         <receiver android:name=".notify.BootReceiver" android:exported="false">
             <intent-filter>
