@@ -60,6 +60,7 @@ import io.github.elija7580.publit.data.StopGrouping
 import io.github.elija7580.publit.data.StopTime
 import io.github.elija7580.publit.data.TransitousClient
 import io.github.elija7580.publit.data.TripProgress
+import androidx.compose.material.icons.filled.GpsFixed
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import java.time.Instant
@@ -73,7 +74,7 @@ data class TripTarget(val stopTime: StopTime, val stationName: String, val stati
  */
 @Composable
 fun TripScreen(client: TransitousClient, favorites: io.github.elija7580.publit.data.FavoritesStore, target: TripTarget, onBack: () -> Unit,
-               onRoute: (from: Place?, to: Place?) -> Unit) {
+               onTrack: (() -> Unit)? = null, onRoute: (from: Place?, to: Place?) -> Unit) {
     val ink = LocalInk.current
     val stopTime = target.stopTime
     var trip by remember { mutableStateOf<Itinerary?>(null) }
@@ -157,6 +158,14 @@ fun TripScreen(client: TransitousClient, favorites: io.github.elija7580.publit.d
                             }
                             Text(L10n.t(if (leg.realTime) "Position estimated from live stop times."
                                 else "No live data for this trip. Position estimated from the timetable."), fontSize = 12.sp, color = ink.muted)
+                        }
+                        if (onTrack != null) {
+                            HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                            Row(Modifier.fillMaxWidth().clickable(onClick = onTrack).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.GpsFixed, null, Modifier.size(20.dp))
+                                Spacer(Modifier.size(10.dp))
+                                Text(L10n.t("Track vehicle"), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                            }
                         }
                     }
                 }

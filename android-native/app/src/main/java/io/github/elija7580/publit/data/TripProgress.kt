@@ -60,3 +60,29 @@ sealed class TripProgress {
         }
     }
 }
+
+/**
+ * Where a vehicle's position on the map comes from, said next to it (VehiclePositionSource on iOS).
+ * Publit has no GPS positions from vehicles: Transitous does not pass them on, so there is no "GPS" label.
+ */
+enum class VehiclePositionSource(val label: String) {
+    /** Placed between stops by the live (real-time) stop times. */
+    LIVE_TIMES("Position estimated from live stop times."),
+    /** Placed by the timetable: the operator sends no live data for this trip. */
+    TIMETABLE("No live data for this trip. Position estimated from the timetable."),
+    /** Not under way (not left the first stop yet, or arrived): no position to show. */
+    UNAVAILABLE("Vehicle position unavailable right now.");
+
+    companion object {
+        fun of(progress: TripProgress, realTime: Boolean): VehiclePositionSource = when (progress) {
+            TripProgress.NotStarted, TripProgress.Finished -> UNAVAILABLE
+            else -> if (realTime) LIVE_TIMES else TIMETABLE
+        }
+
+        /** The stops the vehicle has not left yet ("Next stops" under "Track vehicle"). */
+        fun upcoming(progress: TripProgress, stops: List<Place>): List<Place> {
+            val first = TripProgress.nextStopIndex(progress, stops.size) ?: return emptyList()
+            return if (first in stops.indices) stops.subList(first, stops.size) else emptyList()
+        }
+    }
+}
