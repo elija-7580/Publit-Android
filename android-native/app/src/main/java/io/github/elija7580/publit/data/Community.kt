@@ -134,6 +134,13 @@ object WhatsNew {
 
     /** Newest first. `release` counts Android releases with a note; raise it for each new entry. */
     val entries = listOf(
+        // 0.9.0: iOS Build 82–84 caught up (same texts as iOS 83/84, already translated).
+        Entry(3, listOf(
+            Item("bell", "Get off on time", "On a started trip Publit follows your ride and alerts you one stop before yours."),
+            Item("scope", "Track your vehicle", "Follow a departure on the map and see where its position comes from."),
+            Item("walk", "Easier on foot", "Start walking navigation in one tap, or pick From and To right on the map."),
+            Item("car", "Park & Ride: more stations", "Stations a few minutes further away, for example on another line, now compete too."),
+        )),
         Entry(2, listOf(
             Item("ticket", "Routes for your ticket", "Choose Deutschlandticket, KlimaTicket, GA and more in Route options; routes stay within what they cover."),
             Item("map", "Regional KlimaTickets", "VOR, Vienna and each state's ticket only use rides in their region."),
