@@ -6,6 +6,9 @@ Keys stay the English source text, exactly as in Swift (L10n.t("Nearby"), L10n.f
 so ported code keeps its strings. Values use Java format placeholders (%s, %d, %1$s).
 Plural variations become {"one": ..., "other": ...}.
 
+Strings only Android uses live in tools/strings-android.json ({key: {lang: value}}, iOS placeholders);
+keys that also exist in the iOS catalog take the iOS translation.
+
 Usage: tools/strings.py <Localizable.xcstrings> <assets/strings dir>
 """
 import json, os, re, sys
@@ -35,6 +38,13 @@ def main(src, out):
             if lang == 'en' and v == java_format(key):
                 continue
             per_lang.setdefault(lang, {})[key] = v
+    extra = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'strings-android.json')
+    if os.path.exists(extra):
+        for key, langs in json.load(open(extra, encoding='utf-8')).items():
+            if key.startswith('_') or key in catalog['strings']:
+                continue
+            for lang, v in langs.items():
+                per_lang.setdefault(lang, {})[key] = java_format(v)
     os.makedirs(out, exist_ok=True)
     for lang, table in per_lang.items():
         with open(os.path.join(out, lang + '.json'), 'w', encoding='utf-8') as f:

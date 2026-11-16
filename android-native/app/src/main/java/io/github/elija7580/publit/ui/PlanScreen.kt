@@ -892,7 +892,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.routeResults(state: P
                                 Text(Fmt.duration(c.duration) + (c.distance?.let { " · " + Fmt.distance(it) } ?: ""), color = ink.muted)
                                 best?.let { b ->
                                     val diff = (c.duration - b) / 60
-                                    Text(when { kotlin.math.abs(diff) <= 2 -> L10n.t("About as fast"); diff < 0 -> L10n.f("%lld min faster", -diff); else -> L10n.f("%lld min slower", diff) },
+                                    Text(when { kotlin.math.abs(diff) <= 2 -> L10n.t("About as fast"); diff < 0 -> L10n.f("%@ faster", io.github.elija7580.publit.core.Fmt.duration(-diff * 60)); else -> L10n.f("%@ slower", io.github.elija7580.publit.core.Fmt.duration(diff * 60)) },
                                         fontSize = 12.sp, color = if (diff < -2) ink.live else ink.muted)
                                 }
                             }
