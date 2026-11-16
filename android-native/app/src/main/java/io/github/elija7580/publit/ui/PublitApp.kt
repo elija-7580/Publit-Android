@@ -194,7 +194,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                 composable("trip") {
                     val t = tripTarget
                     if (t == null) LaunchedEffect(Unit) { nav.popBackStack() } else
-                    TripScreen(client, favorites, t, onBack = { nav.popBackStack() }) { from, to ->
+                    TripScreen(client, favorites, t, onBack = { nav.popBackStack() }, onTrack = { nav.navigate("trackvehicle") }) { from, to ->
                         fun ep(p: io.github.elija7580.publit.data.Place) = Endpoint.At(p.name, p.coordinate)
                         plan.route(from?.let(::ep) ?: Endpoint.Here, to?.let(::ep))
                         openPlan()
@@ -233,6 +233,10 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                             if (isNew) nav.navigate("pass?id=${saved.id}")
                         }
                     }
+                }
+                composable("trackvehicle") {
+                    val t = tripTarget
+                    if (t == null) LaunchedEffect(Unit) { nav.popBackStack() } else VehicleTrackingScreen(client, t) { nav.popBackStack() }
                 }
                 composable("pasttrips") {
                     PastTripsScreen(trips, onBack = { nav.popBackStack() }) { id -> nav.navigate("savedtrip?id=$id") }
