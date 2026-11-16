@@ -216,15 +216,23 @@ private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.dat
                 Text(if (it.isDirect) L10n.t("Walk all the way") else if (mins <= 0) L10n.t("Leave now") else L10n.f("Leave in %lld min", mins),
                     fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (!it.isDirect && mins <= 2) ink.delay else ink.muted)
             }
-            day?.let { d -> Text(d, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = ink.ink) }
-            // Chips never wrap or hyphenate ("Recommend-ed"); the reason moves below when it does not fit beside them.
-            if (badges.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                badges.forEach { b ->
-                    val main = b == io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED
-                    Text(b.title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (main) ink.onInk else ink.ink, maxLines = 1, softWrap = false,
-                        modifier = Modifier.background(if (main) ink.ink else ink.fill, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 3.dp))
+            // One quiet line above the route in one style (iOS RouteTagLine): the day, then
+            // "✦ Recommended – reason" in ink and the other labels in grey, instead of coloured chips.
+            if (day != null || badges.isNotEmpty()) {
+                val rec = io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED
+                val parts = ArrayList<androidx.compose.ui.text.AnnotatedString>()
+                day?.let { d -> parts += androidx.compose.ui.text.buildAnnotatedString {
+                    pushStyle(androidx.compose.ui.text.SpanStyle(color = ink.delay)); append(d); pop() } }
+                if (rec in badges) parts += androidx.compose.ui.text.buildAnnotatedString {
+                    pushStyle(androidx.compose.ui.text.SpanStyle(color = ink.ink)); append("✦ " + rec.title); pop()
+                    reason?.let { r -> pushStyle(androidx.compose.ui.text.SpanStyle(color = ink.muted, fontWeight = FontWeight.Medium)); append(" – $r"); pop() }
                 }
-                reason?.let { r -> Text(r, fontSize = 12.sp, color = ink.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.CenterVertically)) }
+                val others = badges.filter { b -> b != rec }.map { b -> b.title }
+                if (others.isNotEmpty()) parts += androidx.compose.ui.text.buildAnnotatedString {
+                    pushStyle(androidx.compose.ui.text.SpanStyle(color = ink.muted)); append(others.joinToString(" · ")); pop() }
+                Text(androidx.compose.ui.text.buildAnnotatedString {
+                    parts.forEachIndexed { i, p -> if (i > 0) { pushStyle(androidx.compose.ui.text.SpanStyle(color = ink.muted)); append("  ·  "); pop() }; append(p) }
+                }, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(Fmt.time(it.startTime, tz) + " – " + Fmt.time(it.endTime, it.legs.lastOrNull()?.to?.tz),
@@ -232,17 +240,18 @@ private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.dat
                     color = if (it.isCancelled) ink.danger else ink.ink)
                 Text(Fmt.duration(it.duration), fontWeight = FontWeight.SemiBold)
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // The bar already names the lines; the badges only where there is no bar.
+            if (axis != null) TimelineBar(it, axis.first, axis.second)
+            else FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 it.transitLegs.forEach { leg -> LegBadge(leg) }
             }
-            axis?.let { a -> TimelineBar(it, a.first, a.second) }
             val first = it.transitLegs.firstOrNull()
             Text(listOfNotNull(
                 if (it.transfers == 0) L10n.t("Direct") else if (it.transfers == 1) L10n.t("1 change") else L10n.f("%lld changes", it.transfers),
                 first?.let { f -> L10n.f("%@ from %@", f.lineName, f.from.name) },
                 if (it.isCancelled) L10n.t("Connection cancelled") else null,
                 io.github.elija7580.publit.data.Fares.estimate(it)?.formattedAmount,
-            ).joinToString(" · "), color = if (it.isCancelled) ink.danger else ink.muted, fontSize = 13.sp, maxLines = 2)
+            ).joinToString(" · "), color = if (it.isCancelled) ink.danger else ink.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
