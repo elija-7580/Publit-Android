@@ -4,7 +4,11 @@ name: Android native
 on:
   push:
     branches: [native-android]
-    paths: ['android-native/**', '.github/workflows/android-native.yml']
+    paths: ['android-native/**', 'upstream/**', '.github/workflows/android-native.yml']
+  # Every PR against native-android is built and tested before it is merged (no release upload).
+  pull_request:
+    branches: [native-android]
+    paths: ['android-native/**', 'upstream/**', '.github/workflows/android-native.yml']
   workflow_dispatch:
 
 permissions:
@@ -40,6 +44,7 @@ jobs:
         if: failure()
         with: { name: errors, path: errors.txt }
       - name: Publish
+        if: github.event_name != 'pull_request'
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
           OUT=android-native/app/build/outputs/apk/release
