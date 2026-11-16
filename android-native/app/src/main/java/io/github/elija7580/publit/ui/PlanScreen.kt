@@ -47,6 +47,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -102,7 +103,7 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.gi
     val pinned = io.github.elija7580.publit.data.PlaceRole.entries.mapNotNull { r -> saved.firstOrNull { it.role == r } }
     when {
         options -> { BackHandler { options = false }; RouteOptionsScreen(state.options, onDone = { vm.setOptions(it); options = false }) }
-        searching != null -> PlaceSearch(vm, allowHere = searching == Field.FROM, onBack = { searching = null }, saved = saved, onSetRole = onSetRole) { e ->
+        searching != null -> PlaceSearch(vm, allowHere = searching == Field.FROM, onBack = { searching = null }, saved = saved, onSetRole = onSetRole, chooseOnMap = true) { e ->
             if (searching == Field.FROM) vm.setFrom(e) else vm.setTo(e)
             searching = null
         }
@@ -642,8 +643,11 @@ private fun StopLine(time: Instant, tz: String?, name: String, track: String?, d
 @Composable
 fun PlaceSearch(vm: PlanViewModel, allowHere: Boolean, onBack: () -> Unit, onMatch: ((io.github.elija7580.publit.data.GeocodeMatch) -> Unit)? = null,
                 saved: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), onSetRole: ((io.github.elija7580.publit.data.PlaceRole, io.github.elija7580.publit.data.SavedPlace) -> Unit)? = null,
-                onPick: (Endpoint) -> Unit) {
+                chooseOnMap: Boolean = false, onPick: (Endpoint) -> Unit) {
     val ink = LocalInk.current
+    // "Choose on map" (From and To of the planner, as iOS #67): the pinned point is picked like a search result.
+    var onMap by remember { mutableStateOf(false) }
+    if (onMap) { ChooseOnMapScreen(vm::mapStart, vm::addressAt, onBack = { onMap = false }) { onPick(it) }; return }
     BackHandler(onBack = onBack)
     var text by remember { mutableStateOf("") }
     val matches by vm.matches.collectAsStateWithLifecycle()
@@ -682,6 +686,13 @@ fun PlaceSearch(vm: PlanViewModel, allowHere: Boolean, onBack: () -> Unit, onMat
                     Icon(Icons.Filled.MyLocation, null)
                     Spacer(Modifier.width(12.dp))
                     Text(L10n.t("Current location"), fontWeight = FontWeight.SemiBold)
+                }
+            }
+            if (chooseOnMap && onMatch == null) item("chooseOnMap") {
+                Row(Modifier.fillMaxWidth().clickable { onMap = true }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.PinDrop, null)
+                    Spacer(Modifier.width(12.dp))
+                    Text(L10n.t("Choose on map"), fontWeight = FontWeight.SemiBold)
                 }
             }
             val others = saved.filter { it.role == null }

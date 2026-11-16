@@ -104,6 +104,13 @@ class PlanViewModel(
         }
     }
 
+    /** Street and number at a point picked on the map, null when unknown (ChooseOnMapView on iOS). */
+    suspend fun addressAt(p: LatLon): String? = try {
+        io.github.elija7580.publit.data.MapPick.label(client.reverseGeocode(p, L10n.locale.language.ifEmpty { "en" }))
+    } catch (e: CancellationException) { throw e } catch (e: Exception) { log.note("reverse geocode error ${e.javaClass.simpleName}"); null }
+    /** Where "Choose on map" opens: the last fix, else a fresh one if location is allowed. */
+    suspend fun mapStart(): LatLon? = lastFix ?: withTimeoutOrNull(4_000) { here() }
+
     private suspend fun here(): LatLon? {
         if (location.access() == LocationAccess.NOT_ASKED) return null
         return withTimeoutOrNull(10_000) { location.fixes.firstOrNull()?.coordinate }?.also { lastFix = it }

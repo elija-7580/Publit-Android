@@ -58,6 +58,11 @@ class TransitousClient(
         return json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(GeocodeMatch.serializer()), get("/api/v1/geocode", q, 3600))
     }
 
+    /** What lies at a point (ChooseOnMapView on iOS): nearest addresses and places first. */
+    suspend fun reverseGeocode(at: LatLon, language: String): List<GeocodeMatch> =
+        json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(GeocodeMatch.serializer()), get("/api/v1/reverse-geocode",
+            listOf("place" to LatLon.format(at.lat, 5) + "," + LatLon.format(at.lon, 5), "language" to language), 86_400))
+
     /** Routes; `maxWalk` (s) to the first and from the last stop. `time` null = now. */
     suspend fun plan(from: LatLon, to: LatLon, time: java.time.Instant?, arriveBy: Boolean, maxWalk: Int = 1800,
                      pageCursor: String? = null, options: RouteOptions = RouteOptions()): PlanResponse {
