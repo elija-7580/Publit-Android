@@ -1,5 +1,6 @@
 package io.github.elija7580.publit.ui
 
+import io.github.elija7580.publit.data.ParkAndRide
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.elija7580.publit.CrashLog
@@ -158,11 +159,26 @@ class PlanViewModel(
                 val o = s.options
                 val street = o.comparisonModes.map { m -> async { runCatching { client.streetRoutes(a, b, s.time, s.arriveBy, m) }.getOrDefault(emptyList()) } }
                 val firstWalk = o.maxWalkMinutes * 60
-                for (walk in listOf(firstWalk, maxOf(firstWalk, 2700), maxOf(firstWalk, 7200)).distinct()) {
-                    res = client.plan(a, b, s.time, s.arriveBy, walk, options = o)
-                    found = io.github.elija7580.publit.data.SmartRouting.run { if (isEnabled) pruned(res.itineraries) else res.itineraries }
+                pageWalk = firstWalk; pageOptions = o; pageNearest = null
+                // Park & Ride: drive to a station near home (one or two searches, see ParkAndRide); when every
+                // route drives most of the way, the usual routes are shown instead.
+                val car = if (o.firstMile == io.github.elija7580.publit.data.FirstMile.CAR)
+                    ParkAndRide.search(minOf(firstWalk, ParkAndRide.MAX_DRIVE_SECONDS)) { d -> client.plan(a, b, s.time, s.arriveBy, d, options = o) }
+                else null
+                if (car != null) {
+                    res = car.response
+                    found = io.github.elija7580.publit.data.SmartRouting.run { if (isEnabled) pruned(car.routes) else car.routes }
                         .filter { !it.isDetour }.distinctBy { it.routeKey }
-                    if (found.isNotEmpty()) break
+                    pageWalk = car.drive; pageNearest = car.nearest
+                } else {
+                    val w = if (o.firstMile == io.github.elija7580.publit.data.FirstMile.CAR) o.copy(firstMile = io.github.elija7580.publit.data.FirstMile.WALK) else o
+                    pageOptions = w
+                    for (walk in listOf(firstWalk, maxOf(firstWalk, 2700), maxOf(firstWalk, 7200)).distinct()) {
+                        res = client.plan(a, b, s.time, s.arriveBy, walk, options = w)
+                        found = io.github.elija7580.publit.data.SmartRouting.run { if (isEnabled) pruned(res.itineraries) else res.itineraries }
+                            .filter { !it.isDetour }.distinctBy { it.routeKey }
+                        if (found.isNotEmpty()) { pageWalk = walk; break }
+                    }
                 }
                 io.github.elija7580.publit.data.SmartRouting.offered = found
                 io.github.elija7580.publit.data.SmartRouting.offeredArriveBy = s.arriveBy
@@ -182,6 +198,11 @@ class PlanViewModel(
         }
     }
 
+    /** What the routes on screen were found with, so later pages search the same way. */
+    private var pageWalk: Int? = null
+    private var pageOptions: io.github.elija7580.publit.data.RouteOptions? = null
+    private var pageNearest: Int? = null
+
     fun later() = page(true)
     fun earlier() = page(false)
 
@@ -193,9 +214,12 @@ class PlanViewModel(
             try {
                 val a = point(s.from) ?: return@launch
                 val b = point(to) ?: return@launch
-                val res = client.plan(a, b, s.time, s.arriveBy, s.options.maxWalkMinutes * 60, cursor, s.options)
+                val o = pageOptions ?: s.options
+                val res = client.plan(a, b, s.time, s.arriveBy, pageWalk ?: (s.options.maxWalkMinutes * 60), cursor, o)
                 _state.update { st ->
-                    val more = res.itineraries.filter { !it.isDetour }
+                    var more = res.itineraries.filter { !it.isDetour }
+                    if (o.firstMile == io.github.elija7580.publit.data.FirstMile.CAR)
+                        more = ParkAndRide.nearStations(ParkAndRide.sensible(more), pageNearest)
                     if (next) st.copy(routes = (st.routes + more).distinctBy { it.routeKey }, nextCursor = res.nextPageCursor)
                     else st.copy(routes = (more + st.routes).distinctBy { it.routeKey }, previousCursor = res.previousPageCursor)
                 }
