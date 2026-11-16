@@ -255,7 +255,6 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
     }
 }
 
-@Composable
 /** The next turn over the walking map: arrow, metres to go and the instruction (TurnCard on iOS). */
 @Composable
 private fun TurnCard(icon: androidx.compose.ui.graphics.vector.ImageVector, meters: Double?, text: String) {
