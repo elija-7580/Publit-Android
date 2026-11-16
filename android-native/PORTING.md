@@ -36,6 +36,10 @@ Two test APKs per release: arm64 (`Publit-native.apk`) and 32-bit ARM (`Publit-n
 | 10 | Tickets, widget, Wear OS | Tickets/*, DroidWidget.kt, Android/wear | done: tickets as passes (on-device recognition with ML Kit + the full TicketTextParser, ZXing redraw, wallet, detail at full brightness, editor with field assignment, archive, trip tickets), widget (Glance), Wear OS (module `wear/`), operator logos (Wikidata/Wikimedia Commons, website icon fallback), Google Wallet export via services/google-wallet-signer (hidden until the repo variable WALLET_SIGNER_URL is set) |
 | 11 | Switch app ID to `io.github.elija7580.publit`, release signing, remove Skip port | – | app ID switched, Skip Gradle project and its workflow removed; open: Play upload key as CI secret (owner), then remove `Sources/` |
 
+## Feedback 2026-11-16 (iOS PR #87)
+- [x] Live-Fahrt: unter der Etappe keine Liste aller Etappen mehr; Tasten „Back to now“ und „Trip overview“; Etappenliste nur in der Übersicht
+- [x] Karte je Etappe an ihrem Ort (Warten/Umstieg: Einstiegshalt); nur auf dem aktuellen Fußweg nahe dem Weg folgt sie dir (`walkWith`)
+
 ## Status 2026-10-30
 - DONE: Coverage atlas (areas without timetable data) on the map, Plan, route details, Nearby and stops.
 - DONE: Home/Work shortcuts in the Plan form; Nearby "Where to now?", route-here; settings on every tab; launch animation.

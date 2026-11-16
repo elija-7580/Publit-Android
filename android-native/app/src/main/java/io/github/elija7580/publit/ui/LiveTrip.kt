@@ -147,16 +147,23 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
                     if (wrongMessage != null) item("wrong") {
                         AlternativesCard(client, store, trip, wrongMessage, risk?.incoming?.to?.coordinate ?: here)
                     }
-                    if (picked != null || overview) item("back") {
-                        TextButton(onClick = { picked = null; overview = false }, modifier = Modifier.padding(horizontal = 12.dp)) {
-                            Icon(Icons.Filled.MyLocation, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
-                            Text(L10n.t("Back to now"), fontWeight = FontWeight.SemiBold)
+                    // Back to the stage you are on, and the whole trip: the overview is its own place
+                    // (the first card), not a list under every stage (iOS LiveTripView).
+                    item("keys") {
+                        Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (picked != null || overview) TextButton(onClick = { picked = null; overview = false }) {
+                                Icon(Icons.Filled.MyLocation, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                                Text(L10n.t("Back to now"), fontWeight = FontWeight.SemiBold)
+                            }
+                            if (!overview) TextButton(onClick = { overview = true }) {
+                                Icon(Icons.Filled.Route, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                                Text(L10n.t("Trip overview"), fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
-                    val upTo = if (overview) steps.lastIndex else index
-                    item("overview") {
+                    if (overview) item("overview") {
                         Section(L10n.t("Trip overview")) {
-                            for (i in 0..upTo) StageRow(steps[i], it, trip.toName, i + 1, steps.size, i == live, i < live, !overview && i == index) { show(i) }
+                            for (i in steps.indices) StageRow(steps[i], it, trip.toName, i + 1, steps.size, i == live, i < live, false) { show(i) }
                         }
                     }
                     if (!overview) item("stage") {
@@ -177,9 +184,6 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
                             stops.forEachIndexed { i, s -> GuideStopRow(s, stopState(i, p, stops.size), i == 0, i == stops.lastIndex, lineStroke(leg, ink.dark)) }
                         }
                     }
-                    if (upTo + 1 < steps.size) item("ahead") {
-                        Section(null) { for (i in upTo + 1 until steps.size) StageRow(steps[i], it, trip.toName, i + 1, steps.size, false, false, false) { show(i) } }
-                    }
                     if (onDetails != null) item("details") {
                         Section(null) {
                             Row(Modifier.fillMaxWidth().clickable(onClick = onDetails).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -196,6 +200,9 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
         Box(Modifier.fillMaxSize()) {
             GuideMap(it, steps, live, shown, vehicle, if (index == live) here else null, mapBase,
                 follow = if (turnMap && index == live && here != null && heading != null && step.kind == GuideStep.Kind.WALK) here to heading!! else null, modifier = Modifier.fillMaxSize().padding(bottom = inner.calculateBottomPadding()),
+                // Walking navigation: on the walk you are on and near its path the map goes with you;
+                // every other stage starts on its own place (the change, the ride), not on you.
+                walkWith = if (liveWalk && walkPos != null && !turnMap && !movedByHand) here else null,
                 recenter = recenter, onUserMove = { movedByHand = true })
             Column(Modifier.statusBarsPadding().padding(top = 60.dp, start = 8.dp, end = 8.dp).fillMaxWidth()) {
                 nextTurn?.let { (m, meters) -> TurnCard(maneuverIcon(m.kind), meters, m.instruction(walkTarget(it, step.legIndex, trip.toName))) }
@@ -670,7 +677,7 @@ private fun ArriveStage(it: Itinerary, destination: String, now: Instant, here: 
  */
 @Composable
 private fun GuideMap(it: Itinerary, steps: List<GuideStep>, live: Int, shown: Int?, vehicle: LatLon?, here: LatLon?, base: String, follow: Pair<LatLon, Double>? = null, modifier: Modifier,
-                     recenter: Int = 0, onUserMove: (() -> Unit)? = null) {
+                     walkWith: LatLon? = null, recenter: Int = 0, onUserMove: (() -> Unit)? = null) {
     val ink = LocalInk.current
     val ahead = if (ink.dark) Color(0xFF409CFF) else Color(0xFF0A7CFF)
     val done = if (ink.dark) Color(0xFF5A6B80) else Color(0xFFB7CDE6)
@@ -688,14 +695,19 @@ private fun GuideMap(it: Itinerary, steps: List<GuideStep>, live: Int, shown: In
         vehicle?.let { p -> dots += MapContent.Dot(p, Color(0xFFFFC21A), ink.ink, 18f, 3f) }
         MapContent(lines, dots)
     }
-    val camera = remember(it.routeKey, shown, follow, recenter) {
+    // Moved on about 20 m: the walking camera catches up (not on every fix).
+    val walkKey = walkWith?.let { p -> Math.round(p.lat * 5000) to Math.round(p.lon * 5000) }
+    val camera = remember(it.routeKey, shown, follow, recenter, walkKey) {
         if (follow != null) MapCamera.Follow(follow.first, follow.second)
+        else if (walkWith != null) MapCamera.Around(walkWith, 300.0)
         // "Follow my location" after moving the map by hand on a walk: back to where you are.
         else if (recenter > 0 && here != null) MapCamera.Around(here, 300.0)
         else if (shown == null) MapCamera.Fit(it.legs.flatMap { l -> l.mapPath + listOf(l.from.coordinate, l.to.coordinate) })
         else {
             val step = steps[shown]; val l = it.legs[step.legIndex]
             if (step.kind == GuideStep.Kind.ARRIVE) MapCamera.Around(l.to.coordinate, 300.0)
+            // A change or the first boarding: the stop where you get on, wherever you are.
+            else if (step.kind == GuideStep.Kind.WAIT) MapCamera.Around(l.from.coordinate, 400.0)
             else MapCamera.Fit(l.mapPath + listOf(l.from.coordinate, l.to.coordinate))
         }
     }
