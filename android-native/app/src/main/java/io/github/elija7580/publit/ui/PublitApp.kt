@@ -203,8 +203,10 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                 composable("plan") {
                     PlanScreen(plan, onSettings = { nav.navigate("settings") }, saved = favorites.state.collectAsStateWithLifecycle().value.items, onSetRole = { role, p -> favorites.set(p, role) }) { it, from, to -> TripActions(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
                 }
-                composable("savedtrip?id={id}") { e ->
-                    SavedTripScreen(client, trips, e.arguments?.getString("id").orEmpty(), onBack = { nav.popBackStack() }) {
+                composable("savedtrip?id={id}&details={details}", arguments = listOf(
+                    androidx.navigation.navArgument("details") { type = androidx.navigation.NavType.BoolType; defaultValue = false })) { e ->
+                    SavedTripScreen(client, trips, e.arguments?.getString("id").orEmpty(), onBack = { nav.popBackStack() },
+                        detailsFirst = e.arguments?.getBoolean("details") ?: false) {
                         TripPasses(passes, it.id, it.startTime, onOpen = { id -> nav.navigate("pass?id=$id") }, onAdd = { nav.navigate("passimport?trip=${it.id}") })
                     }
                 }
@@ -245,7 +247,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                     val pick = pickFor
                     if (pick != null) PlaceSearch(plan, allowHere = false, onBack = { pickFor = null },
                         onMatch = { m -> pick.second(io.github.elija7580.publit.data.SavedPlace.of(m)); pickFor = null }) { }
-                    else SavedScreen(favorites, trips, onOpenTrip = { id -> nav.navigate("savedtrip?id=$id") }, onPastTrips = { nav.navigate("pasttrips") },
+                    else SavedScreen(favorites, trips, onOpenTrip = { id -> nav.navigate("savedtrip?id=$id&details=true") }, onPastTrips = { nav.navigate("pasttrips") },
                         onRoute = { p -> plan.route(Endpoint.Here, Endpoint.At(p.name, p.coordinate)); openPlan() },
                         onOpenStop = { p -> nav.navigate("stop?id=${Uri.encode(p.stopId ?: p.id)}&name=${Uri.encode(p.name)}&exact=${p.exact == true}") },
                         onOpenLine = { l -> savedLine = l; nav.navigate("line") },

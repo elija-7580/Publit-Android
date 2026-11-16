@@ -62,7 +62,8 @@ import java.time.format.DateTimeFormatter
 
 /** A saved trip with its live status (SavedTripView on iOS); a started trip shows the live guide. */
 @Composable
-fun SavedTripScreen(client: TransitousClient, store: TripStore, tripId: String, onBack: () -> Unit, tickets: @Composable (SavedTrip) -> Unit = {}) {
+fun SavedTripScreen(client: TransitousClient, store: TripStore, tripId: String, onBack: () -> Unit, detailsFirst: Boolean = false,
+                    tickets: @Composable (SavedTrip) -> Unit = {}) {
     val ink = LocalInk.current
     val ctx = LocalContext.current
     val state by store.state.collectAsStateWithLifecycle()
@@ -89,10 +90,13 @@ fun SavedTripScreen(client: TransitousClient, store: TripStore, tripId: String, 
         }
         return
     }
-    var details by remember { mutableStateOf(false) }
+    // From the Saved list a trip already running opens on its route details (iOS SavedTripView);
+    // started there, the screen still turns into the guide.
+    val openedOnDetails = remember { detailsFirst && state.activeId == tripId }
+    var details by remember { mutableStateOf(openedOnDetails) }
     if (state.activeId == tripId && !details) { LiveTripScreen(client, store, trip, error, onBack, onDetails = { details = true }, tickets = { tickets(trip) }); return }
-    if (details) androidx.activity.compose.BackHandler { details = false }
-    ItineraryDetail(trip.itinerary, { if (details) details = false else onBack() }, title = trip.toName) {
+    if (details && !openedOnDetails) androidx.activity.compose.BackHandler { details = false }
+    ItineraryDetail(trip.itinerary, { if (details && !openedOnDetails) details = false else onBack() }, title = trip.toName) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             OfflineNote(client)
             StatusCard(trip, error)
@@ -180,8 +184,15 @@ fun SavedTripRow(trip: SavedTrip, faded: Boolean = false) {
             Text(trip.toName, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = c, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             Text(day, color = ink.muted, fontSize = 14.sp)
         }
-        Text(Fmt.time(trip.startTime, tz) + " – " + Fmt.time(trip.endTime, trip.itinerary.legs.lastOrNull()?.to?.tz), fontSize = 14.sp, color = c)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { trip.itinerary.transitLegs.take(4).forEach { LineBadge(it) } }
-        Text(L10n.f("from %@", trip.fromName), color = ink.muted, fontSize = 12.sp, maxLines = 1)
+        Row {
+            Text(Fmt.time(trip.startTime, tz) + " – " + Fmt.time(trip.endTime, trip.itinerary.legs.lastOrNull()?.to?.tz),
+                fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = c, maxLines = 1, modifier = Modifier.weight(1f))
+            Text(Fmt.duration(trip.itinerary.duration), color = ink.muted, fontSize = 14.sp, maxLines = 1)
+        }
+        // The coloured bar of its lines, as a route in Plan (iOS SavedTripRow), not a row of badges.
+        TimelineBar(trip.itinerary, trip.itinerary.startTime, trip.itinerary.endTime)
+        val t = trip.itinerary.transfers
+        Text(L10n.f("from %@", trip.fromName) + " · " + (if (t == 0) L10n.t("Direct") else if (t == 1) L10n.t("1 change") else L10n.f("%lld changes", t)),
+            color = ink.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
