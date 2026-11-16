@@ -65,7 +65,7 @@ sealed class MapCamera {
 @Composable
 fun PublitMap(content: MapContent, camera: MapCamera, modifier: Modifier = Modifier, description: String? = null,
               onTap: ((String?) -> Unit)? = null, onRegion: ((MapRegion) -> Unit)? = null, base: String = "muted", onLongPress: ((LatLon) -> Unit)? = null,
-              onTapAt: ((LatLon) -> Unit)? = null) {
+              onTapAt: ((LatLon) -> Unit)? = null, onUserMove: (() -> Unit)? = null) {
     val context = LocalContext.current
     val dark = LocalInk.current.dark
     val holder = remember { MapHolder(context) }
@@ -76,7 +76,7 @@ fun PublitMap(content: MapContent, camera: MapCamera, modifier: Modifier = Modif
         onDispose { lifecycle.removeObserver(observer); holder.destroy() }
     }
     AndroidView({ holder.view }, modifier.then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)) {
-        holder.onTap = onTap; holder.onTapAt = onTapAt; holder.onLongPress = onLongPress; holder.onRegion = onRegion; holder.base = base
+        holder.onTap = onTap; holder.onTapAt = onTapAt; holder.onUserMove = onUserMove; holder.onLongPress = onLongPress; holder.onRegion = onRegion; holder.base = base
         holder.update(content, camera, dark)
     }
 }
@@ -103,6 +103,8 @@ private class MapHolder(ctx: Context) {
     var onLongPress: ((LatLon) -> Unit)? = null
     /** A tap anywhere, as a point (the pin of "Choose on map"); wins over onTap. */
     var onTapAt: ((LatLon) -> Unit)? = null
+    /** The map was moved by hand (a gesture, not the app). */
+    var onUserMove: (() -> Unit)? = null
     var onRegion: ((MapRegion) -> Unit)? = null
     /** "muted" (pale Transit look), "standard" (OSM Liberty) or "satellite" (Sentinel-2 imagery), as MapBase on iOS. */
     var base = "muted"
@@ -119,6 +121,9 @@ private class MapHolder(ctx: Context) {
                 m.uiSettings.isAttributionEnabled = true
                 m.uiSettings.isTiltGesturesEnabled = false
                 m.uiSettings.isCompassEnabled = true
+                m.addOnCameraMoveStartedListener { reason ->
+                    if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) onUserMove?.invoke()
+                }
                 m.addOnCameraIdleListener { region(m)?.let { r -> onRegion?.invoke(r) } }
                 m.addOnMapLongClickListener { p -> onLongPress?.let { it(LatLon(p.latitude, p.longitude)); true } ?: false }
                 m.addOnMapClickListener { p ->
