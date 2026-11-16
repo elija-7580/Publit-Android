@@ -119,6 +119,29 @@ fun SettingsScreen(prefs: SharedPreferences, onWishes: () -> Unit = {}, onSuppor
                 }
             }
             item { Box(Modifier.padding(horizontal = 12.dp)) { SmartRoutingSettings() } }
+            // When the get-off reminder of a started trip comes (iOS #69); by location unless "By the clock only".
+            item {
+                var getOff by remember { mutableStateOf(io.github.elija7580.publit.data.GetOffAlert.current(prefs)) }
+                val askLocation = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {
+                    io.github.elija7580.publit.notify.GetOffService.sync(context)
+                }
+                Box(Modifier.padding(horizontal = 12.dp)) {
+                    OptionGroup(L10n.t("Started trips"), L10n.t("Uses your location during the ride, also with the screen locked, so the alert comes on time even when the vehicle is early or late. Without a reliable location it comes about two minutes before the arrival. The location stays on your iPhone.").replace("iPhone", "Android")) {
+                        Text(L10n.t("Get-off alert"), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
+                        io.github.elija7580.publit.data.GetOffAlert.entries.forEach { a ->
+                            Row(Modifier.fillMaxWidth().clickable {
+                                getOff = a; prefs.edit().putString(io.github.elija7580.publit.data.GetOffAlert.KEY, a.raw).apply()
+                                if (a.usesLocation && !io.github.elija7580.publit.notify.GetOffService.hasLocation(context)) askLocation.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                                else io.github.elija7580.publit.notify.GetOffService.sync(context)
+                            }.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                androidx.compose.material3.RadioButton(selected = getOff == a, onClick = null,
+                                    colors = androidx.compose.material3.RadioButtonDefaults.colors(selectedColor = ink.ink), modifier = Modifier.padding(8.dp))
+                                Text(L10n.t(a.title))
+                            }
+                        }
+                    }
+                }
+            }
             item {
                 var alerts by remember { mutableStateOf(io.github.elija7580.publit.notify.LineAlerts.enabled(context)) }
                 val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok ->

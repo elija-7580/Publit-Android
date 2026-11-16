@@ -32,7 +32,10 @@ object TripNotifications {
     private const val LIVE = "live"
     const val EXTRA_TRIP = "trip"
     private const val PREFS = "publit.reminders"
-    private const val LIVE_ID = 7001
+    internal const val LIVE_ID = 7001
+    /** The last live notification built, for the get-off location service to hold in the foreground. */
+    @Volatile var lastLive: Notification? = null
+        private set
 
     fun channels(ctx: Context) {
         if (Build.VERSION.SDK_INT < 26) return
@@ -91,6 +94,13 @@ object TripNotifications {
             L10n.f("%@ reaches %@ at %@.", leg.lineName, leg.to.name, Fmt.time(leg.endTime, leg.to.tz)), null)
         return fire
     }
+    /** The get-off alert by location: now, under the same key as the clock reminder, which it replaces. */
+    fun postGetOffNow(ctx: Context, leg: Leg, body: String, tripId: String?) {
+        cancel(ctx, getOffKey(leg))
+        if (!allowed(ctx)) return
+        val n = builder(ctx, REMINDERS, L10n.t("Get off soon"), body, tripId).build()
+        runCatching { ctx.getSystemService(NotificationManager::class.java).notify(getOffKey(leg).hashCode(), n) }
+    }
     fun isGetOffSet(ctx: Context, leg: Leg) = pending(ctx).contains(getOffKey(leg))
 
     fun cancelGetOff(ctx: Context, it: Itinerary) = it.transitLegs.forEach { cancel(ctx, getOffKey(it)) }
@@ -132,7 +142,9 @@ object TripNotifications {
         val delay = if (s.delayMinutes > 0) L10n.f("+%lld min", s.delayMinutes) else null
 
         val title = listOfNotNull(leg?.takeIf { live }?.lineName, s.headline).joinToString(" · ")
-        val line2 = listOfNotNull(platform?.let { p -> (if (changed) "⚠ " else "") + L10n.f("Pl. %@", p) }, s.detail.ifEmpty { null }).joinToString(" · ")
+        // On board with location: the next stop and stops to go, from where the phone really is (iOS #69).
+        val detail = (if (live && riding) GetOffAlerts.rideNote(trip.id) else null) ?: s.detail
+        val line2 = listOfNotNull(platform?.let { p -> (if (changed) "⚠ " else "") + L10n.f("Pl. %@", p) }, detail.ifEmpty { null }).joinToString(" · ")
         // The stages, done ones ticked: "✓ Walk to Karlsplatz", "▶ U1 → Leopoldau 14:05–14:19", …
         val steps = io.github.elija7580.publit.data.TripGuide.steps(it)
         val current = io.github.elija7580.publit.data.TripGuide.timeIndex(steps, it, now)
@@ -177,6 +189,7 @@ object TripNotifications {
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)).build())
             }
             .build()
+        lastLive = n
         runCatching { ctx.getSystemService(NotificationManager::class.java).notify(LIVE_ID, n) }
         // Recomputed at the next moment that matters (and at least every 2 min), from stored times.
         val next = minOf(s.nextEvent.plusSeconds(1), now.plusSeconds(120)).coerceAtLeast(now.plusSeconds(30))
@@ -217,6 +230,8 @@ object TripNotifications {
     }
 
     fun endLive(ctx: Context) {
+        GetOffService.stop(ctx)
+        lastLive = null
         ctx.getSystemService(NotificationManager::class.java).cancel(LIVE_ID)
         val pi = PendingIntent.getBroadcast(ctx, "live".hashCode(), Intent(ctx, ReminderReceiver::class.java).setAction(ACTION_LIVE),
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
@@ -275,6 +290,8 @@ object TripNotifications {
     internal fun post(ctx: Context, intent: Intent) {
         val key = intent.getStringExtra("key") ?: return
         setPending(ctx, key, false)
+        // One get-off alert per ride: already told by location, the clock one stays quiet.
+        if (key.startsWith("getoff|")) { if (GetOffAlerts.wasDelivered(ctx, key)) return; GetOffAlerts.markDelivered(ctx, key) }
         if (!allowed(ctx)) return
         val n = builder(ctx, REMINDERS, intent.getStringExtra("title").orEmpty(), intent.getStringExtra("body").orEmpty(),
             intent.getStringExtra(EXTRA_TRIP)).build()

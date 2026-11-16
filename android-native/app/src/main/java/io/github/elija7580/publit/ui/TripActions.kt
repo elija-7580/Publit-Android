@@ -167,6 +167,7 @@ object TripSession {
         store.start(trip.id)
         TripNotifications.scheduleGetOff(ctx, trip.itinerary, trip.id)
         store.trip(trip.id)?.let { TripNotifications.showLive(ctx, it) }
+        io.github.elija7580.publit.notify.GetOffService.sync(ctx)
     }
 
     fun stop(ctx: Context, store: TripStore, trip: SavedTrip) {
@@ -174,6 +175,7 @@ object TripSession {
         TripNotifications.cancelLeave(ctx, trip.id)
         TripNotifications.cancelGetOff(ctx, trip.itinerary)
         TripNotifications.endLive(ctx)
+        io.github.elija7580.publit.notify.GetOffAlerts.forget(trip.id)
     }
 
     fun forget(ctx: Context, store: TripStore, trip: SavedTrip) {

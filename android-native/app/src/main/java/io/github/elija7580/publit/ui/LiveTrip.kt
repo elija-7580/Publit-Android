@@ -110,6 +110,8 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
     // At the destination the trip ends by itself.
     val finished = steps[live].kind == GuideStep.Kind.ARRIVE && TripGuide.isFinished(it, now, here)
     LaunchedEffect(finished) { if (finished) TripSession.stop(ctx, store, trip) }
+    // The get-off alert by location runs while the app is in front to start it (Android may not start it later).
+    LaunchedEffect(trip.id) { io.github.elija7580.publit.notify.GetOffService.sync(ctx) }
 
     // On board (your fix lies on the line) your own dot is the vehicle: a second, estimated marker
     // beside it (straight between stops, or from the timetable) only looks like another bus (iOS 7104c05).
