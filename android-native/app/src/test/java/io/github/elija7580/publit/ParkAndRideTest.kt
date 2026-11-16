@@ -43,4 +43,38 @@ class ParkAndRideTest {
         assertEquals(1320, r.drive)
         assertEquals(listOf(720, 960), r.routes.map(ParkAndRide::driveSeconds))
     }
+
+    // Fallback (iOS): no stop within walking reach → Park & Ride before a two-hour walk.
+    private val none = PlanResponse(itineraries = emptyList())
+    private fun walkRoute() = Itinerary(id = "w", duration = 5000, startTime = t, endTime = t, legs = listOf(leg("WALK", 4000), leg("BUS", 600)))
+
+    @Test fun parkAndRideBeforeATwoHourWalk() = runBlocking {
+        val walks = mutableListOf<Int>()
+        val f = ParkAndRide.walkingFirst(1800, userLimit = false,
+            walk = { w -> walks += w; if (w >= 7200) PlanResponse(itineraries = listOf(walkRoute())) to listOf(walkRoute()) else none to emptyList() },
+            car = { ParkAndRide.Result(PlanResponse(itineraries = listOf(route(720))), listOf(route(720)), 900, 720) })
+        assertEquals(listOf(1800, 2700), walks)
+        assertEquals(720, (f as ParkAndRide.Found.Car).result.nearest)
+    }
+
+    @Test fun noStationByCarThenTheLongWalk() = runBlocking {
+        val f = ParkAndRide.walkingFirst(1800, userLimit = false,
+            walk = { w -> if (w >= 7200) PlanResponse(itineraries = listOf(walkRoute())) to listOf(walkRoute()) else none to emptyList() },
+            car = { null })
+        assertEquals(7200, (f as ParkAndRide.Found.Walk).walk)
+    }
+
+    @Test fun foundOnFootNoCar() = runBlocking {
+        var asked = false
+        val f = ParkAndRide.walkingFirst(1800, userLimit = false, walk = { _ -> PlanResponse(itineraries = listOf(walkRoute())) to listOf(walkRoute()) },
+            car = { asked = true; null })
+        assertEquals(1800, (f as ParkAndRide.Found.Walk).walk)
+        assertEquals(false, asked)
+    }
+
+    @Test fun ownWalkLimitNeverDrives() = runBlocking {
+        var asked = false
+        ParkAndRide.walkingFirst(900, userLimit = true, walk = { _ -> none to emptyList() }, car = { asked = true; null })
+        assertEquals(false, asked)
+    }
 }
