@@ -34,8 +34,8 @@ class ChangeChanceTest {
     private fun leg(mode: String, from: String, to: String, start: Int, end: Int, delay: Long = 0, realTime: Boolean = false,
                     route: String? = "de-T_R1", trip: String? = null, toTrack: String? = null, toSched: String? = null,
                     cancelled: Boolean = false, fromLat: Double = 48.0, toLat: Double = 48.0) = Leg(
-        mode = mode, from = Place(name = from, stopId = "de-T_$from", lat = fromLat, lon = 11.0),
-        to = Place(name = to, stopId = "de-T_$to", lat = toLat, lon = 11.0, track = toTrack, scheduledTrack = toSched ?: toTrack),
+        mode = mode, from = Place(name = from, stopId = "de-T_$from", lat = fromLat, lon = 11.0, tz = "Europe/Vienna"),
+        to = Place(name = to, stopId = "de-T_$to", lat = toLat, lon = 11.0, tz = "Europe/Vienna", track = toTrack, scheduledTrack = toSched ?: toTrack),
         duration = (end - start) * 60, startTime = at(start.toDouble()).plusSeconds(delay), endTime = at(end.toDouble()).plusSeconds(delay),
         scheduledStartTime = at(start.toDouble()), scheduledEndTime = at(end.toDouble()), realTime = realTime, routeId = route,
         tripId = trip ?: "$mode-$from-$start", cancelled = cancelled)
