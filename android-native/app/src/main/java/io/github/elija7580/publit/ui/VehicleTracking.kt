@@ -21,7 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.GpsNotFixed
-import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -129,7 +129,7 @@ fun VehicleTrackingScreen(client: TransitousClient, target: TripTarget, onBack: 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val tint = if (source == VehiclePositionSource.LIVE_TIMES) ink.live else ink.muted
                     Icon(when (source) { VehiclePositionSource.LIVE_TIMES -> Icons.Filled.Sensors; VehiclePositionSource.TIMETABLE -> Icons.Filled.CalendarMonth
-                        else -> Icons.Filled.HelpOutline }, null, Modifier.size(16.dp), tint = tint)
+                        else -> Icons.AutoMirrored.Filled.HelpOutline }, null, Modifier.size(16.dp), tint = tint)
                     Spacer(Modifier.width(6.dp))
                     Text(L10n.t(source.label), fontSize = 13.sp, color = tint)
                 }
