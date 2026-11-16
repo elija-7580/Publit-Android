@@ -20,7 +20,7 @@ data class LineAtStop(val key: String, val departures: List<StopTime>) {
 
 object LineGrouping {
     /** Saved-line key, as SavedLine.key on iOS. */
-    fun key(st: StopTime): String = st.routeId ?: "${st.agencyName ?: ""}|${st.lineName}"
+    fun key(st: StopTime): String = TransitLabels.lineKey(st.routeId) ?: "${st.agencyName ?: ""}|${st.lineName}"
 
     /** Lines ordered by mode (train first), then by name in natural order ("2" before "10"). */
     fun lines(stopTimes: List<StopTime>, filter: ModeFilter = ModeFilter()): List<LineAtStop> {

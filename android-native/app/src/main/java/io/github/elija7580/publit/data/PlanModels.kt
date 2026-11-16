@@ -29,7 +29,7 @@ data class Leg(
     override val routeShortName: String? = null,
     override val displayName: String? = null,
     val agencyName: String? = null,
-    val routeId: String? = null,
+    override val routeId: String? = null,
     val tripId: String? = null,
     val cancelled: Boolean? = null,
     val intermediateStops: List<Place>? = null,
