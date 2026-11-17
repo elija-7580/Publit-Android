@@ -5,6 +5,10 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Play upload key, only in the "Play-Bundle" workflow (CI secrets, never committed). Without it every
+// release build keeps the public test key, which is fine for test APKs but must never go to Play.
+val uploadStore: String? = System.getenv("PUBLIT_UPLOAD_STORE")?.takeIf { it.isNotBlank() && file(it).exists() }
+
 android {
     namespace = "io.github.elija7580.publit"
     compileSdk = 36
@@ -14,7 +18,7 @@ android {
         applicationId = "io.github.elija7580.publit"
         minSdk = 26
         targetSdk = 36
-        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+        versionCode = (System.getenv("PUBLIT_VERSION_CODE") ?: System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "0.10.0"
         // Optional Google Wallet export: the signing service's HTTPS URL (services/google-wallet-signer).
         // Without it the button stays hidden. The issuer key never goes into the app.
@@ -32,6 +36,12 @@ android {
             keyAlias = "publit-test"
             keyPassword = "publit-test"
         }
+        if (uploadStore != null) create("upload") {
+            storeFile = file(uploadStore!!)
+            storePassword = System.getenv("PUBLIT_UPLOAD_STORE_PASSWORD")
+            keyAlias = System.getenv("PUBLIT_UPLOAD_KEY_ALIAS")
+            keyPassword = System.getenv("PUBLIT_UPLOAD_KEY_PASSWORD")
+        }
     }
 
     buildTypes {
@@ -39,7 +49,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("test")
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("test")
         }
         debug {
             applicationIdSuffix = ".debug"
