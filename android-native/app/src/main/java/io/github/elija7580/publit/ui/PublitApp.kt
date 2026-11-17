@@ -122,6 +122,11 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                     plan.route(Endpoint.Here, Endpoint.At(parts[0], io.github.elija7580.publit.core.LatLon(parts[1].toDouble(), parts[2].toDouble())))
                     openPlan()
                 } else android.widget.Toast.makeText(linkContext, L10n.t("No place found in what was shared. Share a place or a pin from a map app."), android.widget.Toast.LENGTH_LONG).show()
+            } else if (link.startsWith("alt:")) {
+                val p = link.removePrefix("alt:").split("|")
+                val to = p.getOrNull(4)?.toDoubleOrNull()?.let { lat -> p[5].toDoubleOrNull()?.let { lon -> Endpoint.At(p[3], io.github.elija7580.publit.core.LatLon(lat, lon)) } }
+                val from = p.getOrNull(1)?.toDoubleOrNull()?.let { lat -> p[2].toDoubleOrNull()?.let { lon -> Endpoint.At(p[0], io.github.elija7580.publit.core.LatLon(lat, lon)) } }
+                if (to != null) { plan.route(from ?: Endpoint.Here, to); openPlan() }
             } else if (link.startsWith("go:")) {
                 val role = if (link == "go:work") io.github.elija7580.publit.data.PlaceRole.WORK else io.github.elija7580.publit.data.PlaceRole.HOME
                 val p = favorites.state.value.place(role)

@@ -145,6 +145,8 @@ object SmartRouting {
     const val ENABLED = "smartRouting"; const val TRANSFER_MINUTES = "smartTransferMinutes"; const val WALK_WEIGHT = "smartWalkWeight"
     const val EXTRA_TRANSFER = "smartExtraTransfer"; const val FLAT_WALKS = "smartFlatWalks"; const val LEARN = "smartLearn"
     const val OWN_SPEED = "smartOwnWalkingSpeed"; const val MEASURED_SPEED = "smartMeasuredSpeed"
+    /** "Learn from my trips": on the device only, off by default. */
+    const val LEARN_TRIPS = "smartLearnTrips"
     const val DEFAULT_TRANSFER_MINUTES = 15.0
     val transferMinutesRange = 3.0..30.0
     const val DEFAULT_WALK_WEIGHT = 1.65
@@ -246,14 +248,22 @@ object SmartRouting {
     }
 
     data class Change(val stopName: String, val incoming: Leg, val outgoing: Leg, val outgoingIndex: Int, val walkSeconds: Int,
-                      val spareMinutes: Double, val chance: Double) {
+                      val spareMinutes: Double, val chance: Double, val source: Source = Source.Estimate, val walk: TransferWalk? = null) {
         enum class Level { SAFE, LIKELY, RISKY }
+        /** Measured delays (with how many observations), the old rule of thumb, or the same vehicle going on. */
+        sealed class Source { data class History(val observations: Int) : Source(); data object Estimate : Source(); data object ThroughRun : Source() }
         val level get() = if (chance >= 0.9) Level.SAFE else if (chance >= 0.7) Level.LIKELY else Level.RISKY
         /** Whole percent, never 100 (nothing is certain) and at least 1. */
         val percent get() = minOf(99, maxOf(1, (chance * 100).roundToInt()))
+        /** Only measured chances are shown as a percentage. */
+        val isEstimate get() = source == Source.Estimate
     }
 
-    fun changes(it: Itinerary): List<Change> {
+    private val extraSeconds: Double get() = (prefs?.getInt(EXTRA_TRANSFER, 0) ?: 0) * 60.0
+
+    fun changes(it: Itinerary, now: Instant = Instant.now(), history: (String?) -> DelayHistory.Table? = { c -> DelayHistoryStore.table(c) },
+                walkModel: WalkModel = WalkModel.current(), extra: Double = extraSeconds,
+                learned: List<TripLearning.Observation>? = if (TripLearning.isEnabled) TripLearning.observations() else null): List<Change> {
         val out = ArrayList<Change>(); val legs = it.legs
         var i = 0
         while (i < legs.size) {
@@ -262,13 +272,74 @@ object SmartRouting {
             while (j < legs.size && !legs[j].isTransit) { walk += legs[j].duration; j++ }
             if (j >= legs.size) break
             val spare = (legs[j].startTime.epochSecond - legs[i].endTime.epochSecond - walk) / 60.0
-            out += Change(legs[i].to.name, legs[i], legs[j], j, walk, spare, chance(spare, walk, legs[i]))
+            val tw = TransferWalk.of(legs[i], legs.subList(i + 1, j), legs[j])
+            val (p, src) = chance(legs[i], legs[j], tw, now, history, walkModel, extra)
+            var c = Change(legs[i].to.name, legs[i], legs[j], j, walk, spare, p, src, tw)
+            if (learned != null && src != Change.Source.ThroughRun) c = c.copy(chance = TripLearning.adjusted(p, TripLearning.key(c), learned))
+            out += c
             i = j
         }
         return out
     }
 
-    /** How spread out arrivals of this kind of vehicle are, in minutes. */
+    /** The vehicle goes on as the next leg (same trip). */
+    fun isThroughRun(a: Leg, b: Leg) = a.tripId != null && a.tripId == b.tripId
+
+    /** Delay of a leg at its end (arrival) or start (departure): live forecast plus its usual error, else measured history. */
+    fun delay(leg: Leg, arrival: Boolean, now: Instant, table: DelayHistory.Table?, zone: java.time.ZoneId): Triple<DelayHistory.Dist, Double, Int>? {
+        val time = if (arrival) leg.endTime else leg.startTime
+        val sched = if (arrival) leg.scheduledEnd else (leg.scheduledStartTime ?: leg.startTime)
+        val minutesAhead = (time.epochSecond - now.epochSecond) / 60.0
+        val row = table?.row(leg.routeId, if (arrival) leg.to.stopId else leg.from.stopId, leg.agencyName, leg.mode, DelayHistory.window(sched, zone))
+        val cancel = (row?.cancelled ?: 0.0) * (if (leg.realTime) minOf(1.0, maxOf(0.0, minutesAhead) / 60) else 1.0)
+        if (leg.realTime) table?.forecastError(leg.mode, minutesAhead)?.let { (err, n) ->
+            return Triple(err.shifted((time.epochSecond - sched.epochSecond).toDouble()), cancel, n)
+        }
+        val d = (if (arrival) row?.arrival else row?.departure) ?: return null
+        return Triple(d, cancel, row!!.observations)
+    }
+
+    /**
+     * Chance a change works: P(feeder arrival + walk ≤ connection departure), with both delays measured (or live),
+     * the walk from [WalkModel], and cancellations. Without history: the old rule of thumb, marked as estimate.
+     */
+    fun chance(incoming: Leg, outgoing: Leg, walk: TransferWalk, now: Instant, history: (String?) -> DelayHistory.Table?,
+               walkModel: WalkModel = WalkModel.PRIOR, extra: Double = 0.0): Pair<Double, Change.Source> {
+        if (isThroughRun(incoming, outgoing)) return 1.0 to Change.Source.ThroughRun
+        if (incoming.cancelled == true || outgoing.cancelled == true || outgoing.from.cancelled == true) return 0.01 to Change.Source.Estimate
+        val table = history(DelayHistory.country(incoming.routeId ?: outgoing.routeId))
+        val zone = incoming.to.tz?.let { runCatching { java.time.ZoneId.of(it) }.getOrNull() } ?: java.time.ZoneId.systemDefault()
+        val a = delay(incoming, true, now, table, zone)
+        if (a == null) {
+            val extras = walkModel.expectedSeconds(walk) - walkModel.factor * walk.plannedSeconds
+            val spare = (outgoing.startTime.epochSecond - incoming.endTime.epochSecond - walk.plannedSeconds - extras - extra) / 60.0
+            return chance(spare, walk.plannedSeconds.toInt(), incoming) to Change.Source.Estimate
+        }
+        val d = delay(outgoing, false, now, table, zone)
+        val gap = ((outgoing.scheduledStartTime ?: outgoing.startTime).epochSecond - incoming.scheduledEnd.epochSecond).toDouble()
+        val p = onTime(gap, a.first, d?.first ?: DelayHistory.Dist.PUNCTUAL, walkModel.samples(walk, extra))
+        val n = minOf(a.third, d?.third ?: a.third)
+        val v = cap((1 - a.second) * (1 - (d?.second ?: 0.0)) * p, n)
+        return v to (if (d == null) Change.Source.Estimate else Change.Source.History(n))
+    }
+
+    /** P(a + w ≤ gap + d) over equally likely samples of feeder delay, walk and connection delay. */
+    fun onTime(gap: Double, arrival: DelayHistory.Dist, departure: DelayHistory.Dist, walk: DoubleArray): Double {
+        val a = arrival.samples(); val d = departure.samples().sorted()
+        var hit = 0
+        for (x in a) for (w in walk) {
+            val need = x + w - gap
+            var lo = 0; var hi = d.size
+            while (lo < hi) { val mid = (lo + hi) / 2; if (d[mid] < need) lo = mid + 1 else hi = mid }
+            hit += d.size - lo
+        }
+        return hit.toDouble() / (a.size * walk.size * d.size)
+    }
+
+    /** No near-certainty from few observations: between 1/(n+2) and 1 − 1/(n+2). */
+    fun cap(p: Double, n: Int): Double { val lo = 1.0 / (n + 2); return p.coerceIn(lo, 1 - lo) }
+
+    /** How spread out arrivals of this kind of vehicle are, in minutes (rule of thumb without history). */
     fun spread(mode: String) = when (mode) {
         "HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL", "AIRPLANE" -> 4.0
         "RAIL", "REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "SUBURBAN", "COACH" -> 2.5
@@ -278,7 +349,7 @@ object SmartRouting {
         else -> 2.0
     }
 
-    /** Chance the change works: a logistic curve over the minutes left. */
+    /** The rule of thumb used before measured delays: a logistic curve over the minutes left. */
     fun chance(spareMinutes: Double, walkSeconds: Int, incoming: Leg): Double {
         var s = spread(incoming.mode)
         if (incoming.realTime) s *= 0.6
@@ -299,7 +370,7 @@ object SmartRouting {
 
     /** A change still ahead that has become unlikely: time to look for another way. */
     fun changeAtRisk(it: Itinerary, now: Instant): Change? =
-        changes(it).firstOrNull { c -> c.outgoing.startTime > now && c.incoming.endTime > now.minusSeconds(120) && c.chance < 0.5 }
+        changes(it, now).firstOrNull { c -> c.outgoing.startTime > now && c.incoming.endTime > now.minusSeconds(120) && c.chance < 0.5 }
 
     /** What smart routing adds to the search. */
     fun queryItems(): List<Pair<String, String>> {
@@ -338,5 +409,8 @@ object SmartRouting {
         return weights.copy(transferMinutes = t.coerceIn(transferMinutesRange), walk = (Math.round(walk * 100) / 100.0).coerceIn(walkWeightRange))
     }
 
-    fun resetLearning() { prefs?.edit()?.remove(TRANSFER_MINUTES)?.remove(WALK_WEIGHT)?.apply() }
+    fun resetLearning() {
+        prefs?.edit()?.remove(TRANSFER_MINUTES)?.remove(WALK_WEIGHT)?.apply()
+        TripLearning.reset()
+    }
 }

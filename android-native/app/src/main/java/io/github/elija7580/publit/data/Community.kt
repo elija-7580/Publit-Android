@@ -134,6 +134,11 @@ object WhatsNew {
 
     /** Newest first. `release` counts Android releases with a note; raise it for each new entry. */
     val entries = listOf(
+        // 0.10.0: iOS builds 87–88 (measured change chances, change alerts; same texts as iOS, translated there).
+        Entry(4, listOf(
+            Item("swap", "Honest change chances", "Changes get a percentage only where Publit has measured how late the vehicles really run; elsewhere it says Estimate."),
+            Item("bell", "Warned before a change breaks", "On a started trip Publit rechecks each change with live times and warns you, with alternatives, when it becomes unlikely."),
+        )),
         // 0.9.0: iOS Build 82–84 caught up (same texts as iOS 83, already translated; at most three items).
         Entry(3, listOf(
             Item("bell", "Get off on time", "On a started trip Publit follows your ride and alerts you one stop before yours."),

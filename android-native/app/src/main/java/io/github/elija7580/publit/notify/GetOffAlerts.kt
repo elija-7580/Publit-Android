@@ -103,7 +103,7 @@ class GetOffService : Service(), LocationListener {
             if (Build.VERSION.SDK_INT >= 29) startForeground(TripNotifications.LIVE_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
             else startForeground(TripNotifications.LIVE_ID, n)
         }.isSuccess
-        if (!ok || !GetOffAlerts.wantsTracking(trip, GetOffAlerts.alert(this)) || !hasLocation(this)) { stopSelf(); return START_NOT_STICKY }
+        if (!ok || !tracks(this, trip) || !hasLocation(this)) { stopSelf(); return START_NOT_STICKY }
         if (!listening) runCatching {
             val lm = getSystemService(LocationManager::class.java)
             // Every 25 m or 5 s: enough to tell the stops apart, light on older phones.
@@ -117,8 +117,10 @@ class GetOffService : Service(), LocationListener {
 
     override fun onLocationChanged(location: Location) {
         val trip = activeTrip()
-        if (!GetOffAlerts.wantsTracking(trip, GetOffAlerts.alert(this))) { stopSelf(); return }
-        runCatching { GetOffAlerts.handle(this, location, trip!!) }
+        if (!tracks(this, trip)) { stopSelf(); return }
+        if (GetOffAlerts.wantsTracking(trip, GetOffAlerts.alert(this))) runCatching { GetOffAlerts.handle(this, location, trip!!) }
+        // Learn from my trips and change alerts on foot (on the device only).
+        if (TripLearningSession.wantsTracking(trip)) runCatching { TripLearningSession.handle(this, location, trip!!) }
     }
 
     @Deprecated("Deprecated in Java") override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
@@ -137,12 +139,15 @@ class GetOffService : Service(), LocationListener {
     private fun activeTrip(): SavedTrip? = (applicationContext as? PublitApplication)?.trips?.activeTrip
 
     companion object {
+        /** Location for the get-off alert, or for learning from the trip. */
+        fun tracks(ctx: Context, trip: SavedTrip?) =
+            GetOffAlerts.wantsTracking(trip, GetOffAlerts.alert(ctx)) || TripLearningSession.wantsTracking(trip)
         fun hasLocation(ctx: Context) = ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
         /** Starts or stops tracking to match the active trip and the setting. Call while the app is in front. */
         fun sync(ctx: Context) {
             val app = ctx.applicationContext as? PublitApplication ?: return
-            val want = GetOffAlerts.wantsTracking(app.trips.activeTrip, GetOffAlerts.alert(ctx)) && hasLocation(ctx)
+            val want = tracks(ctx, app.trips.activeTrip) && hasLocation(ctx)
             val i = Intent(ctx, GetOffService::class.java)
             runCatching { if (want) { if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i) else ctx.startService(i) } else ctx.stopService(i) }
         }

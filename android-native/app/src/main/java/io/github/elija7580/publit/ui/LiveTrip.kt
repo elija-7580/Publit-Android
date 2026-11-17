@@ -92,7 +92,8 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
         check == TripGuide.Check.OFF_ROUTE -> L10n.t("You seem to be off the route.")
         check == TripGuide.Check.MISSED -> L10n.t("Missed it?")
         cancelled -> L10n.t("Connection cancelled")
-        risk != null -> L10n.f("Your change at %@ may not work (%lld %%).", risk.stopName, risk.percent) +
+        risk != null -> (if (risk.isEstimate) L10n.f("Your change at %@ may not work.", risk.stopName)
+            else L10n.f("Your change at %@ may not work (%lld %%).", risk.stopName, risk.percent)) +
             (SmartRouting.backup(risk.outgoing)?.let { b -> " " + L10n.f("Backup: %@ at %@", b.leg.lineName, Fmt.time(b.leg.startTime, b.leg.from.tz)) } ?: "")
         else -> null
     }
@@ -588,7 +589,8 @@ private fun WaitStage(it: Itinerary, legIndex: Int, now: Instant) {
 private fun ChangeLine(c: SmartRouting.Change) {
     val ink = LocalInk.current
     val tight = c.spareMinutes < 1
-    Text(if (tight) L10n.t("Very tight change") else L10n.f("Change at %@: %lld %% chance", c.stopName, c.percent),
+    Text(if (tight) L10n.t("Very tight change") else if (c.isEstimate) L10n.f("Change at %@ may be tight", c.stopName)
+        else L10n.f("Change at %@: %lld %% chance", c.stopName, c.percent),
         color = if (c.percent < 50) ink.danger else if (c.percent < 80) ink.delay else ink.muted, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
 }
 
