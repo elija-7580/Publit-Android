@@ -7,7 +7,7 @@ plugins {
 
 // Play upload key, only in the "Play-Bundle" workflow (CI secrets, never committed). Without it every
 // release build keeps the public test key, which is fine for test APKs but must never go to Play.
-val uploadStore: String? = System.getenv("PUBLIT_UPLOAD_STORE")?.takeIf { it.isNotBlank() && java.io.File(it).exists() }
+val uploadStore: String? = System.getenv("PUBLIT_UPLOAD_STORE")?.takeIf { it.isNotBlank() && file(it).exists() }
 
 android {
     namespace = "io.github.elija7580.publit"
@@ -37,7 +37,7 @@ android {
             keyPassword = "publit-test"
         }
         if (uploadStore != null) create("upload") {
-            storeFile = java.io.File(uploadStore)
+            storeFile = file(uploadStore!!)
             storePassword = System.getenv("PUBLIT_UPLOAD_STORE_PASSWORD")
             keyAlias = System.getenv("PUBLIT_UPLOAD_KEY_ALIAS")
             keyPassword = System.getenv("PUBLIT_UPLOAD_KEY_PASSWORD")
