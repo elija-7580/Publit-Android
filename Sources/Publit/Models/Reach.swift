@@ -31,6 +31,8 @@ enum Reach {
         let kept = long.filter { l in
             // Already in the short list (same departure and arrival): not twice.
             if short.contains(where: { $0.startTime == l.startTime && $0.endTime == l.endTime }) { return false }
+            // The same vehicles, only walked to another way: not twice either.
+            if short.contains(where: { $0.rideKey == l.rideKey }) { return false }
             let rivals = short.filter { $0.startTime >= l.startTime.addingTimeInterval(-longWalkMustSave) }
             guard let best = rivals.map(\.endTime).min() else { return true }
             return best.timeIntervalSince(l.endTime) >= longWalkMustSave

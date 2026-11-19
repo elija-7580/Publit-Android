@@ -48,6 +48,24 @@ final class TripGuideTests: XCTestCase {
     }
 
     /// Punta Sabbioni → Cannaregio: the server liked a 30 min walk to arrive one minute earlier.
+    /// Brig → Visp: the short- and long-walk searches both found the R91, each walking to the
+    /// platform a little differently; every connection showed twice.
+    func testSameRideWalkedToDifferentlyIsListedOnce() throws {
+        func route(_ id: String, walkStart: Int, train: (Int, Int), line: String = "TRAIN") throws -> Itinerary {
+            let legs = [try leg("WALK", ("Here", 7.990), ("Brig", 7.988), start: walkStart, end: train.0),
+                        try leg(line, ("Brig", 7.988), ("Visp", 7.882), start: train.0, end: train.1)]
+            return Itinerary(id: id, duration: (train.1 - walkStart) * 60, startTime: legs[0].startTime,
+                             endTime: legs[1].endTime, transfers: 0, legs: legs)
+        }
+        let short = try route("s", walkStart: 27, train: (29, 35))
+        let long = try route("l", walkStart: 25, train: (29, 35))
+        let later = try route("later", walkStart: 34, train: (36, 43))
+        XCTAssertEqual(Reach.preferShortWalks(short: [short, later], long: [long]).map(\.id), ["s", "later"])
+        XCTAssertEqual([long, short, later].uniqueRides.map(\.id), ["s", "later"])
+        let bus = try route("bus", walkStart: 27, train: (29, 35), line: "BUS")
+        XCTAssertEqual([short, bus].uniqueRides.map(\.id), ["s", "bus"])
+    }
+
     func testLongWalkStaysOnlyWhenItSavesTime() throws {
         func route(_ id: String, _ start: Int, _ end: Int, walk: Int) throws -> Itinerary {
             let legs = [try leg("FERRY", ("Punta Sabbioni", 12.42), ("Lido", 12.36), start: start, end: end - walk),
