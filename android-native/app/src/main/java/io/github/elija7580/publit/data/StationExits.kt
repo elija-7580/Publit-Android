@@ -68,7 +68,48 @@ object StationExits {
             if (result == null) failed[area] = System.currentTimeMillis()
             else { areas[area] = result; found = found || result.isNotEmpty() }
         }
+        if (found) version.value = version.value + 1
         found
+    }
+
+    // The user's own exit
+
+    /** Bumped when exit numbers arrive or the user picks an exit: screens work out their advice again. */
+    val version = kotlinx.coroutines.flow.MutableStateFlow(0)
+
+    /** Exits the user picked, per station and destination: [preferenceKey] → "<OSM id>|<sign>". */
+    private val preferredExits = ConcurrentHashMap<String, String>()
+    @Volatile private var savePreferred: ((Map<String, String>) -> Unit)? = null
+    const val PREFERRED_KEY = "preferredStationExits"
+
+    /** Restores the picked exits and how to keep them (SharedPreferences in the app, nothing in tests). */
+    fun installPreferred(saved: Map<String, String>, save: ((Map<String, String>) -> Unit)?) {
+        preferredExits.clear(); preferredExits.putAll(saved); savePreferred = save
+    }
+
+    /** The station (about 100 m) and where the walk goes (about 1 km): the same exit fits the same trip. */
+    fun preferenceKey(walk: Leg) = areaKey(walk.from.coordinate) + ">" +
+        String.format(Locale.ROOT, "%.2f,%.2f", walk.to.coordinate.lat, walk.to.coordinate.lon)
+
+    /** Exits of the station this walk leaves, one per sign, in sign order: the ones to choose from. */
+    fun choices(walk: Leg): List<StationEntrance> = entrances(walk).orEmpty().distinctBy { it.ref }.sortedBy { it.ref }
+
+    /** The exit the user picked for this walk's station and destination, if it is still there. */
+    fun preferred(walk: Leg): StationEntrance? {
+        val saved = preferredExits[preferenceKey(walk)] ?: return null
+        val list = entrances(walk) ?: return null
+        val parts = saved.split("|", limit = 2)
+        parts.firstOrNull()?.toLongOrNull()?.let { id -> list.firstOrNull { it.id == id }?.let { return it } }
+        // Same sign, another node (the map was edited).
+        return parts.getOrNull(1)?.let { r -> list.firstOrNull { it.ref == r } }
+    }
+
+    /** Remembers [entrance] for this walk's station and destination; null goes back to the automatic choice. */
+    fun setPreferred(entrance: StationEntrance?, walk: Leg) {
+        val key = preferenceKey(walk)
+        if (entrance == null) preferredExits.remove(key) else preferredExits[key] = "${entrance.id}|${entrance.ref}"
+        savePreferred?.invoke(HashMap(preferredExits))
+        version.value = version.value + 1
     }
 
     fun query(p: LatLon): String {

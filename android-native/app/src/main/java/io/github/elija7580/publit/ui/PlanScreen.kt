@@ -277,6 +277,7 @@ private fun LegBadge(leg: Leg) {
 @Composable
 fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, top: @Composable () -> Unit = {}) {
     val ink = LocalInk.current
+    LaunchedEffect(it.id) { io.github.elija7580.publit.data.StationExits.load(it) }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -314,10 +315,18 @@ fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, to
         if (changes.isNotEmpty()) item("changes") { ChangesCard(changes) }
         if (it.transitLegs.any { l -> l.endTime > java.time.Instant.now() }) item("getoff") { GetOffCard(it) }
         items(it.legs.size) { i ->
+            // Where to ride and which way out of each station; exit numbers arrive from OpenStreetMap a moment later.
+            val exitsVersion by io.github.elija7580.publit.data.StationExits.version.collectAsStateWithLifecycle()
+            val advice = remember(it, exitsVersion) { io.github.elija7580.publit.data.ExitAdvice.forRide(i, it.legs) }
             val leg = it.legs[i]
             TransferCard(it, i)
             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
-                if (leg.isTransit) TransitLeg(leg) else Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (leg.isTransit) Column {
+                    TransitLeg(leg)
+                    if (advice != null) Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+                        ExitAdviceRow(advice, it.legs.getOrNull(i + 1)?.takeIf { _ -> io.github.elija7580.publit.data.StationExits.leavesUnderground(it.legs, i + 1) })
+                    }
+                } else Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null, tint = ink.muted)
                     Spacer(Modifier.width(8.dp))
                     val dist = leg.distance?.let { d -> " · " + Fmt.distance(d) } ?: ""

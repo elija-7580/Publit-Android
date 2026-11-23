@@ -81,6 +81,8 @@ data class WalkManeuver(
     var exitTowards: String? = null, var exitSide: Int? = null,
     /** The station exit's signed number or letter ("B2"), from OpenStreetMap. */
     var exitRef: String? = null,
+    /** Where that exit is. */
+    var exitPoint: LatLon? = null,
 ) {
     enum class Kind { START, STRAIGHT, SLIGHT_LEFT, LEFT, SHARP_LEFT, SLIGHT_RIGHT, RIGHT, SHARP_RIGHT, U_TURN,
         STAIRS_UP, STAIRS_DOWN, STAIRS, ELEVATOR, LEVEL_UP, LEVEL_DOWN, ARRIVE }
@@ -208,8 +210,10 @@ class WalkRoute(leg: Leg) {
         val exitAt = markExit(out, marks.firstOrNull()?.second?.fromLevel, leg.from.coordinate)
         StationExits.entrances(leg)?.let { entrances ->
             val nodes = leg.steps.orEmpty().flatMap { listOf(it.fromOsmNode, it.toOsmNode) }.filterNotNull().toSet()
-            val e = StationExits.pick(entrances, path, exitAt?.let { out[it].coordinate }, exitAt?.let { out[it].along }, nodes)
-            if (e != null) out[exitAt ?: 0].exitRef = e.ref
+            // The user's own exit for this station and destination comes first.
+            val e = StationExits.preferred(leg)
+                ?: StationExits.pick(entrances, path, exitAt?.let { out[it].coordinate }, exitAt?.let { out[it].along }, nodes)
+            if (e != null) { out[exitAt ?: 0].exitRef = e.ref; out[exitAt ?: 0].exitPoint = e.coordinate }
         }
         maneuvers = out
     }

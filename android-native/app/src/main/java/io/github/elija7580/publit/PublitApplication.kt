@@ -28,6 +28,15 @@ class PublitApplication : Application() {
         if (BuildConfig.DEMO_API.isNotEmpty()) demoDefaults()
         io.github.elija7580.publit.live.LiveOverlay.enabled = getSharedPreferences("publit", MODE_PRIVATE).getBoolean("extraLiveSources", true)
         io.github.elija7580.publit.data.SmartRouting.prefs = getSharedPreferences("publit", MODE_PRIVATE)
+        // Station exits the user picked ("Choose exit"), per station and destination.
+        runCatching {
+            val prefs = getSharedPreferences("publit", MODE_PRIVATE)
+            val exits = io.github.elija7580.publit.data.StationExits
+            val saved = prefs.getString(exits.PREFERRED_KEY, null)?.let { org.json.JSONObject(it) }
+            exits.installPreferred(saved?.keys()?.asSequence()?.associateWith { k -> saved.getString(k) }.orEmpty()) { all ->
+                prefs.edit().putString(exits.PREFERRED_KEY, org.json.JSONObject(all).toString()).apply()
+            }
+        }
         io.github.elija7580.publit.data.DelayHistoryStore.init(this)
         io.github.elija7580.publit.data.TripLearning.file = java.io.File(filesDir, "trip-learning.json")
         runCatching { io.github.elija7580.publit.notify.TripNotifications.channels(this) }
