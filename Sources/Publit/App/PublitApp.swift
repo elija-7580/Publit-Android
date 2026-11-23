@@ -267,6 +267,7 @@ struct RootView: View {
             // Keep running Live Activities current while the app is open.
             guard scenePhase == .active else { return }
             location.start()
+            Task { await PartnerLinks.refresh() }
             for trip in await LiveTripActivity.resume({ trips.trip($0) }) {
                 LiveTripActivity.start(trip, hasTicket: !passes.passes(forTrip: trip.id, at: trip.startTime).isEmpty)
             }
