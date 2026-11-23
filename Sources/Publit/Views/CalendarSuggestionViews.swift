@@ -111,7 +111,7 @@ struct CalendarPlanSection: View {
                                 .background(Color.inkFill, in: Circle())
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("Your appointments as destinations").font(.body.weight(.semibold))
-                                Text("Publit suggests routes to upcoming events that have a place, so you arrive on time. Your calendar is read on your iPhone only.")
+                                Text("Publit suggests routes to upcoming events that have a place, so you arrive on time. Your calendar is read on this device only.")
                                     .font(.subheadline).foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -193,7 +193,7 @@ struct CalendarSettingsSection: View {
             if calendar.isBlocked {
                 Text("Calendar access is off for Publit. Turn it on in the Settings app.")
             } else {
-                Text("Upcoming events with a place appear in Plan, in the destination search and in Nearby, with routes that arrive a few minutes early. Your calendar is read on your iPhone only; a place is looked up only when you open its route.")
+                Text("Upcoming events with a place appear in Plan, in the destination search and in Nearby, with routes that arrive a few minutes early. Your calendar is read on this device only; a place is looked up only when you open its route.")
             }
         }
     }
