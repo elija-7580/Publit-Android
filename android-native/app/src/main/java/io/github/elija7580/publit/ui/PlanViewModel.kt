@@ -37,6 +37,8 @@ data class PlanState(
     /** null = leave now. */
     val time: Instant? = null,
     val arriveBy: Boolean = false,
+    /** "Last": tonight's last connection (LastConnection), asked as arrive by 4 a.m. */
+    val lastConnection: Boolean = false,
     val routes: List<Itinerary> = emptyList(),
     val walkOnly: Itinerary? = null,
     /** Said above the routes: they start with a drive because no stop was within walking reach. */
@@ -84,7 +86,9 @@ class PlanViewModel(
     val searchRequest = MutableStateFlow(0)
     fun requestSearch() { searchRequest.value++ }
     fun swap() { _state.update { s -> s.copy(from = s.to ?: Endpoint.Here, to = s.from) }; plan() }
-    fun setTime(time: Instant?, arriveBy: Boolean) { _state.update { it.copy(time = time, arriveBy = arriveBy) }; plan() }
+    fun setTime(time: Instant?, arriveBy: Boolean) { _state.update { it.copy(time = time, arriveBy = arriveBy, lastConnection = false) }; plan() }
+    /** "Last": the last connection tonight, from the same places. */
+    fun setLastConnection() { _state.update { it.copy(time = null, arriveBy = false, lastConnection = true) }; plan() }
     fun setOptions(o: io.github.elija7580.publit.data.RouteOptions) {
         val old = _state.value.options
         io.github.elija7580.publit.data.RouteOptions.save(prefs, o)
@@ -153,6 +157,10 @@ class PlanViewModel(
         val to = s.to ?: return
         remember(s.from, to)
         search?.cancel()
+        // Last connection: searched backwards from the end of the service day.
+        val qt = if (s.lastConnection) io.github.elija7580.publit.data.LastConnection.deadline() else s.time
+        val qa = s.lastConnection || s.arriveBy
+        pageTime = qt
         search = viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null, routes = emptyList(), note = null, walkOnly = null, searched = true, street = emptyList(), badges = emptyMap()) }
             try {
@@ -166,14 +174,14 @@ class PlanViewModel(
                 var found = emptyList<Itinerary>()
                 var res: io.github.elija7580.publit.data.PlanResponse? = null
                 val o = s.options
-                val street = o.comparisonModes.map { m -> async { runCatching { client.streetRoutes(a, b, s.time, s.arriveBy, m) }.getOrDefault(emptyList()) } }
+                val street = (if (s.lastConnection) emptyList() else o.comparisonModes).map { m -> async { runCatching { client.streetRoutes(a, b, qt, qa, m) }.getOrDefault(emptyList()) } }
                 val firstWalk = o.maxWalkMinutes * 60
                 pageWalk = firstWalk; pageOptions = o; pageNearest = null
                 var note: String? = null
                 // Park & Ride: drive to a station near home (one or two searches, see ParkAndRide); when every
                 // route drives most of the way, the usual routes are shown instead.
                 val car = if (o.firstMile == io.github.elija7580.publit.data.FirstMile.CAR)
-                    ParkAndRide.search(minOf(firstWalk, ParkAndRide.MAX_DRIVE_SECONDS)) { d -> client.plan(a, b, s.time, s.arriveBy, d, options = o) }
+                    ParkAndRide.search(minOf(firstWalk, ParkAndRide.MAX_DRIVE_SECONDS)) { d -> client.plan(a, b, qt, qa, d, options = o) }
                 else null
                 if (car != null) {
                     res = car.response
@@ -187,8 +195,8 @@ class PlanViewModel(
                         .filter { !it.isDetour }.distinctBy { it.routeKey }
                     val carOptions = w.copy(firstMile = io.github.elija7580.publit.data.FirstMile.CAR)
                     when (val f = ParkAndRide.walkingFirst(firstWalk, w.maxWalkMinutes != io.github.elija7580.publit.data.RouteOptions.DEFAULT_WALK,
-                        walk = { walk -> val r = client.plan(a, b, s.time, s.arriveBy, walk, options = w); r to keep(r.itineraries) },
-                        car = { ParkAndRide.search(ParkAndRide.MAX_DRIVE_SECONDS) { d -> client.plan(a, b, s.time, s.arriveBy, d, options = carOptions) } })) {
+                        walk = { walk -> val r = client.plan(a, b, qt, qa, walk, options = w); r to keep(r.itineraries) },
+                        car = { ParkAndRide.search(ParkAndRide.MAX_DRIVE_SECONDS) { d -> client.plan(a, b, qt, qa, d, options = carOptions) } })) {
                         is ParkAndRide.Found.Walk -> { res = f.response; found = f.routes; pageWalk = f.walk }
                         is ParkAndRide.Found.Car -> {
                             res = f.result.response; found = keep(f.result.routes)
@@ -197,17 +205,22 @@ class PlanViewModel(
                         }
                     }
                 }
+                // Last connection: only rides that have not left yet.
+                val fetched = found
+                if (s.lastConnection) found = io.github.elija7580.publit.data.LastConnection.upcoming(found)
                 io.github.elija7580.publit.data.SmartRouting.offered = found
                 if (io.github.elija7580.publit.data.SmartRouting.isEnabled) Thread { runCatching { io.github.elija7580.publit.data.DelayHistoryStore.refresh(found) } }.start()
-                io.github.elija7580.publit.data.SmartRouting.offeredArriveBy = s.arriveBy
+                io.github.elija7580.publit.data.SmartRouting.offeredArriveBy = qa
                 val best = found.filter { !it.isDirect }.minOfOrNull { it.duration }
                 val comparisons = io.github.elija7580.publit.data.StreetComparison.from(res?.direct.orEmpty() + street.flatMap { it.await() })
                     .filter { it.isRealistic(best) }
                 log.note("plan: ${found.size} routes")
                 _state.update {
-                    it.copy(loading = false, routes = found, note = note, walkOnly = res?.direct?.firstOrNull(), nextCursor = res?.nextPageCursor, previousCursor = res?.previousPageCursor, street = comparisons,
-                        badges = if (io.github.elija7580.publit.data.SmartRouting.isEnabled) io.github.elija7580.publit.data.SmartRouting.badges(found, s.arriveBy) else emptyMap(),
-                        error = if (found.isEmpty() && res?.direct.isNullOrEmpty()) (if (o.ownTickets.isNotEmpty()) L10n.t("No connection is fully covered by your tickets. Change them in Route options to see all.") else L10n.t("No connections found.")) else null)
+                    it.copy(loading = false, routes = found, note = note, nextCursor = res?.nextPageCursor, previousCursor = res?.previousPageCursor, street = comparisons,
+                        badges = withLast(if (io.github.elija7580.publit.data.SmartRouting.isEnabled) io.github.elija7580.publit.data.SmartRouting.badges(found, qa) else emptyMap(), found, s.lastConnection),
+                        walkOnly = if (s.lastConnection) null else res?.direct?.firstOrNull(),
+                        error = if (s.lastConnection && found.isEmpty() && fetched.isNotEmpty()) L10n.t("The last connection there has already left. Choose another day.")
+                        else if (found.isEmpty() && (s.lastConnection || res?.direct.isNullOrEmpty())) (if (o.ownTickets.isNotEmpty()) L10n.t("No connection is fully covered by your tickets. Change them in Route options to see all.") else L10n.t("No connections found.")) else null)
                 }
             } catch (e: CancellationException) { throw e } catch (e: Exception) {
                 log.note("plan error ${e.javaClass.simpleName}")
@@ -220,6 +233,16 @@ class PlanViewModel(
     private var pageWalk: Int? = null
     private var pageOptions: io.github.elija7580.publit.data.RouteOptions? = null
     private var pageNearest: Int? = null
+    private var pageTime: Instant? = null
+
+    /** The route that leaves last carries "Last connection", first on its line. */
+    private fun withLast(badges: Map<String, List<io.github.elija7580.publit.data.SmartRouting.Badge>>, routes: List<Itinerary>, on: Boolean):
+        Map<String, List<io.github.elija7580.publit.data.SmartRouting.Badge>> {
+        if (!on) return badges
+        val l = io.github.elija7580.publit.data.LastConnection.last(routes) ?: return badges
+        val last = io.github.elija7580.publit.data.SmartRouting.Badge.LAST_CONNECTION
+        return badges + (l.routeKey to (listOf(last) + badges[l.routeKey].orEmpty().filter { it != last }))
+    }
 
     fun later() = page(true)
     fun earlier() = page(false)
@@ -233,11 +256,12 @@ class PlanViewModel(
                 val a = point(s.from) ?: return@launch
                 val b = point(to) ?: return@launch
                 val o = pageOptions ?: s.options
-                val res = client.plan(a, b, s.time, s.arriveBy, pageWalk ?: (s.options.maxWalkMinutes * 60), cursor, o)
+                val res = client.plan(a, b, if (s.lastConnection) pageTime else s.time, s.lastConnection || s.arriveBy, pageWalk ?: (s.options.maxWalkMinutes * 60), cursor, o)
                 _state.update { st ->
                     var more = res.itineraries.filter { !it.isDetour }
                     if (o.firstMile == io.github.elija7580.publit.data.FirstMile.CAR)
                         more = ParkAndRide.nearStations(ParkAndRide.sensible(more), pageNearest)
+                    if (st.lastConnection) more = io.github.elija7580.publit.data.LastConnection.upcoming(more)
                     if (next) st.copy(routes = (st.routes + more).distinctBy { it.routeKey }, nextCursor = res.nextPageCursor)
                     else st.copy(routes = (more + st.routes).distinctBy { it.routeKey }, previousCursor = res.previousPageCursor)
                 }

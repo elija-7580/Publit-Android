@@ -95,6 +95,7 @@ Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktione
 - [x] Karte: "Data gaps", "Dropped pin", Leihrad "Available now"
 - [x] "Recently searched" + "Clear history" (im Planer)
 - [x] Plan: "Earlier connections", "Other ways" ("About as fast")
+- [x] Plan: "Last" chip = tonight's last connection (`data/LastConnection.kt`, iOS `LastConnection.swift`, Publit #161): arrive by 4 a.m., departed rides dropped, "☾ Last connection" on the route that leaves last
 - [x] GoNow: "Leave now / Leave in x min / Walk all the way" auf Routen vom Standort
 - [x] Routendetail: "Feels like", "Remind me to get off"
 - [x] Live-Leiste: "Open trip", "Start trip", "Hide", "Arrived"
