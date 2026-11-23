@@ -90,11 +90,11 @@ fun CommunityCard(onWishes: () -> Unit, onSupport: () -> Unit, modifier: Modifie
                 Text(L10n.t("Publit is a community project"), fontWeight = FontWeight.Bold, fontSize = 17.sp)
             }
             Text(L10n.t("Vote for what comes next, or suggest your own idea. No account needed."), color = ink.muted, fontSize = 14.sp)
-            Button(onWishes, Modifier.fillMaxWidth().height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = ink.ink, contentColor = ink.onInk)) {
+            Button(onWishes, Modifier.fillMaxWidth().heightIn(min = 46.dp), colors = ButtonDefaults.buttonColors(containerColor = ink.ink, contentColor = ink.onInk)) {
                 Icon(Icons.Filled.Lightbulb, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
                 Text(L10n.t("Suggest features and vote"), fontWeight = FontWeight.SemiBold)
             }
-            OutlinedButton(onSupport, Modifier.fillMaxWidth().height(46.dp)) {
+            OutlinedButton(onSupport, Modifier.fillMaxWidth().heightIn(min = 46.dp)) {
                 Icon(Icons.Filled.FavoriteBorder, null, Modifier.size(18.dp), tint = ink.ink); Spacer(Modifier.width(6.dp))
                 Text(L10n.t("Support Publit"), fontWeight = FontWeight.SemiBold, color = ink.ink)
             }

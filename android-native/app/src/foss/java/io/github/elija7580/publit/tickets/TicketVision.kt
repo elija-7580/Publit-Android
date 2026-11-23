@@ -11,14 +11,6 @@ import android.graphics.Bitmap
 import android.graphics.Rect
 import android.net.Uri
 import com.google.zxing.BarcodeFormat
-import com.google.zxing.BinaryBitmap
-import com.google.zxing.DecodeHintType
-import com.google.zxing.MultiFormatReader
-import com.google.zxing.NotFoundException
-import com.google.zxing.RGBLuminanceSource
-import com.google.zxing.ResultMetadataType
-import com.google.zxing.common.HybridBinarizer
-import com.google.zxing.multi.GenericMultipleBarcodeReader
 import com.googlecode.tesseract.android.TessBaseAPI
 import java.io.File
 
@@ -44,15 +36,10 @@ object TicketVision {
     fun codes(bmp: Bitmap): List<Code> {
         val px = IntArray(bmp.width * bmp.height)
         bmp.getPixels(px, 0, bmp.width, 0, 0, bmp.width, bmp.height)
-        val image = BinaryBitmap(HybridBinarizer(RGBLuminanceSource(bmp.width, bmp.height, px)))
-        val hints = mapOf(DecodeHintType.TRY_HARDER to true)
-        val results = try { GenericMultipleBarcodeReader(MultiFormatReader()).decodeMultiple(image, hints) } catch (e: NotFoundException) { return emptyList() }
-        return results.mapNotNull { r ->
+        return CodeFinder.find(px, bmp.width, bmp.height).mapNotNull { r ->
             val f = format(r.barcodeFormat) ?: return@mapNotNull null
             // Binary rail ticket codes: ZXing keeps the exact bytes in its byte segments.
-            @Suppress("UNCHECKED_CAST")
-            val segments = r.resultMetadata?.get(ResultMetadataType.BYTE_SEGMENTS) as? List<ByteArray>
-            val bytes = segments?.takeIf { it.isNotEmpty() }?.reduce { a, b -> a + b }
+            val bytes = CodeFinder.bytes(r)
             val pts = r.resultPoints?.filterNotNull().orEmpty()
             val box = if (pts.isEmpty()) null else Rect(pts.minOf { it.x }.toInt(), pts.minOf { it.y }.toInt(), pts.maxOf { it.x }.toInt(), pts.maxOf { it.y }.toInt())
             Code(f, r.text, bytes, box?.takeIf { it.width() > 0 && it.height() > 0 })

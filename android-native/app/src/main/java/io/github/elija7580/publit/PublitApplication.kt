@@ -43,7 +43,9 @@ class PublitApplication : Application() {
     /** Screenshot builds only (android-native/screenshots): skip onboarding, no extra live sources besides the demo server. */
     private fun demoDefaults() {
         val p = getSharedPreferences("publit", MODE_PRIVATE)
-        if (!p.contains("onboardingDone")) p.edit().putBoolean("onboardingDone", true).putBoolean("extraLiveSources", false).apply()
+        // Demo data has no onboarding and no "What's new" note in front of the views.
+        if (!p.contains("onboardingDone")) p.edit().putBoolean("onboardingDone", true).putBoolean("extraLiveSources", false)
+            .putInt(io.github.elija7580.publit.data.WhatsNew.SEEN_KEY, io.github.elija7580.publit.data.WhatsNew.latest).apply()
     }
 
     private fun version(): String? = packageManager.getPackageInfo(packageName, 0).versionName
