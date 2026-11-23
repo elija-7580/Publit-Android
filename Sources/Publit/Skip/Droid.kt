@@ -211,6 +211,10 @@ class Droid private constructor() {
             DroidEvents.shared.pickerResult(id, if (notificationsAllowed()) "true" else "false")
         } else if (requestCode == LOCATION_REQUEST) {
             permissionsChanged()
+        } else if (requestCode == CALENDAR_REQUEST) {
+            val id = pendingCalendarRequest ?: return
+            pendingCalendarRequest = null
+            DroidEvents.shared.pickerResult(id, calendarPermission())
         }
     }
 
@@ -340,6 +344,69 @@ class Droid private constructor() {
             } catch (e: Exception) { "" }
             android.os.Handler(android.os.Looper.getMainLooper()).post { finishPick(path) }
         }.start()
+    }
+
+    // MARK: Calendar suggestions (Swift: Location/CalendarSuggestions.swift)
+
+    const val CALENDAR_REQUEST = 7582
+    private var pendingCalendarRequest: String? = null
+
+    /** "0" not asked yet, "1" denied, "2" allowed. Read access is asked only when calendar suggestions are turned on. */
+    @JvmStatic fun calendarPermission(): String {
+        if (ContextCompat.checkSelfPermission(context(), Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED) return "2"
+        val prefs = context().getSharedPreferences("publit.android", Context.MODE_PRIVATE)
+        return if (prefs.getBoolean("calendarAsked", false)) "1" else "0"
+    }
+
+    @JvmStatic fun requestCalendarPermission(requestId: String) {
+        val activity = activity()
+        if (activity == null || calendarPermission() == "2") {
+            DroidEvents.shared.pickerResult(requestId, calendarPermission())
+            return
+        }
+        context().getSharedPreferences("publit.android", Context.MODE_PRIVATE).edit().putBoolean("calendarAsked", true).apply()
+        pendingCalendarRequest = requestId
+        ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.READ_CALENDAR), CALENDAR_REQUEST)
+    }
+
+    /**
+     * Event occurrences between the two times, read on the device (CalendarContract.Instances, so
+     * repeating events come once per occurrence). JSON array of
+     * {id, title, start, end, allDay, location, cancelled, declined}; "[]" without permission.
+     */
+    @JvmStatic fun calendarEvents(fromMillis: Double, toMillis: Double): String {
+        val out = org.json.JSONArray()
+        if (calendarPermission() != "2") return out.toString()
+        val I = android.provider.CalendarContract.Instances
+        val uri = I.CONTENT_URI.buildUpon().also {
+            android.content.ContentUris.appendId(it, fromMillis.toLong())
+            android.content.ContentUris.appendId(it, toMillis.toLong())
+        }.build()
+        val columns = arrayOf(I.EVENT_ID, I.TITLE, I.BEGIN, I.END, I.ALL_DAY, I.EVENT_LOCATION, I.STATUS, I.SELF_ATTENDEE_STATUS)
+        try {
+            context().contentResolver.query(uri, columns, null, null, I.BEGIN + " ASC")?.use { c ->
+                while (c.moveToNext() && out.length() < 200) {
+                    out.put(org.json.JSONObject()
+                        .put("id", c.getLong(0).toString())
+                        .put("title", c.getString(1) ?: "")
+                        .put("start", c.getLong(2).toDouble())
+                        .put("end", c.getLong(3).toDouble())
+                        .put("allDay", c.getInt(4) == 1)
+                        .put("location", c.getString(5) ?: "")
+                        .put("cancelled", !c.isNull(6) && c.getInt(6) == android.provider.CalendarContract.Events.STATUS_CANCELED)
+                        .put("declined", !c.isNull(7) && c.getInt(7) == android.provider.CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED))
+                }
+            }
+        } catch (e: Exception) {}
+        return out.toString()
+    }
+
+    /** This app's page in the system settings (to allow a permission that was denied for good). */
+    @JvmStatic fun openAppSettings() {
+        val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            android.net.Uri.fromParts("package", context().packageName, null))
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        try { context().startActivity(intent) } catch (e: Exception) {}
     }
 
     // MARK: Other apps

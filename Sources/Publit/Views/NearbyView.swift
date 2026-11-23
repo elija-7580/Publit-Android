@@ -169,8 +169,11 @@ struct NearbyView: View {
             // Show the matching part of the current board at once, then ask the server for more.
             if let c = lastCenter { regroup(lastStopTimes, around: c) }
         }
-        .onAppear { isVisible = true }
+        .onAppear { isVisible = true; CalendarSuggestions.shared.refresh(here: location.coordinate) }
         .onDisappear { isVisible = false }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active, isVisible { CalendarSuggestions.shared.refresh(here: location.coordinate) }
+        }
         .task(id: "\(refreshEnabled)|\(storedModes)") {
             guard refreshEnabled else { return }
             if location.isDenied { app.firstBoardReady = true }
@@ -236,6 +239,16 @@ struct NearbyView: View {
                     PlaceKeyRow(symbol: "calendar", title: L10n.f("Next trip: %@", next.toName),
                                 detail: TripStatus.at(.now, next.itinerary).headline)
                 }
+            }
+            // The next calendar event with a place, when it starts within a few hours (turned on in Plan or Settings).
+            if CalendarSuggestions.shared.isActive,
+               let a = CalendarTrips.next(CalendarSuggestions.shared.appointments, now: Ticker.minute.now) {
+                Button { CalendarRouting.open(a, app: app, near: location.coordinate) } label: {
+                    PlaceKeyRow(symbol: "calendar", title: L10n.f("Next appointment: %@", a.displayTitle),
+                                detail: "\(Fmt.time(a.start)) · \(a.placeName)", routes: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("nearbyAppointment")
             }
         }
         .inkCard()

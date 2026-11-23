@@ -3,6 +3,9 @@ import SwiftUI
 struct PlaceSearchView: View {
     let title: LocalizedStringKey
     let allowCurrentLocation: Bool
+    /// Upcoming calendar events with a place as destinations (Plan's To field, when turned on).
+    /// A pick routes there itself, arriving on time, instead of only filling the field.
+    var onAppointment: ((CalendarAppointment) -> Void)? = nil
     let onSelect: (Endpoint) -> Void
 
     @Environment(\.dismiss) var dismiss
@@ -68,6 +71,19 @@ struct PlaceSearchView: View {
                             Button { select(.currentLocation) } label: {
                                 Label("Current location", systemImage: "location.fill")
                             }
+                        }
+                    }
+                    if let onAppointment, CalendarSuggestions.shared.isActive, !CalendarSuggestions.shared.appointments.isEmpty {
+                        Section {
+                            ForEach(CalendarSuggestions.shared.appointments) { a in
+                                Button { onAppointment(a) } label: {
+                                    CalendarAppointmentRow(appointment: a, resolving: CalendarSuggestions.shared.resolving == a.id)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("calendarAppointmentSearch")
+                            }
+                        } header: {
+                            Text("From your calendar")
                         }
                     }
                     let others = favorites.items.filter { $0.role == nil }
