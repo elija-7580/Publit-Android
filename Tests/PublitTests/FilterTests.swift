@@ -160,6 +160,57 @@ final class StreetComparisonTests: XCTestCase {
         XCTAssertEqual(compare.contains { $0.mode == "WALK" }, !walkListed)
         XCTAssertTrue(PlanModel.comparisons(direct: p.direct, listed: merged, enabled: false).isEmpty)
     }
+
+    // MARK: Walking as a real choice (iOS issue #110)
+
+    /// A walk and a ride from the fixtures, moved to the given minutes after `t0`.
+    private func walkAndRide(walk: (Int, Int), ride: (Int, Int)) throws -> (walk: Itinerary, ride: Itinerary) {
+        let p = try directModes()
+        let muc = try TransitousClient.makeDecoder().decode(PlanResponse.self, from: Fixtures.data("plan_muc"))
+        var w = try XCTUnwrap(StreetComparison.walk(in: p.direct))
+        var r = try XCTUnwrap(muc.itineraries.first { !$0.isDirect && !$0.isCancelled })
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        func place(_ it: inout Itinerary, _ span: (Int, Int)) {
+            it.startTime = t0.addingTimeInterval(Double(span.0) * 60)
+            it.endTime = t0.addingTimeInterval(Double(span.1) * 60)
+            it.duration = (span.1 - span.0) * 60
+        }
+        place(&w, walk); place(&r, ride)
+        return (w, r)
+    }
+
+    func testWalkIsListedWhenNoRideGetsThereSooner() throws {
+        // 17 min on foot; the 6 min bus only leaves in 15 minutes and arrives after the walk.
+        let late = try walkAndRide(walk: (0, 17), ride: (15, 21))
+        XCTAssertTrue(StreetComparison.walkIsAChoice(late.walk, transit: [late.ride]))
+        XCTAssertEqual(PlanModel.merge(transit: [late.ride], direct: [late.walk]).first?.id, late.walk.id)
+        // The same walk loses when the bus leaves soon and is there first.
+        let soon = try walkAndRide(walk: (0, 40), ride: (5, 20))
+        XCTAssertFalse(StreetComparison.walkIsAChoice(soon.walk, transit: [soon.ride]))
+        XCTAssertEqual(PlanModel.merge(transit: [soon.ride], direct: [soon.walk]).map(\.id), [soon.ride.id])
+        // Arriving at the same minute, the ride that leaves later wins.
+        let tie = try walkAndRide(walk: (0, 40), ride: (20, 40))
+        XCTAssertFalse(StreetComparison.walkIsAChoice(tie.walk, transit: [tie.ride]))
+    }
+
+    func testWalkIsListedForArriveByWhenItLeavesLater() throws {
+        // Arrive by minute 60: the ride has to leave at 10, the walk at 20.
+        let later = try walkAndRide(walk: (20, 60), ride: (10, 50))
+        XCTAssertTrue(StreetComparison.walkIsAChoice(later.walk, transit: [later.ride]))
+        // The ride leaves after the walk and still arrives earlier: no walk in the list.
+        let earlier = try walkAndRide(walk: (20, 60), ride: (35, 55))
+        XCTAssertFalse(StreetComparison.walkIsAChoice(earlier.walk, transit: [earlier.ride]))
+    }
+
+    func testShortOrAboutAsFastWalksStayListedAndCancelledRidesDoNotCount() throws {
+        let short = try walkAndRide(walk: (0, 10), ride: (1, 4))
+        XCTAssertTrue(StreetComparison.walkIsAChoice(short.walk, transit: [short.ride]))
+        let close = try walkAndRide(walk: (0, 25), ride: (2, 22))
+        XCTAssertTrue(StreetComparison.walkIsAChoice(close.walk, transit: [close.ride]))
+        var gone = try walkAndRide(walk: (0, 40), ride: (5, 20))
+        for i in gone.ride.legs.indices where gone.ride.legs[i].isTransit { gone.ride.legs[i].cancelled = true }
+        XCTAssertTrue(StreetComparison.walkIsAChoice(gone.walk, transit: [gone.ride]))
+    }
 }
 
 final class LineGroupingTests: XCTestCase {
