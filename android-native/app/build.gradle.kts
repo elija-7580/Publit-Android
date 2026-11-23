@@ -105,6 +105,8 @@ dependencies {
     "playImplementation"("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
     "playImplementation"("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")
     "playImplementation"("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
+    // Text on tickets without Google: Tesseract (Apache-2.0), models in src/foss/assets/tessdata.
+    "fossImplementation"("cz.adaptech.tesseract4android:tesseract4android:4.9.0")
     implementation("com.google.zxing:core:3.5.4")
     // Walking speed for smart routing, only when switched on.
     implementation("androidx.health.connect:connect-client:1.1.0")

@@ -35,6 +35,7 @@ class PublitApplication : Application() {
         client = if (BuildConfig.DEMO_API.isNotEmpty()) TransitousClient(base = BuildConfig.DEMO_API, cacheDir = null)
             else TransitousClient(cacheDir = cacheDir)
         location = LocationRepository(this)
+        io.github.elija7580.publit.tickets.TicketVision.install(this)
         Thread { runCatching { io.github.elija7580.publit.data.CoverageAtlas.load(this); io.github.elija7580.publit.data.CoverageAtlas.refreshIfNeeded(this) } }.start()
         Thread { runCatching { client.pruneDisk() } }.start()
     }

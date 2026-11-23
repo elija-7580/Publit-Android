@@ -10,6 +10,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Only for Tesseract4Android (open OCR in the foss build); nothing else is resolved from JitPack.
+        maven("https://jitpack.io") { content { includeGroup("cz.adaptech.tesseract4android") } }
     }
 }
 rootProject.name = "PublitNative"
