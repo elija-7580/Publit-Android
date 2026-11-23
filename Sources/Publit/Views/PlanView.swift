@@ -91,8 +91,17 @@ struct PlanView: View {
             }
 
             if plan.to == nil || !plan.searchStarted {
+                // Upcoming events with a place, one tap to routes that arrive on time (when turned on).
+                CalendarPlanSection()
                 RecentSearchesSection()
             } else {
+                // Routes to a calendar event: what it is and when to leave, above the routes.
+                if let appointment = plan.appointment {
+                    Section {
+                        AppointmentBanner(appointment: appointment, itineraries: pick.list)
+                    }
+                    .inkCard()
+                }
                 resultsSection(plan, pick: pick)
                 StreetComparisonSection(comparisons: plan.comparisons,
                                         bestTransit: plan.itineraries.filter { !$0.isDirect }.map(\.duration).min(),
@@ -136,9 +145,14 @@ struct PlanView: View {
             isVisible = true
             if plan.timeMode == .now { plan.timeMode = .departAt }
             if plan.date < .now.addingTimeInterval(-60) { plan.date = .now }
+            CalendarSuggestions.shared.refresh(here: location.coordinate)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active, isVisible { CalendarSuggestions.shared.refresh(here: location.coordinate) }
         }
         .sheet(item: $picking) { target in
-            PlaceSearchView(title: target == .from ? "From" : "To", allowCurrentLocation: true) { endpoint in
+            PlaceSearchView(title: target == .from ? "From" : "To", allowCurrentLocation: true,
+                            onAppointment: target == .to ? openAppointment : nil) { endpoint in
                 if target == .from { app.plan.from = endpoint } else { app.plan.to = endpoint; app.plan.source = .search }
             }
         }
@@ -166,6 +180,11 @@ struct PlanView: View {
                 Task { await app.plan.search(current: location.coordinate) }
             }
         }
+    }
+
+    /// A calendar event picked in the destination search: routes that get there on time.
+    private func openAppointment(_ a: CalendarAppointment) {
+        CalendarRouting.open(a, app: app, near: location.coordinate)
     }
 
     /// Starts the search, or runs it again when the routes are already shown.
