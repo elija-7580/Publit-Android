@@ -39,7 +39,7 @@ object WalletPassImport {
     /** The pass inside a `.pkpass` file. */
     fun read(pkpass: ByteArray): Result {
         val json = passJson(pkpass) ?: throw NotAPass()
-        return read(passJSON = json)
+        return readJson(json)
     }
 
     private fun passJson(zip: ByteArray): ByteArray? = runCatching {
@@ -63,7 +63,7 @@ object WalletPassImport {
 
     private class Field(val key: String?, val label: String?, val value: String?)
 
-    fun read(passJSON: ByteArray): Result {
+    fun readJson(passJSON: ByteArray): Result {
         val root = runCatching { Json.parseToJsonElement(String(passJSON, Charsets.UTF_8)).jsonObject }.getOrNull() ?: throw NotAPass()
         fun str(o: JsonObject?, k: String) = (o?.get(k) as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
         val boarding = root["boardingPass"] as? JsonObject

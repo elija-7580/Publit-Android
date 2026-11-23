@@ -89,7 +89,7 @@ class CommunityWishesTest {
     @Test fun binaryCodeKeepsItsBytes() {
         // UIC 918.3 travels as ISO-8859-1 text: one character per byte.
         val json = """{"organizationName":"ÖBB","barcode":{"format":"PKBarcodeFormatAztec","message":"#UT01\u0001ÿ","messageEncoding":"iso-8859-1"},"generic":{}}"""
-        val code = WalletPassImport.read(passJSON = json.toByteArray()).codes.single()
+        val code = WalletPassImport.readJson(json.toByteArray()).codes.single()
         assertNull(code.message)
         val raw = java.util.Base64.getDecoder().decode(code.payload)
         assertEquals(listOf(0x23, 0x55, 0x54, 0x30, 0x31, 0x01, 0xFF), raw.map { it.toInt() and 0xFF })
@@ -98,7 +98,7 @@ class CommunityWishesTest {
     @Test fun notAPass() {
         val failed = runCatching { WalletPassImport.read(pkpass("{}").copyOf(10)) }
         assertTrue(failed.exceptionOrNull() is WalletPassImport.NotAPass)
-        assertTrue(runCatching { WalletPassImport.read(passJSON = "[1]".toByteArray()) }.exceptionOrNull() is WalletPassImport.NotAPass)
+        assertTrue(runCatching { WalletPassImport.readJson("[1]".toByteArray()) }.exceptionOrNull() is WalletPassImport.NotAPass)
         assertEquals("0C2238", WalletPassImport.hex("#0c2238"))
         assertNull(WalletPassImport.hex("rgb(300, 0, 0)"))
     }
