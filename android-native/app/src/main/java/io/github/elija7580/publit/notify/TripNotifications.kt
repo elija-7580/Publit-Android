@@ -191,6 +191,34 @@ object TripNotifications {
             .build()
         lastLive = n
         runCatching { ctx.getSystemService(NotificationManager::class.java).notify(LIVE_ID, n) }
+        // The same trip on a paired Wear OS watch (the Data Layer passes it on only when it changed).
+        runCatching {
+            val stageList = org.json.JSONArray()
+            steps.forEachIndexed { i, _ -> stageList.put(org.json.JSONObject().put("done", i < current).put("now", i == current).put("text", stages[i].drop(2))) }
+            val cue = when (s.phase) {
+                TripStatus.Phase.BEFORE_LEAVING -> "leave"
+                TripStatus.Phase.RIDING -> "getoff"
+                TripStatus.Phase.WALKING, TripStatus.Phase.TRANSFER -> if (s.nextEvent >= it.endTime) "arrive" else "departs"
+                else -> ""
+            }
+            val stepLeg = legs.firstOrNull { l -> now < l.endTime } ?: legs.firstOrNull()
+            val payload = org.json.JSONObject()
+                .put("id", trip.id).put("phase", s.phase.name).put("cue", cue)
+                .put("headline", s.headline).put("detail", detail)
+                .put("next", s.nextEvent.toEpochMilli()).put("start", it.startTime.toEpochMilli()).put("end", trip.endTime.toEpochMilli())
+                .put("destination", trip.toName).put("delay", s.delayMinutes)
+                .put("stepMode", stepLeg?.mode ?: "WALK")
+                .put("stages", stageList)
+            leg?.takeIf { live }?.let { l ->
+                payload.put("line", l.lineName).put("lineColor", l.lineColors.background).put("lineText", l.lineColors.text)
+                l.shownDirection?.let { d -> payload.put("direction", d) }
+                payload.put("legTime", (if (riding) l.endTime else l.startTime).toEpochMilli())
+                if (!riding) payload.put("boardAt", l.from.name)
+            }
+            platform?.let { p -> payload.put("platform", L10n.f("Pl. %@", p)).put("platformChanged", changed) }
+            then?.let { t -> payload.put("then", t) }
+            io.github.elija7580.publit.watch.WatchLink.send(ctx, payload.toString())
+        }
         // Recomputed at the next moment that matters (and at least every 2 min), from stored times.
         val next = minOf(s.nextEvent.plusSeconds(1), now.plusSeconds(120)).coerceAtLeast(now.plusSeconds(30))
         alarm(ctx, "live", next, Intent(ctx, ReminderReceiver::class.java).setAction(ACTION_LIVE))
@@ -231,6 +259,7 @@ object TripNotifications {
 
     fun endLive(ctx: Context) {
         GetOffService.stop(ctx)
+        io.github.elija7580.publit.watch.WatchLink.clear(ctx)
         lastLive = null
         ctx.getSystemService(NotificationManager::class.java).cancel(LIVE_ID)
         val pi = PendingIntent.getBroadcast(ctx, "live".hashCode(), Intent(ctx, ReminderReceiver::class.java).setAction(ACTION_LIVE),

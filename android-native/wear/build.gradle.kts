@@ -4,7 +4,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Standalone Wear OS app: departures near you, no phone needed (WatchNearbyView on iOS).
+// Wear OS app: departures near you with no phone needed (WatchNearbyView on iOS), and the trip under way
+// from the phone app as a live screen and an ongoing activity.
 android {
     namespace = "io.github.elija7580.publit.wear"
     compileSdk = 36
@@ -45,4 +46,8 @@ dependencies {
     implementation("androidx.wear.compose:compose-foundation:1.4.1")
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)
+    // The trip under way from the phone (Data Layer) and as an ongoing activity on the watch face.
+    implementation("com.google.android.gms:play-services-wearable:19.0.0")
+    implementation("androidx.wear:wear-ongoing:1.0.0")
+    implementation(libs.androidx.core.ktx)
 }

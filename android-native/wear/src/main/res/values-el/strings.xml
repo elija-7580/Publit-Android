@@ -12,4 +12,12 @@
     <string name="cancelled">Ακυρώθηκε</string>
     <string name="allow_location">Να επιτρέπεται η τοποθεσία</string>
     <string name="far_note">Οι πλησιέστερες αναχωρήσεις απέχουν %1$s, περίπου %2$d λεπτά με τα πόδια.</string>
+    <string name="live_trip">Τρέχουσα διαδρομή</string>
+    <string name="leave_in">Ξεκινήστε σε</string>
+    <string name="departs_in">Αναχώρηση σε</string>
+    <string name="get_off_in">Αποβίβαση σε</string>
+    <string name="arrive_in">Άφιξη σε</string>
+    <string name="no_live_trip">Καμία διαδρομή σε εξέλιξη. Ξεκινήστε μία στο Publit στο τηλέφωνο.</string>
+    <string name="from_stop">από %1$s</string>
+    <string name="stages">Βήματα</string>
 </resources>

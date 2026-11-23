@@ -12,4 +12,12 @@
     <string name="cancelled">Odwołany</string>
     <string name="allow_location">Zezwól na lokalizację</string>
     <string name="far_note">Najbliższe odjazdy są %1$s stąd, około %2$d min pieszo.</string>
+    <string name="live_trip">Trwająca podróż</string>
+    <string name="leave_in">Wyjdź za</string>
+    <string name="departs_in">Odjazd za</string>
+    <string name="get_off_in">Wysiadka za</string>
+    <string name="arrive_in">Przyjazd za</string>
+    <string name="no_live_trip">Brak trwającej podróży. Rozpocznij ją w Publit na telefonie.</string>
+    <string name="from_stop">z %1$s</string>
+    <string name="stages">Etapy</string>
 </resources>

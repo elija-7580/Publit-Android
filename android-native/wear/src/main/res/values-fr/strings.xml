@@ -12,4 +12,12 @@
     <string name="cancelled">Supprimé</string>
     <string name="allow_location">Autoriser la position</string>
     <string name="far_note">Les départs les plus proches sont à %1$s, environ %2$d min à pied.</string>
+    <string name="live_trip">Trajet en cours</string>
+    <string name="leave_in">Partir dans</string>
+    <string name="departs_in">Départ dans</string>
+    <string name="get_off_in">Descendre dans</string>
+    <string name="arrive_in">Arrivée dans</string>
+    <string name="no_live_trip">Aucun trajet en cours. Lancez-en un dans Publit sur votre téléphone.</string>
+    <string name="from_stop">depuis %1$s</string>
+    <string name="stages">Étapes</string>
 </resources>

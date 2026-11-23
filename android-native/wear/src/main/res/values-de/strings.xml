@@ -12,4 +12,12 @@
     <string name="cancelled">Fällt aus</string>
     <string name="allow_location">Standort erlauben</string>
     <string name="far_note">Die nächsten Abfahrten sind %1$s entfernt, etwa %2$d Min. zu Fuß.</string>
+    <string name="live_trip">Laufende Fahrt</string>
+    <string name="leave_in">Losgehen in</string>
+    <string name="departs_in">Abfahrt in</string>
+    <string name="get_off_in">Aussteigen in</string>
+    <string name="arrive_in">Ankunft in</string>
+    <string name="no_live_trip">Keine Fahrt unterwegs. Starte eine in Publit auf dem Handy.</string>
+    <string name="from_stop">ab %1$s</string>
+    <string name="stages">Schritte</string>
 </resources>
