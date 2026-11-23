@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real screenshots of the screenshot build in a running Android emulator (adb).
 
-  python3 capture.py --apk app-x86_64-screenshots.apk --out out --server http://127.0.0.1:8765
+  python3 capture.py --apk app-play-x86_64-screenshots.apk --out out --server http://127.0.0.1:8765
 
 Needs: adb on PATH (emulator booted, adb root allowed), mock_server.py running, tesseract
 (deu+eng), Pillow, numpy. Writes out/raw/<lang>/<nn>-<scene>.png and out/diagnostics/.

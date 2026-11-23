@@ -94,6 +94,7 @@ import io.github.elija7580.publit.core.L10n
 import io.github.elija7580.publit.tickets.PassArchive
 import io.github.elija7580.publit.tickets.PassFormat
 import io.github.elija7580.publit.tickets.PassStore
+import io.github.elija7580.publit.tickets.TicketVision
 import io.github.elija7580.publit.tickets.PassStyle
 import io.github.elija7580.publit.tickets.TicketField
 import io.github.elija7580.publit.tickets.TicketImportPolicy
@@ -458,7 +459,7 @@ fun PassImportScreen(store: PassStore, tripId: String?, onBack: () -> Unit, onRe
     val file = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { u -> u?.let { loaded = null; pickPage = null; job = it to (ctx.contentResolver.getType(it) == "application/pdf") } }
     val photo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { u -> u?.let { loaded = null; pickPage = null; job = it to false } }
     val scanner = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
-        com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult.fromActivityResultIntent(r.data)?.pdf?.uri?.let { loaded = null; pickPage = null; job = it to true }
+        TicketVision.scannedPdf(r.data)?.let { loaded = null; pickPage = null; job = it to true }
     }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -489,14 +490,9 @@ fun PassImportScreen(store: PassStore, tripId: String?, onBack: () -> Unit, onRe
                 else -> {
                     ImportOption(Icons.Filled.Description, L10n.t("PDF or image file")) { file.launch(arrayOf("application/pdf", "image/*")) }
                     ImportOption(Icons.Filled.Image, L10n.t("Photo or screenshot")) { photo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-                    ImportOption(Icons.Filled.DocumentScanner, L10n.t("Scan a paper ticket")) {
+                    if (TicketVision.canScanPaper) ImportOption(Icons.Filled.DocumentScanner, L10n.t("Scan a paper ticket")) {
                         val activity = ctx as? Activity ?: return@ImportOption
-                        val opts = com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions.Builder().setGalleryImportAllowed(false).setPageLimit(1)
-                            .setResultFormats(com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions.RESULT_FORMAT_PDF)
-                            .setScannerMode(com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions.SCANNER_MODE_BASE).build()
-                        com.google.mlkit.vision.documentscanner.GmsDocumentScanning.getClient(opts).getStartScanIntent(activity)
-                            .addOnSuccessListener { scanner.launch(androidx.activity.result.IntentSenderRequest.Builder(it).build()) }
-                            .addOnFailureListener { e -> error = e.localizedMessage }
+                        TicketVision.startPaperScan(activity, { scanner.launch(androidx.activity.result.IntentSenderRequest.Builder(it).build()) }) { e -> error = e }
                     }
                     error?.let { Text(it, color = ink.danger) }
                     Text(L10n.t("Publit reads the ticket on your iPhone. Nothing is uploaded. Codes that change every few seconds only work in the operator's app.").replace("iPhone", "Android"),
