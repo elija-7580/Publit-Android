@@ -12,4 +12,13 @@
     <string name="cancelled">Cancelled</string>
     <string name="allow_location">Allow location</string>
     <string name="far_note">The nearest departures are %1$s away, about %2$d min on foot.</string>
+    <string name="live_trip">Trip under way</string>
+    <string name="leave_in">Leave in</string>
+    <string name="departs_in">Departs in</string>
+    <string name="get_off_in">Get off in</string>
+    <string name="arrive_in">Arrive in</string>
+    <string name="no_live_trip">No trip under way. Start one in Publit on your phone.</string>
+    <string name="from_stop">from %1$s</string>
+    <string name="stages">Steps</string>
+    <string name="map">Map</string>
 </resources>

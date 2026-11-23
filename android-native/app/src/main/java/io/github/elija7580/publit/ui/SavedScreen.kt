@@ -121,7 +121,8 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
             Section(L10n.t("Lines")) {
                 s.lines.forEachIndexed { i, line ->
                     if (i > 0) Divider()
-                    RemovableRow(onClick = { onOpenLine(line) }, onRemove = { store.removeLine(line.id) }) {
+                    RemovableRow(onClick = { onOpenLine(line) }, onRemove = { store.removeLine(line.id) },
+                        extra = moveActions(i, s.lines.size) { up -> store.moveLine(i, up) }) {
                         LineBadge(line)
                         Spacer(Modifier.width(10.dp))
                         Text(L10n.f("At %@", line.stopName), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -140,7 +141,8 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
             Section(L10n.t("Stops")) {
                 s.stops.forEachIndexed { i, p ->
                     if (i > 0) Divider()
-                    RemovableRow(onClick = { onOpenStop(p) }, onRemove = { store.remove(p.id) }) { PlaceText(modeIcon("BUS"), p) }
+                    RemovableRow(onClick = { onOpenStop(p) }, onRemove = { store.remove(p.id) },
+                        extra = moveActions(i, s.stops.size) { up -> store.moveStop(i, up) }) { PlaceText(modeIcon("BUS"), p) }
                 }
             }
         }
@@ -149,7 +151,8 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
                 s.places.forEachIndexed { i, p ->
                     if (i > 0) Divider()
                     RemovableRow(onClick = { onRoute(p) }, onRemove = { store.remove(p.id) },
-                        extra = listOf(L10n.t("Home") to { store.set(p, PlaceRole.HOME) }, L10n.t("Work") to { store.set(p, PlaceRole.WORK) })) {
+                        extra = listOf(L10n.t("Home") to { store.set(p, PlaceRole.HOME) }, L10n.t("Work") to { store.set(p, PlaceRole.WORK) }) +
+                            moveActions(i, s.places.size) { up -> store.movePlace(i, up) }) {
                         PlaceText(Icons.Filled.Place, p)
                     }
                 }
@@ -182,7 +185,13 @@ private fun KeyRow(icon: ImageVector, title: String, detail: String?, onClick: (
     }
 }
 
-/** Tap opens; long press offers Remove (swipe-to-delete on iOS). */
+/** "Move up" and "Move down" for the row at `index` of `count`, where there is a place to move to (dragging on iOS, Publit#124). */
+private fun moveActions(index: Int, count: Int, move: (up: Boolean) -> Unit): List<Pair<String, () -> Unit>> = buildList {
+    if (index > 0) add(L10n.t("Move up") to { move(true) })
+    if (index < count - 1) add(L10n.t("Move down") to { move(false) })
+}
+
+/** Tap opens; long press offers Remove (swipe-to-delete on iOS) and the row's other actions. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RemovableRow(onClick: () -> Unit, onRemove: () -> Unit, extra: List<Pair<String, () -> Unit>> = emptyList(),

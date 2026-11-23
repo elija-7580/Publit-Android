@@ -92,6 +92,30 @@ object SavedPlaces {
         "${if (role == PlaceRole.HOME) "home" else "work"}|${place.id}|${String.format(Locale.US, "%.5f,%.5f", place.lat, place.lon)}"
 }
 
+/** Saved stops, places and lines in an order of your own, as `FavoritesStore.moved` on iOS (Publit#124; pure, unit-tested). */
+object SavedOrder {
+    /**
+     * `all` with the entries of one kind (`isKind`) put in a new order among themselves: those at
+     * `offsets` (counted within the kind) go before the entry at `destination`, like a list's drag
+     * on iOS. Entries of other kinds keep their places, so stops, places, Home and Work stay one
+     * stored list.
+     */
+    fun <T> moved(all: List<T>, offsets: Collection<Int>, destination: Int, isKind: (T) -> Boolean): List<T> {
+        val slots = all.indices.filter { isKind(all[it]) }
+        val valid = offsets.filter { it in slots.indices }.distinct().sorted()
+        if (valid.isEmpty() || destination !in 0..slots.size) return all
+        val order = slots.indices.filter { it !in valid }.toMutableList()
+        order.addAll(destination - valid.count { it < destination }, valid)
+        val result = all.toMutableList()
+        slots.forEachIndexed { i, slot -> result[slot] = all[slots[order[i]]] }
+        return result
+    }
+
+    /** The entry at `index` (counted within the kind) one place up or down; unchanged at either end. */
+    fun <T> stepped(all: List<T>, index: Int, up: Boolean, isKind: (T) -> Boolean): List<T> =
+        moved(all, listOf(index), if (up) index - 1 else index + 2, isKind)
+}
+
 /** A saved line at one stop, e.g. "U6 at Marienplatz". Shows that line's next departures there. */
 @Serializable
 data class SavedLine(
@@ -151,6 +175,11 @@ class FavoritesStore(private val prefs: SharedPreferences) {
 
     fun toggle(place: SavedPlace) = savePlaces(SavedPlaces.toggle(_state.value.items, place))
     fun remove(id: String) = savePlaces(_state.value.items.filter { it.id != id })
+
+    // Own order (iOS Publit#124). `index` counts within `stops`, `places` or `lines`.
+    fun moveStop(index: Int, up: Boolean) = savePlaces(SavedOrder.stepped(_state.value.items, index, up) { it.isStop && it.role == null })
+    fun movePlace(index: Int, up: Boolean) = savePlaces(SavedOrder.stepped(_state.value.items, index, up) { !it.isStop && it.role == null })
+    fun moveLine(index: Int, up: Boolean) = saveLines(SavedOrder.stepped(_state.value.lines, index, up) { true })
 
     private fun savePlaces(items: List<SavedPlace>) {
         _state.value = _state.value.copy(items = items)

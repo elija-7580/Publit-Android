@@ -12,4 +12,13 @@
     <string name="cancelled">Скасовано</string>
     <string name="allow_location">Дозволити геопозицію</string>
     <string name="far_note">Найближчі відправлення за %1$s, приблизно %2$d хв пішки.</string>
+    <string name="live_trip">Поточна поїздка</string>
+    <string name="leave_in">Вирушайте через</string>
+    <string name="departs_in">Відправлення через</string>
+    <string name="get_off_in">Вихід через</string>
+    <string name="arrive_in">Прибуття через</string>
+    <string name="no_live_trip">Немає поточної поїздки. Почніть її в Publit на телефоні.</string>
+    <string name="from_stop">від %1$s</string>
+    <string name="stages">Кроки</string>
+    <string name="map">Карта</string>
 </resources>

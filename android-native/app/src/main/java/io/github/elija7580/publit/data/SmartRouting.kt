@@ -214,8 +214,10 @@ object SmartRouting {
         }
     }
 
-    enum class Badge { RECOMMENDED, FASTEST, FEWEST_CHANGES, LEAST_WALKING;
-        val title: String get() = L10n.t(when (this) { RECOMMENDED -> "Recommended"; FASTEST -> "Fastest"; FEWEST_CHANGES -> "Fewest changes"; LEAST_WALKING -> "Least walking" })
+    enum class Badge { RECOMMENDED, FASTEST, FEWEST_CHANGES, LEAST_WALKING,
+        /** The route that leaves last and still arrives tonight ("Last connection"). */
+        LAST_CONNECTION;
+        val title: String get() = L10n.t(when (this) { RECOMMENDED -> "Recommended"; FASTEST -> "Fastest"; FEWEST_CHANGES -> "Fewest changes"; LEAST_WALKING -> "Least walking"; LAST_CONNECTION -> "Last connection" })
     }
 
     /** Badges by routeKey. A badge goes to one route only, and only where the routes differ. */

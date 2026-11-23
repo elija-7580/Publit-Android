@@ -35,7 +35,7 @@ Two product flavors: `play` (default; Google Play and the GitHub APKs: fused loc
 | 7 | Saved places/lines/trips, settings, onboarding | FavoritesView, FavoritesStore, SettingsView, OnboardingView | done (Home/Work, saved stops/places/lines, save stop + save line, line departures, settings: start screen/data/about, onboarding; settings for map/route options/notifications/diagnostics as their features arrive) |
 | 8 | Live trip, notifications, reminders | LiveTripView, Notifications/* | done (saved + past trips, trip actions, leave/get-off reminders, live notification, restored after reboot; live guide: stages, cues with vibration and spoken directions, missed/off-route/risky change with alternatives and switch; saved-line alerts every ~30 min) |
 | 9 | Live sources overlay, offline cache | LiveSources*, ResponseCache | done (offline copies + note; all extra live sources: ÖBB, Wiener Linien, search.ch, VRR, VBB, RMV, VBN, NAH.SH, VRN, ACTV, SL, TfL; settings toggle and source list) |
-| 10 | Tickets, widget, Wear OS | Tickets/*, DroidWidget.kt, Android/wear | done: tickets as passes (on-device recognition with ML Kit + the full TicketTextParser, ZXing redraw, wallet, detail at full brightness, editor with field assignment, archive, trip tickets), widget (Glance), Wear OS (module `wear/`), operator logos (Wikidata/Wikimedia Commons, website icon fallback), Google Wallet export via services/google-wallet-signer (hidden until the repo variable WALLET_SIGNER_URL is set) |
+| 10 | Tickets, widget, Wear OS | Tickets/*, DroidWidget.kt, Android/wear | done: tickets as passes (on-device recognition with ML Kit + the full TicketTextParser, ZXing redraw, wallet, detail at full brightness, editor with field assignment, archive, trip tickets), widget (Glance), Wear OS (module `wear/`; the trip under way from the phone via the Data Layer item `/live-trip` (`watch/WatchLink`, play flavor only): live screen `LiveTripActivity` with labelled countdown, vehicle, progress and stages, map `LiveMapActivity` (MapLibre, OpenFreeMap dark, legs in line colours, walks dotted, stops, own position; opens on the leg under way), an ongoing activity on the watch face, opens by itself when a trip starts and once each time the app comes to the front), operator logos (Wikidata/Wikimedia Commons, website icon fallback), Google Wallet export via services/google-wallet-signer (hidden until the repo variable WALLET_SIGNER_URL is set) |
 | 11 | Switch app ID to `io.github.elija7580.publit`, release signing, remove Skip port | – | app ID switched, Skip Gradle project and its workflow removed; open: Play upload key as CI secret (owner), then remove `Sources/` |
 
 ## Feedback 2026-11-16 (iOS PR #87)
@@ -95,6 +95,7 @@ Quelle: elija-7580/publit `docs/FUNKTIONEN.md`. Per Textsuche fehlende Funktione
 - [x] Karte: "Data gaps", "Dropped pin", Leihrad "Available now"
 - [x] "Recently searched" + "Clear history" (im Planer)
 - [x] Plan: "Earlier connections", "Other ways" ("About as fast")
+- [x] Plan: "Last" chip = tonight's last connection (`data/LastConnection.kt`, iOS `LastConnection.swift`, Publit #161): arrive by 4 a.m., departed rides dropped, "☾ Last connection" on the route that leaves last
 - [x] GoNow: "Leave now / Leave in x min / Walk all the way" auf Routen vom Standort
 - [x] Routendetail: "Feels like", "Remind me to get off"
 - [x] Live-Leiste: "Open trip", "Start trip", "Hide", "Arrived"
@@ -137,3 +138,11 @@ Quelle: iOS PRs #92–#94 (`DelayHistory.swift`, `TransferWalk.swift`, `SmartRou
 - [x] `ui/SettingsScreen.kt`: erste Seite sagt „routes wherever you go“ statt „routes across Europe“, wie iOS. Publit plant überall, wo Transitous Daten hat.
 - [x] Strings: der neue Satz steht mit 14 Übersetzungen (aus dem iOS-Katalog, Commit 0109af5) in `tools/strings-android.json`, bis der Katalog hier den iOS-Stand hat; dann gewinnt der Katalog von selbst.
 - Kein „What's new“-Eintrag, `versionName` unverändert.
+
+## Eigene Reihenfolge unter „Saved“ (2026-11-23, iOS #124, PR #154)
+- [x] `data/FavoritesStore.kt`: `SavedOrder.moved` (wie iOS `FavoritesStore.moved`: nur Einträge einer Art tauschen untereinander die Plätze; Haltestellen, Orte, Home und Work bleiben eine gespeicherte Liste) und `SavedOrder.stepped` (ein Platz hoch oder runter); `FavoritesStore.moveStop/movePlace/moveLine`. Speicherformat unverändert, neue Einträge kommen weiter ans Ende.
+- [x] `ui/SavedScreen.kt`: Linien, Haltestellen und Orte bekommen im Langdruck-Menü „Move up“ und „Move down“ (nur wo es einen Platz gibt). Anders als iOS kein Ziehen: Android hat hier Langdruck-Menüs, wie bei „Remove“.
+- [x] Strings: „Move up“, „Move down“ mit 14 Übersetzungen in `tools/strings-android.json` (gibt es im iOS-Katalog nicht).
+- [x] Tests `SavedOrderTest` (dieselben Fälle wie iOS `FavoritesOrderTests`, dazu ein Schritt hoch/runter und die Enden).
+- Offen: am Gerät prüfen (drei Haltestellen speichern, die letzte nach oben schieben, App neu starten). Kein „What's new“-Eintrag, `versionName` unverändert.
+- iOS #115 (Straße neben gleichnamiger Haltestelle in der Suche): nichts zu portieren, Android sucht nur über Transitous und führt keine zweite Quelle zusammen.

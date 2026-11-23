@@ -97,6 +97,8 @@ dependencies {
     "playImplementation"(libs.kotlinx.coroutines.play.services)
     implementation(libs.kotlinx.serialization.json)
     "playImplementation"(libs.play.services.location)
+    // The trip under way on a paired Wear OS watch (Data Layer); the foss flavor has no watch link.
+    "playImplementation"("com.google.android.gms:play-services-wearable:19.0.0")
     implementation(libs.maplibre)
     implementation("androidx.glance:glance-appwidget:1.1.1")
     // Supporting Publit: monthly support and one-time tips (Google Play Billing).
