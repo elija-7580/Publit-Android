@@ -21,6 +21,8 @@ NearbyViewModel, PublitApp, StopScreen, PlanScreen, TripScreen, PublitMap, Stati
 Strings: `tools/strings.py` turns the iOS catalog into `assets/strings/<lang>.json` (CI step, not committed).
 Two test APKs per release: arm64 (`Publit-native.apk`) and 32-bit ARM (`Publit-native-32bit.apk`). App ID `io.github.elija7580.publit` (replaces the old Skip build; uninstall that once, its signing key differs), fixed test key `app/publit-test.jks` until the Play upload key is a CI secret.
 
+Two product flavors: `play` (default; Google Play and the GitHub APKs: fused location, ML Kit text, codes and document scanner, Play Billing) and `foss` (no Google library at all, for F-Droid and phones without Google services: platform GPS/network location, ZXing reads codes, no text recognition and no paper scanner, support links to publit.eu). Flavor code lives in `app/src/play` and `app/src/foss` (`FusedLocation`, `TicketVision`, `SupportBilling`); everything else is shared. CI builds both; the release also carries `Publit-native-foss.apk`.
+
 ## Milestones
 | # | Milestone | iOS sources | Status |
 |---|-----------|-------------|--------|

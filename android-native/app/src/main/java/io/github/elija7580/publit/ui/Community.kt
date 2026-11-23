@@ -317,6 +317,12 @@ fun SupportScreen(onBack: () -> Unit) {
             }
             when {
                 !state.loaded -> item { Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = ink.ink) } }
+                // Build without Google services: no store purchases, support goes through publit.eu.
+                SupportBilling.webOnly -> item {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        TextButton({ open("https://publit.eu/unterstuetzen/") }) { Text(L10n.t("Also on publit.eu"), color = ink.ink, fontWeight = FontWeight.SemiBold) }
+                    }
+                }
                 state.monthly.isEmpty() && state.oneTime.isEmpty() -> item {
                     Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(L10n.t("Support is not available right now."), color = ink.muted)

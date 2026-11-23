@@ -35,7 +35,7 @@ jobs:
       - name: Unit tests and release APK
         working-directory: android-native
         env: { WALLET_SIGNER_URL: '${{ vars.WALLET_SIGNER_URL }}' }
-        run: gradle --no-daemon ${WALLET_SIGNER_URL:+-Ppublit.walletSignerUrl=$WALLET_SIGNER_URL} :app:testReleaseUnitTest :app:assembleRelease :wear:assembleRelease 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+        run: gradle --no-daemon ${WALLET_SIGNER_URL:+-Ppublit.walletSignerUrl=$WALLET_SIGNER_URL} :app:testPlayReleaseUnitTest :app:assemblePlayRelease :app:assembleFossRelease :wear:assembleRelease 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
       - name: Errors only
         if: failure()
         run: |
@@ -47,12 +47,13 @@ jobs:
         if: github.event_name != 'pull_request'
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
-          OUT=android-native/app/build/outputs/apk/release
-          cp $OUT/app-arm64-v8a-release.apk Publit-native.apk
-          cp $OUT/app-armeabi-v7a-release.apk Publit-native-32bit.apk
+          OUT=android-native/app/build/outputs/apk/play/release
+          cp $OUT/app-play-arm64-v8a-release.apk Publit-native.apk
+          cp $OUT/app-play-armeabi-v7a-release.apk Publit-native-32bit.apk
+          cp android-native/app/build/outputs/apk/foss/release/app-foss-arm64-v8a-release.apk Publit-native-foss.apk
           cp android-native/wear/build/outputs/apk/release/wear-release.apk Publit-wear.apk; ls -lh Publit-*.apk
           TAG=native-latest
-          NOTES="Native Kotlin build of $(git rev-parse --short HEAD). Replaces the old Skip build of Publit (uninstall that once first: different signing key). Publit-native.apk for 64-bit phones, Publit-native-32bit.apk for older 32-bit ones, Publit-wear.apk for Wear OS watches."
+          NOTES="Native Kotlin build of $(git rev-parse --short HEAD). Replaces the old Skip build of Publit (uninstall that once first: different signing key). Publit-native.apk for 64-bit phones, Publit-native-32bit.apk for older 32-bit ones, Publit-wear.apk for Wear OS watches, Publit-native-foss.apk for phones without Google services (no Google libraries; no text recognition on tickets)."
           gh release view $TAG >/dev/null 2>&1 || gh release create $TAG --title "Publit native (test build)" --notes "$NOTES" --prerelease --target "$GITHUB_SHA"
           gh release edit $TAG --notes "$NOTES"
-          gh release upload $TAG Publit-native.apk Publit-native-32bit.apk Publit-wear.apk --clobber
+          gh release upload $TAG Publit-native.apk Publit-native-32bit.apk Publit-native-foss.apk Publit-wear.apk --clobber

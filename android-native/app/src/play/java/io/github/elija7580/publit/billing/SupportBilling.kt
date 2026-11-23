@@ -26,6 +26,9 @@ import kotlin.coroutines.resume
 
 /** Monthly support and one-time tips through Google Play Billing (SupportStore on iOS). Unlocks nothing. */
 object SupportBilling : PurchasesUpdatedListener {
+    /** True only in the build without Google services: support then goes through publit.eu. */
+    const val webOnly = false
+
     data class Offer(val id: String, val price: String, val monthly: Boolean, val details: ProductDetails, val offerToken: String?)
     data class State(
         val loaded: Boolean = false, val monthly: List<Offer> = emptyList(), val oneTime: List<Offer> = emptyList(),

@@ -7,25 +7,17 @@ import android.graphics.Matrix
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import android.util.Base64
-import com.google.android.gms.tasks.Tasks
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.BarcodeScannerOptions
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import io.github.elija7580.publit.core.L10n
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.concurrent.TimeUnit
 
 /** What one page of a ticket contains, read on the device. Nothing is uploaded. */
 data class TicketScan(val lines: List<String>, val barcodes: List<TicketPass.Barcode>, val suggestedColor: String?)
 
 /**
  * Reading and drawing tickets on the device (TicketRecognizer on iOS): PdfRenderer renders pages,
- * ML Kit reads text and codes, ZXing draws codes again.
+ * TicketVision reads text and codes (ML Kit in the Play build, ZXing without Google services), ZXing draws codes again.
  */
 object TicketRecognizer {
     class Unreadable : Exception(L10n.t("This file could not be read."))
@@ -71,43 +63,28 @@ object TicketRecognizer {
     fun page(file: File, pdf: Boolean, page: Int, maxPixels: Int = -1): Bitmap? =
         if (pdf) renderPage(file, page, if (maxPixels < 0) 2600 else maxPixels) else loadImage(file, if (maxPixels < 0) 3200 else maxPixels)
 
-    private fun format(f: Int): TicketPass.Barcode.Format? = when (f) {
-        Barcode.FORMAT_QR_CODE -> TicketPass.Barcode.Format.QR; Barcode.FORMAT_AZTEC -> TicketPass.Barcode.Format.AZTEC
-        Barcode.FORMAT_PDF417 -> TicketPass.Barcode.Format.PDF417; Barcode.FORMAT_CODE_128 -> TicketPass.Barcode.Format.CODE128
-        Barcode.FORMAT_DATA_MATRIX -> TicketPass.Barcode.Format.DATA_MATRIX; Barcode.FORMAT_EAN_13 -> TicketPass.Barcode.Format.EAN13
-        Barcode.FORMAT_EAN_8 -> TicketPass.Barcode.Format.EAN8; Barcode.FORMAT_UPC_E -> TicketPass.Barcode.Format.UPCE
-        Barcode.FORMAT_CODE_39 -> TicketPass.Barcode.Format.CODE39; Barcode.FORMAT_CODE_93 -> TicketPass.Barcode.Format.CODE93
-        Barcode.FORMAT_ITF -> TicketPass.Barcode.Format.ITF; Barcode.FORMAT_CODABAR -> TicketPass.Barcode.Format.CODABAR
-        else -> null
-    }
-
     /** Codes, text lines (pieces on one row joined) and the main colour of one page. */
     suspend fun scan(file: File, pdf: Boolean, page: Int): TicketScan = withContext(Dispatchers.Default) {
         val bmp = page(file, pdf, page) ?: throw Unreadable()
-        val image = InputImage.fromBitmap(bmp, 0)
         val codes = ArrayList<TicketPass.Barcode>()
         runCatching {
-            val scanner = BarcodeScanning.getClient(BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS).build())
-            try {
-                val seen = HashSet<String>()
-                for (b in Tasks.await(scanner.process(image), 30, TimeUnit.SECONDS)) {
-                    val f = format(b.format) ?: continue
-                    val text = b.rawValue; val bytes = b.rawBytes
-                    // Raw bytes only when the text does not carry them exactly (binary rail ticket codes).
-                    val code = when {
-                        text != null && (bytes == null || text.toByteArray().contentEquals(bytes)) -> TicketPass.Barcode(f, message = text)
-                        bytes != null -> TicketPass.Barcode(f, payload = Base64.encodeToString(bytes, Base64.NO_WRAP))
-                        else -> continue
-                    }
-                    val r = b.boundingBox
-                    val withRegion = if (r != null) code.copy(region = TicketPass.Barcode.Region(r.left.toDouble() / bmp.width, r.top.toDouble() / bmp.height,
-                        r.width().toDouble() / bmp.width, r.height().toDouble() / bmp.height)) else code
-                    if (seen.add(withRegion.dedupeKey)) codes += withRegion
+            val seen = HashSet<String>()
+            for (b in TicketVision.codes(bmp)) {
+                val text = b.text; val bytes = b.bytes
+                // Raw bytes only when the text does not carry them exactly (binary rail ticket codes).
+                val code = when {
+                    text != null && (bytes == null || text.toByteArray().contentEquals(bytes)) -> TicketPass.Barcode(b.format, message = text)
+                    bytes != null -> TicketPass.Barcode(b.format, payload = Base64.encodeToString(bytes, Base64.NO_WRAP))
+                    else -> continue
                 }
-            } finally { scanner.close() }
+                val r = b.box
+                val withRegion = if (r != null) code.copy(region = TicketPass.Barcode.Region(r.left.toDouble() / bmp.width, r.top.toDouble() / bmp.height,
+                    r.width().toDouble() / bmp.width, r.height().toDouble() / bmp.height)) else code
+                if (seen.add(withRegion.dedupeKey)) codes += withRegion
+            }
         }
         // Text embedded in a PDF would be exact, but Android has no PDF text API: OCR for every page.
-        val lines = runCatching { rows(ocr(image)) }.getOrDefault(emptyList())
+        val lines = runCatching { rows(TicketVision.lines(bmp).map { Piece(it.first, it.second) }) }.getOrDefault(emptyList())
         TicketScan(lines, codes, dominantColor(bmp))
     }
 
@@ -124,14 +101,6 @@ object TicketRecognizer {
     }
 
     private class Piece(val text: String, val box: android.graphics.Rect)
-
-    private fun ocr(image: InputImage): List<Piece> {
-        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-        try {
-            val text = Tasks.await(recognizer.process(image), 60, TimeUnit.SECONDS)
-            return text.textBlocks.flatMap { b -> b.lines.mapNotNull { l -> l.boundingBox?.takeIf { l.text.isNotBlank() }?.let { Piece(l.text, it) } } }
-        } finally { recognizer.close() }
-    }
 
     /** Pieces on the same row become one line ("Von:" + "Wien Hbf"), top to bottom. */
     private fun rows(pieces: List<Piece>): List<String> {

@@ -23,6 +23,15 @@ android {
         buildConfigField("String", "DEMO_API", "\"\"")
     }
 
+    // "play": Google Play and the GitHub APK (fused location, ML Kit, Play Billing).
+    // "foss": no Google libraries at all, for F-Droid and phones without Google services
+    // (platform location only, ZXing for codes, no text recognition, support via publit.eu).
+    flavorDimensions += "store"
+    productFlavors {
+        create("play") { dimension = "store"; isDefault = true }
+        create("foss") { dimension = "store"; versionNameSuffix = "-foss" }
+    }
+
     signingConfigs {
         // A fixed test key (committed, not secret) so every test build installs over the previous one.
         // The Play upload key is never used here.
@@ -85,17 +94,17 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.kotlinx.coroutines.play.services)
+    "playImplementation"(libs.kotlinx.coroutines.play.services)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.play.services.location)
+    "playImplementation"(libs.play.services.location)
     implementation(libs.maplibre)
     implementation("androidx.glance:glance-appwidget:1.1.1")
     // Supporting Publit: monthly support and one-time tips (Google Play Billing).
-    implementation("com.android.billingclient:billing-ktx:7.1.1")
+    "playImplementation"("com.android.billingclient:billing-ktx:7.1.1")
     // Tickets, read on the device: ML Kit through Play Services (no models in the APK), ZXing draws codes again.
-    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
-    implementation("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")
-    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
+    "playImplementation"("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
+    "playImplementation"("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")
+    "playImplementation"("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
     implementation("com.google.zxing:core:3.5.4")
     // Walking speed for smart routing, only when switched on.
     implementation("androidx.health.connect:connect-client:1.1.0")

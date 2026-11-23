@@ -58,7 +58,7 @@ jobs:
           python3 android-native/tools/strings.py Sources/Publit/Resources/Localizable.xcstrings android-native/app/src/main/assets/strings
       - name: Build the screenshot APK (x86_64)
         working-directory: android-native
-        run: gradle --no-daemon -Ppublit.emulatorAbi=true :app:assembleScreenshots 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+        run: gradle --no-daemon -Ppublit.emulatorAbi=true :app:assemblePlayScreenshots 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
       - name: Tools (OCR, imaging), device frame, font
         run: |
           sudo apt-get update -q && sudo apt-get install -y -q tesseract-ocr tesseract-ocr-deu tesseract-ocr-eng >/dev/null
@@ -98,7 +98,7 @@ jobs:
         run: |
           nohup python3 mock_server.py --fixtures fixtures/munich --port 8765 --log "$OUT/diagnostics/requests.jsonl" > "$OUT/diagnostics/server.log" 2>&1 &
           sleep 2; curl -fsS "http://127.0.0.1:8765/_demo/stats" >/dev/null
-          python3 capture.py --apk ../app/build/outputs/apk/screenshots/app-x86_64-screenshots.apk --out "$OUT" --server http://127.0.0.1:8765
+          python3 capture.py --apk ../app/build/outputs/apk/play/screenshots/app-play-x86_64-screenshots.apk --out "$OUT" --server http://127.0.0.1:8765
       - name: Frames, posters, WebP, preview
         working-directory: android-native/screenshots
         run: |

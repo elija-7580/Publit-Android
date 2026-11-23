@@ -12,13 +12,6 @@ import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
-import com.google.android.gms.common.ConnectionResult
-import com.google.android.gms.common.GoogleApiAvailability
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
 import io.github.elija7580.publit.core.LatLon
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -29,7 +22,7 @@ data class Fix(val coordinate: LatLon, val accuracy: Float, val elapsedNanos: Lo
 enum class LocationAccess { NOT_ASKED, DENIED, APPROXIMATE, PRECISE }
 
 /**
- * Where the phone is. Google's fused provider where Play services work, and always the platform
+ * Where the phone is. Google's fused provider where Play services work (Play build), and always the platform
  * GPS and network providers next to it: on some phones (Huawei, older Android) one of them stays
  * silent, and Nearby must not wait for it. Updates run only while someone collects `fixes`.
  */
@@ -50,10 +43,6 @@ class LocationRepository(private val context: Context) {
     fun servicesOn(): Boolean = runCatching { LocationManagerCompat.isLocationEnabled(manager) }.getOrDefault(true)
 
     private fun granted(p: String) = ContextCompat.checkSelfPermission(context, p) == PackageManager.PERMISSION_GRANTED
-
-    private fun playServices(): Boolean = runCatching {
-        GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
-    }.getOrDefault(false)
 
     @SuppressLint("MissingPermission")
     val fixes: Flow<Fix> = callbackFlow {
@@ -92,24 +81,12 @@ class LocationRepository(private val context: Context) {
             runCatching { manager.requestLocationUpdates(p, 2_000L, 5f, listener, Looper.getMainLooper()) }
         }
 
-        // Google's fused provider, when Play services are there and working.
-        val fused = if (playServices()) runCatching { LocationServices.getFusedLocationProviderClient(context) }.getOrNull() else null
-        val callback = object : LocationCallback() {
-            override fun onLocationResult(result: LocationResult) { result.locations.forEach { offer(it, "fused") } }
-        }
-        if (fused != null) {
-            val priority = if (precise) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY
-            runCatching {
-                fused.lastLocation.addOnSuccessListener { offer(it, "fused-last") }
-                fused.requestLocationUpdates(
-                    LocationRequest.Builder(priority, 4_000L).setMinUpdateIntervalMillis(1_000L).setMinUpdateDistanceMeters(5f).build(),
-                    callback, Looper.getMainLooper())
-            }
-        }
+        // Google's fused provider, when Play services are there and working (Play build only, see FusedLocation).
+        val stopFused = FusedLocation.start(context, precise) { location, source -> offer(location, source) }
 
         awaitClose {
             runCatching { manager.removeUpdates(listener) }
-            if (fused != null) runCatching { fused.removeLocationUpdates(callback) }
+            stopFused?.invoke()
         }
     }
 
