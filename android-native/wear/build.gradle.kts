@@ -48,6 +48,10 @@ dependencies {
     implementation("androidx.wear.compose:compose-foundation:1.4.1")
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)
+    // Location through Google's fused provider: on a watch paired over Bluetooth it uses the phone's position
+    // in about a second, where the watch's own GPS needs a cold start (slow, often longer than the timeout).
+    implementation(libs.play.services.location)
+    implementation(libs.kotlinx.coroutines.play.services)
     // The trip under way from the phone (Data Layer) and as an ongoing activity on the watch face.
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
     implementation("androidx.wear:wear-ongoing:1.0.0")
