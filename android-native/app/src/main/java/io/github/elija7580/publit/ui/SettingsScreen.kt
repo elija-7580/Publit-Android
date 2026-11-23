@@ -277,7 +277,7 @@ fun OnboardingScreen(favorites: FavoritesStore, onAskLocation: () -> Unit, onPic
             verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically)) {
             when (step) {
                 0 -> Page(null, L10n.t("Public transport, without the noise."),
-                    L10n.t("Departures near you, routes across Europe and a guide until you get off. No ads, no account, no tracking."))
+                    L10n.t("Departures near you, routes wherever you go and a guide until you get off. No ads, no account, no tracking."))
                 1 -> Page(Icons.Filled.LocationOn, L10n.t("Departures where you are"),
                     L10n.t("Publit uses your location to show what leaves nearby and to plan from here. It is only sent with a search, never stored or shared."))
                 2 -> Page(Icons.Filled.Sensors, L10n.t("On the way"),
