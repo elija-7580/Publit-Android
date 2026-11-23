@@ -9,6 +9,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import java.util.Locale
 
 @Serializable
 enum class PlaceRole {
@@ -34,7 +35,12 @@ data class SavedPlace(
 
     /** Same saved thing: same ID, or the same station reached via a different stop ID. */
     fun isSame(other: SavedPlace): Boolean {
-        if (id == other.id) return true
+        if (id == other.id) {
+            // A stop is known by its ID. An address ID is not unique: the search can hand out the
+            // same one for two addresses, so two addresses are the same only at the same spot.
+            if (isStop || other.isStop) return true
+            return coordinate.distanceTo(other.coordinate) < SAME_SPOT_RADIUS
+        }
         if (!isStop || !other.isStop) return false
         if (stopId == other.stopId) return true
         if (exact == true || other.exact == true) return false
@@ -42,9 +48,48 @@ data class SavedPlace(
             coordinate.distanceTo(other.coordinate) < StopGrouping.MERGE_RADIUS
     }
 
+    /** A stable ID of its own for an address whose ID another saved address already has. */
+    val ownId: String get() = "$id|${String.format(Locale.US, "%.5f,%.5f", lat, lon)}"
+
+    /** The same saved thing, also when this address was saved under its own ID (`ownId`). */
+    fun isSaved(saved: SavedPlace): Boolean = saved.isSame(this) || (!isStop && saved.id == ownId)
+
     companion object {
+        /** Two addresses with the same ID closer than this (metres) are one saved place. */
+        const val SAME_SPOT_RADIUS = 30.0
+
         fun of(m: GeocodeMatch) = SavedPlace(m.id, m.name, m.subtitle, m.lat, m.lon, if (m.isStop) m.id else null)
     }
+}
+
+/** The rules of the saved list, as in FavoritesStore on iOS (pure, unit-tested). */
+object SavedPlaces {
+    /** Sets `place` as Home or Work, replacing any earlier one for that role. Never touches another saved place. */
+    fun set(saved: List<SavedPlace>, place: SavedPlace, role: PlaceRole): List<SavedPlace> {
+        val items = saved.map { if (it.role == role) it.copy(role = null) else it }
+        val p = place.copy(role = role)
+        val same = items.indexOfFirst { it.id == place.id && it.isSame(place) }
+        return when {
+            // The same saved place becomes Home or Work.
+            same >= 0 && items[same].role == null -> items.mapIndexed { i, it -> if (i == same) p else it }
+            // The ID is taken: by the other role (same place, or an address ID the geocoder reuses) or by
+            // another saved address. Keep that entry and store this role under an ID of its own.
+            items.any { it.id == place.id } -> slotId(role, place).let { id -> items.filter { it.id != id } + p.copy(id = id) }
+            else -> items + p
+        }
+    }
+
+    /** Saves `place`, or removes it when it is saved already. */
+    fun toggle(saved: List<SavedPlace>, place: SavedPlace): List<SavedPlace> = when {
+        saved.any { place.isSaved(it) } -> saved.filter { !place.isSaved(it) }
+        // Another address with this ID is saved already: both stay, each under its own ID.
+        saved.any { it.id == place.id } -> saved + place.copy(id = place.ownId)
+        else -> saved + place
+    }
+
+    /** A stable ID of its own for a place whose ID already holds the other role. */
+    fun slotId(role: PlaceRole, place: SavedPlace): String =
+        "${if (role == PlaceRole.HOME) "home" else "work"}|${place.id}|${String.format(Locale.US, "%.5f,%.5f", place.lat, place.lon)}"
 }
 
 /** A saved line at one stop, e.g. "U6 at Marienplatz". Shows that line's next departures there. */
@@ -82,7 +127,7 @@ class FavoritesStore(private val prefs: SharedPreferences) {
         val places get() = items.filter { !it.isStop && it.role == null }
         fun place(role: PlaceRole) = items.firstOrNull { it.role == role }
         fun containsLine(id: String) = lines.any { it.id == id }
-        fun contains(p: SavedPlace) = items.any { it.isSame(p) }
+        fun contains(p: SavedPlace) = items.any { p.isSaved(it) }
     }
 
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
@@ -101,17 +146,10 @@ class FavoritesStore(private val prefs: SharedPreferences) {
     fun removeLine(id: String) = saveLines(_state.value.lines.filter { it.id != id })
 
     /** Sets `place` as Home or Work, replacing any earlier one for that role. */
-    fun set(place: SavedPlace, role: PlaceRole) {
-        val items = _state.value.items.map { if (it.role == role) it.copy(role = null) else it }
-        val p = place.copy(role = role)
-        savePlaces(if (items.any { it.id == place.id }) items.map { if (it.id == place.id) p else it } else items + p)
-    }
+    fun set(place: SavedPlace, role: PlaceRole) = savePlaces(SavedPlaces.set(_state.value.items, place, role))
     fun clear(role: PlaceRole) = savePlaces(_state.value.items.filter { it.role != role })
 
-    fun toggle(place: SavedPlace) {
-        val items = _state.value.items
-        savePlaces(if (items.any { it.isSame(place) }) items.filter { !it.isSame(place) } else items + place)
-    }
+    fun toggle(place: SavedPlace) = savePlaces(SavedPlaces.toggle(_state.value.items, place))
     fun remove(id: String) = savePlaces(_state.value.items.filter { it.id != id })
 
     private fun savePlaces(items: List<SavedPlace>) {
