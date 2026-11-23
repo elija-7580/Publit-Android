@@ -9,6 +9,8 @@ struct TicketLink: Hashable, Identifiable, Sendable {
     let operatorName: String
     let url: URL
     let source: Source
+    /// The link goes through a partner program (Publit may get a commission).
+    var isPartner = false
 
     var id: String { operatorName + "|" + url.absoluteString }
     var title: String {
@@ -70,12 +72,19 @@ enum TicketLinks {
         let name = leg.agencyName?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? leg.lineName
         if let u = url(userLink(for: name, in: userLinked)) { return TicketLink(operatorName: name, url: u, source: .userLinked) }
         if let u = webURL(leg.ticketUrls?.ios) ?? webURL(leg.ticketUrls?.web) {
-            return TicketLink(operatorName: name, url: u, source: .booking)
+            return shop(name, u, .booking)
         }
-        if let u = url(leg.agencyFareUrl) { return TicketLink(operatorName: name, url: u, source: .fares) }
-        if let u = url(leg.agencyUrl) { return TicketLink(operatorName: name, url: u, source: .website) }
-        if let u = url(userLink(for: name, in: knownShops)) { return TicketLink(operatorName: name, url: u, source: .fares) }
+        if let u = url(leg.agencyFareUrl) { return shop(name, u, .fares) }
+        if let u = url(leg.agencyUrl) { return shop(name, u, .website) }
+        if let u = url(userLink(for: name, in: knownShops)) { return shop(name, u, .fares) }
         return nil
+    }
+
+    /// A shop link, sent through the shop's partner program when Publit has one.
+    /// The user's own linked apps are never changed.
+    private static func shop(_ name: String, _ u: URL, _ source: TicketLink.Source) -> TicketLink {
+        if let p = PartnerLinks.wrap(u) { return TicketLink(operatorName: name, url: p, source: source, isPartner: true) }
+        return TicketLink(operatorName: name, url: u, source: source)
     }
 
     /// One link per operator, in the order the operators are used.
@@ -93,6 +102,54 @@ enum TicketLinks {
             guard link(for: leg) == nil, let n = leg.agencyName?.nilIfEmpty else { return nil }
             return seen.insert(operatorKey(n)).inserted ? n : nil
         }
+    }
+}
+
+/// A ticket shop's affiliate program. `template` is the program's tracking link with `{url}` where the
+/// shop link goes (percent-encoded). An empty template means the program is off.
+struct PartnerProgram: Sendable {
+    let name: String
+    /// Hosts of the shop; subdomains match too ("bahn.de" covers "int.bahn.de").
+    let hosts: [String]
+    let template: String
+}
+
+/// Partner links for ticket shops, so a ticket bought through Publit can earn a commission.
+/// The app records nothing about the user: the network only sees the click, as with any web link.
+/// Templates are filled in once the program has accepted Publit; until then every link stays as it was.
+enum PartnerLinks {
+    static let programs: [PartnerProgram] = [
+        // Awin:       https://www.awin1.com/cread.php?awinmid=<advertiser id>&awinaffid=<publisher id>&ued={url}
+        PartnerProgram(name: "Deutsche Bahn", hosts: ["bahn.de", "bahn.com"], template: ""),
+        PartnerProgram(name: "FlixBus", hosts: ["flixbus.de", "flixbus.com", "flixbus.at", "flixbus.ch", "flixbus.fr", "flixbus.it",
+                                                "flixbus.es", "flixbus.nl", "flixbus.pl", "flixbus.se", "flixbus.cz", "flixbus.co.uk",
+                                                "flixtrain.de", "flixtrain.com"], template: ""),
+        // Partnerize: https://prf.hn/click/camref:<camref>/destination:{url}
+        PartnerProgram(name: "Trainline", hosts: ["thetrainline.com", "trainline.eu", "trainline.de", "trainline.fr", "trainline.it",
+                                                  "trainline.es"], template: ""),
+        // Impact:     https://<brand>.sjv.io/c/<publisher id>/<ad id>/<campaign id>?u={url}
+        PartnerProgram(name: "Omio", hosts: ["omio.com", "omio.de", "omio.at", "omio.ch", "omio.fr", "omio.it", "omio.es", "omio.nl",
+                                             "omio.pl", "omio.se", "omio.co.uk"], template: ""),
+        PartnerProgram(name: "SNCF Connect", hosts: ["sncf-connect.com"], template: ""),
+        PartnerProgram(name: "Eurostar", hosts: ["eurostar.com"], template: ""),
+    ]
+
+    static func program(for url: URL, in programs: [PartnerProgram] = PartnerLinks.programs) -> PartnerProgram? {
+        guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
+              let host = url.host?.lowercased() else { return nil }
+        return programs.first { p in
+            !p.template.isEmpty && p.hosts.contains { host == $0 || host.hasSuffix("." + $0) }
+        }
+    }
+
+    /// The partner link for a shop link, or nil when the shop has no active program.
+    static func wrap(_ url: URL, in programs: [PartnerProgram] = PartnerLinks.programs) -> URL? {
+        guard let p = program(for: url, in: programs) else { return nil }
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+        guard let encoded = url.absoluteString.addingPercentEncoding(withAllowedCharacters: allowed) else { return nil }
+        let wrapped = URL(string: p.template.replacingOccurrences(of: "{url}", with: encoded))
+        return wrapped?.scheme?.lowercased() == "https" ? wrapped : nil
     }
 }
 

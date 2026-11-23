@@ -47,6 +47,8 @@
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher">
         <meta-data android:name="publit.walletSignerUrl" android:value="${PUBLIT_WALLET_SIGNER_URL}" />
+        <!-- Optional ticket shop (services/ticket-shop in the iOS repository); empty: no "Buy tickets in Publit". -->
+        <meta-data android:name="publit.ticketShopUrl" android:value="${PUBLIT_TICKET_SHOP_URL}" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -36,6 +36,10 @@ class Droid private constructor() {
         val info = context().packageManager.getApplicationInfo(context().packageName, PackageManager.GET_META_DATA)
         return info.metaData?.getString("publit.walletSignerUrl") ?: ""
     }
+    @JvmStatic fun ticketShop(): String {
+        val info = context().packageManager.getApplicationInfo(context().packageName, PackageManager.GET_META_DATA)
+        return info.metaData?.getString("publit.ticketShopUrl") ?: ""
+    }
     @JvmStatic fun walletText(key: String): String = DroidNotify.res(context(), key, key)
 
     // Reproducible screenshots use the existing demo fixtures, and only in debuggable builds.

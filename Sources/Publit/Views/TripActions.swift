@@ -102,6 +102,7 @@ struct TripActionsSection: View {
         if Features.passes, !itinerary.isDirect, saved != nil {
             TripPassSection(tripId: saved?.id, at: itinerary.startTime, ensureTrip: { ensureSaved().id })
         }
+        TicketShopSection(itinerary: itinerary, tripId: { ensureSaved().id })
     }
 
     @ViewBuilder

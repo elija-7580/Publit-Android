@@ -33,6 +33,7 @@ android {
 
     defaultConfig {
         manifestPlaceholders["PUBLIT_WALLET_SIGNER_URL"] = providers.gradleProperty("publit.walletSignerUrl").orElse("").get()
+        manifestPlaceholders["PUBLIT_TICKET_SHOP_URL"] = providers.gradleProperty("publit.ticketShopUrl").orElse("").get()
         // Only the architectures the Swift libraries were built for (apk.sh sets PUBLIT_ABIS from ARCHS);
         // other ABIs from dependencies would let Play install the app where the Swift code is missing.
         ndk { abiFilters += (System.getenv("PUBLIT_ABIS") ?: "arm64-v8a").split(",") }
