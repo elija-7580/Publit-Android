@@ -105,7 +105,7 @@ final class CheckoutModel {
                           pendingLegs: result.items.filter { $0.status == "pending" }.count)
         } catch {
             // Not paid (the payment page was closed): start again from the prices instead of retrying this order.
-            if let failure = error as? ShopFailure, failure.error == "unpaid" || failure.error == "cancelled" { order = nil }
+            if let failure = error as? ShopFailure, failure.error == "unpaid" || failure.error == "cancelled" { self.order = nil }
             phase = .failed(Self.message(error))
         }
     }
