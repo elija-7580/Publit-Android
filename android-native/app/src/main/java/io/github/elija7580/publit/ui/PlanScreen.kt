@@ -142,12 +142,16 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
         }
         item {
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = state.time == null, onClick = { vm.setTime(null, false) }, label = { Text(L10n.t("Now")) })
+                FilterChip(selected = state.time == null && !state.lastConnection, onClick = { vm.setTime(null, false) }, label = { Text(L10n.t("Now")) })
                 FilterChip(selected = state.time != null && !state.arriveBy, onClick = { picking = false },
                     label = { Text(if (state.time != null && !state.arriveBy) L10n.t("Depart") + " " + Fmt.time(state.time) else L10n.t("Depart")) })
                 FilterChip(selected = state.time != null && state.arriveBy, onClick = { picking = true },
                     label = { Text(if (state.time != null && state.arriveBy) L10n.t("Arrive") + " " + Fmt.time(state.time) else L10n.t("Arrive")) })
+                // Tonight's last connection (iOS: "Last" next to Depart and Arrive).
+                FilterChip(selected = state.lastConnection, onClick = vm::setLastConnection, label = { Text(L10n.t("Last"), maxLines = 1) })
             }
+            if (state.lastConnection) Text(L10n.t("The latest you can leave and still get there tonight."), color = ink.muted, fontSize = 13.sp,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp))
         }
         // One clear search key under From, To and the time, full width, as in the ÖBB app (UX feedback 2026-11-03).
         // Picking a place still searches right away; the key searches again with the current settings.
@@ -220,14 +224,17 @@ private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.dat
             // "✦ Recommended – reason" in ink and the other labels in grey, instead of coloured chips.
             if (day != null || badges.isNotEmpty()) {
                 val rec = io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED
+                val last = io.github.elija7580.publit.data.SmartRouting.Badge.LAST_CONNECTION
                 val parts = ArrayList<androidx.compose.ui.text.AnnotatedString>()
                 day?.let { d -> parts += androidx.compose.ui.text.buildAnnotatedString {
                     pushStyle(androidx.compose.ui.text.SpanStyle(color = ink.delay)); append(d); pop() } }
+                if (last in badges) parts += androidx.compose.ui.text.buildAnnotatedString {
+                    pushStyle(androidx.compose.ui.text.SpanStyle(color = ink.ink)); append("☾ " + last.title); pop() }
                 if (rec in badges) parts += androidx.compose.ui.text.buildAnnotatedString {
                     pushStyle(androidx.compose.ui.text.SpanStyle(color = ink.ink)); append("✦ " + rec.title); pop()
                     reason?.let { r -> pushStyle(androidx.compose.ui.text.SpanStyle(color = ink.muted, fontWeight = FontWeight.Medium)); append(" – $r"); pop() }
                 }
-                val others = badges.filter { b -> b != rec }.map { b -> b.title }
+                val others = badges.filter { b -> b != rec && b != last }.map { b -> b.title }
                 if (others.isNotEmpty()) parts += androidx.compose.ui.text.buildAnnotatedString {
                     pushStyle(androidx.compose.ui.text.SpanStyle(color = ink.muted)); append(others.joinToString(" · ")); pop() }
                 Text(androidx.compose.ui.text.buildAnnotatedString {
@@ -958,7 +965,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.routeResults(state: P
             item(r.routeKey) {
                 RouteCard(r, state.badges[r.routeKey].orEmpty(),
                     if (r.routeKey == rec) io.github.elija7580.publit.data.SmartRouting.reason(r, state.routes) else null, axis,
-                    leave = state.from == Endpoint.Here && state.time == null, day = if (inTimeOrder) null else day) { vm.open(r) }
+                    leave = state.from == Endpoint.Here && state.time == null && !state.lastConnection, day = if (inTimeOrder) null else day) { vm.open(r) }
             }
         }
         if (state.street.isNotEmpty()) item("street") {
@@ -994,7 +1001,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.routeResults(state: P
                 Text(L10n.f("%@ walk", Fmt.duration(w.duration)), color = ink.muted)
             }
         } }
-        if (state.routes.isNotEmpty() && state.nextCursor != null) item("later") {
+        if (state.routes.isNotEmpty() && state.nextCursor != null && !state.lastConnection) item("later") {
             TextButton(onClick = vm::later, modifier = Modifier.padding(horizontal = 8.dp)) { Text(L10n.t("Later connections")) }
         }
     }
