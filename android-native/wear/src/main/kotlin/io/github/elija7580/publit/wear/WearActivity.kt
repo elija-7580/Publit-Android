@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.wear.compose.material.*
 import kotlinx.coroutines.*
@@ -45,12 +46,21 @@ class WearActivity : ComponentActivity() {
     private var busy by mutableStateOf(false)
     private var updated by mutableStateOf<Instant?>(null)
     private var job: Job? = null
+    /** The live trip opened by itself since the app came to the front (as WatchAutoOpen on the Apple Watch). */
+    private var autoOpened: String? = null
+    private var openingLive = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The trip under way shows as an ongoing activity; it needs permission for notifications (Wear OS 4 and later).
+        if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2)
+        }
+        val liveFlow = LiveTripStore.trip(this)
         setContent {
             MaterialTheme(colors = Colors(primary = Color.White, onPrimary = Color.Black)) {
                 val list = rememberScalingLazyListState()
+                val liveTrip by liveFlow.collectAsStateWithLifecycle()
                 var now by remember { mutableStateOf(Instant.now()) }
                 LaunchedEffect(Unit) { while (true) { now = Instant.now(); delay(30_000) } }
                 val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refresh() }
@@ -60,6 +70,14 @@ class WearActivity : ComponentActivity() {
                 LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refresh() }
                 Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(list) }, vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) }) {
                     ScalingLazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 32.dp)) {
+                        liveTrip?.let { t ->
+                            item {
+                                Chip(onClick = { openLive() }, colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF1F4D33)),
+                                    label = { Text(t.headline, maxLines = 2, fontWeight = FontWeight.Bold) },
+                                    secondaryLabel = { Text("● " + stringResource(R.string.live_trip) + " · " + t.destination, maxLines = 1) },
+                                    modifier = Modifier.fillMaxWidth())
+                            }
+                        }
                         item { Text(stringResource(R.string.nearby), fontWeight = FontWeight.Bold, textAlign = TextAlign.Center) }
                         if (busy) item { CircularProgressIndicator(modifier = Modifier.size(26.dp)) }
                         if (groups.isEmpty() && !busy) {
@@ -83,6 +101,24 @@ class WearActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // A trip started on the phone opens by itself, once each time the app comes to the front.
+        val trip = LiveTripStore.trip(this).value
+        if (trip != null && trip.id != autoOpened && System.currentTimeMillis() < trip.end) openLive()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (openingLive) openingLive = false else autoOpened = null
+    }
+
+    private fun openLive() {
+        autoOpened = LiveTripStore.trip(this).value?.id
+        openingLive = true
+        startActivity(android.content.Intent(this, LiveTripActivity::class.java))
     }
 
     private fun hasLocation() = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED || checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED

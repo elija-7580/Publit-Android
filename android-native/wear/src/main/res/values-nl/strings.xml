@@ -12,4 +12,13 @@
     <string name="cancelled">Rijdt niet</string>
     <string name="allow_location">Locatie toestaan</string>
     <string name="far_note">De dichtstbijzijnde vertrekken zijn %1$s verderop, ongeveer %2$d min lopen.</string>
+    <string name="live_trip">Reis onderweg</string>
+    <string name="leave_in">Vertrek over</string>
+    <string name="departs_in">Vertrekt over</string>
+    <string name="get_off_in">Uitstappen over</string>
+    <string name="arrive_in">Aankomst over</string>
+    <string name="no_live_trip">Geen reis onderweg. Start er een in Publit op je telefoon.</string>
+    <string name="from_stop">vanaf %1$s</string>
+    <string name="stages">Stappen</string>
+    <string name="map">Kaart</string>
 </resources>

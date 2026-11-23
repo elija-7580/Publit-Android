@@ -3,6 +3,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- The trip under way from the phone, as an ongoing activity on the watch face. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application android:label="Publit" android:icon="@mipmap/ic_launcher" android:theme="@android:style/Theme.DeviceDefault" android:supportsRtl="true" android:allowBackup="false">
         <meta-data android:name="com.google.android.wearable.standalone" android:value="true" />
         <activity android:name=".WearActivity" android:exported="true">
@@ -11,5 +13,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".LiveTripActivity" android:exported="false" android:launchMode="singleTop" />
+        <activity android:name=".LiveMapActivity" android:exported="false" />
+        <!-- Receives the trip under way from the phone app (Data Layer item /live-trip). -->
+        <service android:name=".LiveTripService" android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/live-trip" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

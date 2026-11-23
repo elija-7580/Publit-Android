@@ -12,4 +12,13 @@
     <string name="cancelled">Anulat</string>
     <string name="allow_location">Permite locația</string>
     <string name="far_note">Cele mai apropiate plecări sunt la %1$s, cam %2$d min pe jos.</string>
+    <string name="live_trip">Călătorie în curs</string>
+    <string name="leave_in">Pleacă în</string>
+    <string name="departs_in">Pleacă în</string>
+    <string name="get_off_in">Cobori în</string>
+    <string name="arrive_in">Sosire în</string>
+    <string name="no_live_trip">Nicio călătorie în curs. Pornește una în Publit pe telefon.</string>
+    <string name="from_stop">de la %1$s</string>
+    <string name="stages">Pași</string>
+    <string name="map">Hartă</string>
 </resources>
