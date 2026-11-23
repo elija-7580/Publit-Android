@@ -25,8 +25,8 @@ import java.util.concurrent.TimeUnit
 object TicketVision {
     class Code(val format: TicketPass.Barcode.Format, val text: String?, val bytes: ByteArray?, val box: Rect?)
 
-    /** ML Kit reads printed text; the build without Google services cannot. */
-    const val readsText = true
+    /** ML Kit needs no setup; the foss build keeps its context here for the OCR models. */
+    @Suppress("UNUSED_PARAMETER") fun install(context: android.content.Context) {}
 
     private fun format(f: Int): TicketPass.Barcode.Format? = when (f) {
         Barcode.FORMAT_QR_CODE -> TicketPass.Barcode.Format.QR; Barcode.FORMAT_AZTEC -> TicketPass.Barcode.Format.AZTEC
