@@ -38,6 +38,12 @@ Two product flavors: `play` (default; Google Play and the GitHub APKs: fused loc
 | 10 | Tickets, widget, Wear OS | Tickets/*, DroidWidget.kt, Android/wear | done: tickets as passes (on-device recognition with ML Kit + the full TicketTextParser, ZXing redraw, wallet, detail at full brightness, editor with field assignment, archive, trip tickets), widget (Glance), Wear OS (module `wear/`; the trip under way from the phone via the Data Layer item `/live-trip` (`watch/WatchLink`, play flavor only): live screen `LiveTripActivity` with labelled countdown, vehicle, progress and stages, map `LiveMapActivity` (MapLibre, OpenFreeMap dark, legs in line colours, walks dotted, stops, own position; opens on the leg under way), an ongoing activity on the watch face, opens by itself when a trip starts and once each time the app comes to the front), operator logos (Wikidata/Wikimedia Commons, website icon fallback), Google Wallet export via services/google-wallet-signer (hidden until the repo variable WALLET_SIGNER_URL is set) |
 | 11 | Switch app ID to `io.github.elija7580.publit`, release signing, remove Skip port | – | app ID switched, Skip Gradle project and its workflow removed; open: Play upload key as CI secret (owner), then remove `Sources/` |
 
+## Community-Wünsche aus iOS Build 100 (2026-11-23, Android 0.11.0)
+- [x] Verbindungen speichern (#28): `SavedConnection` (`publit.connections.v1`), Stern in Planen wenn Von und Nach Orte sind, Abschnitt „Connections“ in Gespeichert mit „Way back“ und eigener Reihenfolge
+- [x] Kurzbefehle-Widget (#6): `widget/ShortcutsWidget.kt` (Glance), Zuhause, Arbeit, dann gespeicherte Orte (max. 4), Links `publit://go/…` und `publit://place?…`; folgt den gespeicherten Orten (`PublitApplication`)
+- [x] Wallet-Pässe (#20): `tickets/WalletPassImport.kt` (pass.json aus der ZIP, Codes inkl. UIC-Bytes, Felder, Farbe), im Ticket-Import und beim Öffnen einer .pkpass aus anderen Apps (Intent-Filter)
+- [ ] Offen gegenüber iOS: eigene Kurzbefehle mit Symbol (#22), Linie mit Richtung (#21), Abfahrten-in-der-Nähe-Widget (#19), Wear-Komplikation (#18), um ein Ticket planen (#23/#24)
+
 ## Feedback 2026-11-16 (iOS PR #87)
 - [x] Live-Fahrt: unter der Etappe keine Liste aller Etappen mehr; Tasten „Back to now“ und „Trip overview“; Etappenliste nur in der Übersicht
 - [x] Karte je Etappe an ihrem Ort (Warten/Umstieg: Einstiegshalt); nur auf dem aktuellen Fußweg nahe dem Weg folgt sie dir (`walkWith`)

@@ -2,4 +2,6 @@
 <resources>
     <string name="widget_departures">Vertrektijden</string>
     <string name="widget_description">Volgende vertrektijden bij een halte naar keuze.</string>
+    <string name="widget_shortcuts">Snelkoppelingen</string>
+    <string name="widget_shortcuts_description">Routes naar Thuis, Werk of je eigen plekken met één tik.</string>
 </resources>

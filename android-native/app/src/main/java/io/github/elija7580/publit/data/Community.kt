@@ -134,6 +134,12 @@ object WhatsNew {
 
     /** Newest first. `release` counts Android releases with a note; raise it for each new entry. */
     val entries = listOf(
+        // 0.11.0: community wishes from iOS build 100 (Publit#6, #28, #20).
+        Entry(5, listOf(
+            Item("widget", "Shortcuts widget", "Home, Work and your places on the home screen: one tap opens the routes from where you are."),
+            Item("star", "Save connections", "Save a connection with the star in Plan; Saved plans it again, or the way back, in one tap."),
+            Item("ticket", "Wallet passes", "Open a .pkpass file in Publit or add it under Tickets: its code and details are taken over as they are."),
+        )),
         // 0.10.0: iOS builds 87–88 (measured change chances, change alerts; same texts as iOS, translated there).
         Entry(4, listOf(
             Item("swap", "Honest change chances", "Changes get a percentage only where Publit has measured how late the vehicles really run; elsewhere it says Estimate."),

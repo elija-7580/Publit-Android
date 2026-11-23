@@ -437,6 +437,11 @@ fun PassImportScreen(store: PassStore, tripId: String?, onBack: () -> Unit, onRe
             val bytes = loaded ?: withContext(Dispatchers.IO) { ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } } ?: throw TicketRecognizer.Unreadable()
             if (bytes.size > PassStore.MAX_DOCUMENT_BYTES) throw PassStore.TooLarge()
             loaded = bytes
+            // A Wallet pass (.pkpass, iOS Publit#20): its code and fields as they are, no recognition needed.
+            if (io.github.elija7580.publit.tickets.WalletPassImport.isZip(bytes)) {
+                val r = withContext(Dispatchers.Default) { io.github.elija7580.publit.tickets.WalletPassImport.read(bytes) }
+                onRead(PendingImport(r.pass.copy(tripId = tripId), null, null, 0, null)); return@LaunchedEffect
+            }
             val pdf = pdfHint || (bytes.size > 4 && String(bytes, 0, 4) == "%PDF")
             val tmp = File(ctx.cacheDir, "import." + if (pdf) "pdf" else "img").apply { writeBytes(bytes) }
             if (!pdf) { finish(bytes, false, 0, TicketRecognizer.scan(tmp, false, 0)); return@LaunchedEffect }
@@ -488,7 +493,9 @@ fun PassImportScreen(store: PassStore, tripId: String?, onBack: () -> Unit, onRe
                     }
                 }
                 else -> {
-                    ImportOption(Icons.Filled.Description, L10n.t("PDF or image file")) { file.launch(arrayOf("application/pdf", "image/*")) }
+                    ImportOption(Icons.Filled.Description, L10n.t("PDF, image or Wallet pass")) {
+                        file.launch(arrayOf("application/pdf", "image/*", "application/vnd.apple.pkpass", "application/vnd-com.apple.pkpass", "application/zip", "application/octet-stream"))
+                    }
                     ImportOption(Icons.Filled.Image, L10n.t("Photo or screenshot")) { photo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                     if (TicketVision.canScanPaper) ImportOption(Icons.Filled.DocumentScanner, L10n.t("Scan a paper ticket")) {
                         val activity = ctx as? Activity ?: return@ImportOption

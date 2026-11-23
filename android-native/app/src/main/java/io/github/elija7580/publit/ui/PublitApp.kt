@@ -110,10 +110,26 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         val tripLink by openTrip.collectAsStateWithLifecycle()
         val linkContext = androidx.compose.ui.platform.LocalContext.current
         var sharedRoute by remember { mutableStateOf<io.github.elija7580.publit.data.SharedRoute?>(null) }
+        var pendingPass by remember { mutableStateOf<PendingImport?>(null) }
+        /** A Wallet pass from another app waits for the Tickets tab's screens before its editor opens. */
+        var openPassEditor by remember { mutableStateOf(false) }
+        LaunchedEffect(tab, openPassEditor) {
+            if (openPassEditor && tab == "tickets") { openPassEditor = false; runCatching { ticketsNav.navigate("passedit?new=true") } }
+        }
         LaunchedEffect(tripLink) {
             val link = tripLink ?: return@LaunchedEffect
             openTrip.value = null
-            if (link.startsWith("route:")) {
+            if (link.startsWith("pkpass:")) {
+                // A Wallet pass opened from another app: straight to the ticket editor.
+                val file = java.io.File(linkContext.cacheDir, "opened.pkpass")
+                val read = if (link == "pkpass:") runCatching {
+                    io.github.elija7580.publit.tickets.WalletPassImport.read(file.readBytes())
+                }.also { file.delete() } else null
+                val r = read?.getOrNull()
+                if (r != null) {
+                    pendingPass = PendingImport(r.pass, null, null, 0, null); tab = "tickets"; openPassEditor = true
+                } else android.widget.Toast.makeText(linkContext, read?.exceptionOrNull()?.message ?: L10n.t("This file is not a Wallet pass Publit can read."), android.widget.Toast.LENGTH_LONG).show()
+            } else if (link.startsWith("route:")) {
                 sharedRoute = io.github.elija7580.publit.data.SharedRoute.parse(link.removePrefix("route:"))
                 if (sharedRoute != null) nav.navigate("sharedroute") { launchSingleTop = true }
             } else if (link.startsWith("place:")) {
@@ -140,7 +156,6 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                 nav.navigate("stop?id=${Uri.encode(id)}&name=${Uri.encode(name)}&exact=false")
             } else nav.navigate("savedtrip?id=$link") { launchSingleTop = true }
         }
-        var pendingPass by remember { mutableStateOf<PendingImport?>(null) }
         var tripTarget by remember { mutableStateOf<TripTarget?>(null) }
         val openTrip = { t: TripTarget -> tripTarget = t; nav.navigate("trip") }
         val tabs = listOf(
@@ -206,7 +221,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                     }
                 }
                 composable("plan") {
-                    PlanScreen(plan, onSettings = { nav.navigate("settings") }, saved = favorites.state.collectAsStateWithLifecycle().value.items, onSetRole = { role, p -> favorites.set(p, role) }) { it, from, to -> TripActions(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
+                    PlanScreen(plan, onSettings = { nav.navigate("settings") }, saved = favorites.state.collectAsStateWithLifecycle().value.items, favorites = favorites, onSetRole = { role, p -> favorites.set(p, role) }) { it, from, to -> TripActions(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
                 }
                 composable("savedtrip?id={id}&details={details}", arguments = listOf(
                     androidx.navigation.navArgument("details") { type = androidx.navigation.NavType.BoolType; defaultValue = false })) { e ->
@@ -257,7 +272,8 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                         onOpenStop = { p -> nav.navigate("stop?id=${Uri.encode(p.stopId ?: p.id)}&name=${Uri.encode(p.name)}&exact=${p.exact == true}") },
                         onOpenLine = { l -> savedLine = l; nav.navigate("line") },
                         onSearch = { title, done -> pickFor = title to done },
-                        onSettings = { nav.navigate("settings") })
+                        onSettings = { nav.navigate("settings") },
+                        onConnection = { c -> plan.route(Endpoint.At(c.fromName, c.from), Endpoint.At(c.toName, c.to)); openPlan() })
                 }
                 composable("line") {
                     val l = savedLine

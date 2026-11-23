@@ -2,4 +2,6 @@
 <resources>
     <string name="widget_departures">Salidas</string>
     <string name="widget_description">Próximas salidas en la parada que elijas.</string>
+    <string name="widget_shortcuts">Atajos</string>
+    <string name="widget_shortcuts_description">Rutas a Casa, Trabajo o tus lugares con un toque.</string>
 </resources>

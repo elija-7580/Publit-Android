@@ -3,4 +3,6 @@
     <string name="app_name">Publit β</string>
     <string name="widget_departures">Departures</string>
     <string name="widget_description">Next departures at a stop of your choice.</string>
+    <string name="widget_shortcuts">Shortcuts</string>
+    <string name="widget_shortcuts_description">Routes to Home, Work or your own places with one tap.</string>
 </resources>

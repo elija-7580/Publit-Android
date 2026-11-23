@@ -55,8 +55,27 @@ class MainActivity : ComponentActivity() {
         shared(intent)
     }
 
+    /** A Wallet pass (.pkpass) opened from another app (iOS Publit#20): copied for the ticket editor as "pkpass:". */
+    private fun walletPass(i: android.content.Intent?): Boolean {
+        val uri = i?.takeIf { it.action == android.content.Intent.ACTION_VIEW }?.data ?: return false
+        val isPass = i.type?.contains("pkpass") == true || uri.lastPathSegment?.lowercase()?.endsWith(".pkpass") == true
+        if (!isPass || uri.scheme !in setOf("content", "file")) return false
+        lifecycleScope.launch {
+            val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching false
+                    if (bytes.size > io.github.elija7580.publit.tickets.PassStore.MAX_DOCUMENT_BYTES) return@runCatching false
+                    java.io.File(cacheDir, "opened.pkpass").writeBytes(bytes); true
+                }.getOrDefault(false)
+            }
+            openTrip.value = if (ok) "pkpass:" else "pkpass:failed"
+        }
+        return true
+    }
+
     /** A place shared or opened from another app: a route there (as "place:" for the app's navigation). */
     private fun shared(i: android.content.Intent?) {
+        if (walletPass(i)) return
         // publit:// links and https://publit.eu/open/#… links from iPhone or Android.
         val raw = i?.data ?: i?.getStringExtra(android.content.Intent.EXTRA_TEXT)?.let { t -> Regex("https://\\S+").find(t)?.value?.let(android.net.Uri::parse) }
         val app = raw?.let { u -> if (u.scheme == "publit") u else io.github.elija7580.publit.data.ShareLinks.appUrl(u)?.let(android.net.Uri::parse) }

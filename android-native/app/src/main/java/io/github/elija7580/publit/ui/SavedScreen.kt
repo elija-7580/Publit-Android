@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
@@ -66,7 +67,8 @@ import java.time.Instant
 @Composable
 fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.TripStore, onOpenTrip: (String) -> Unit, onPastTrips: () -> Unit,
                 onRoute: (SavedPlace) -> Unit, onOpenStop: (SavedPlace) -> Unit,
-                onOpenLine: (SavedLine) -> Unit, onSearch: (title: String, (SavedPlace) -> Unit) -> Unit, onSettings: () -> Unit) {
+                onOpenLine: (SavedLine) -> Unit, onSearch: (title: String, (SavedPlace) -> Unit) -> Unit, onSettings: () -> Unit,
+                onConnection: (io.github.elija7580.publit.data.SavedConnection) -> Unit = {}) {
     val ink = LocalInk.current
     val s by store.state.collectAsStateWithLifecycle()
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -117,6 +119,23 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
             if (upcoming.isEmpty()) Text(L10n.t("Save a route to see it here, add it to your calendar and get a reminder when to leave."),
                 color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 6.dp))
         }
+        if (s.connections.isNotEmpty()) item("connections") {
+            Section(L10n.t("Connections")) {
+                s.connections.forEachIndexed { i, c ->
+                    if (i > 0) Divider()
+                    RemovableRow(onClick = { onConnection(c) }, onRemove = { store.removeConnection(c.id) },
+                        extra = listOf(L10n.t("Way back") to { onConnection(c.reversed) }) +
+                            moveActions(i, s.connections.size) { up -> store.moveConnection(i, up) }) {
+                        Icon(Icons.Filled.Route, null, Modifier.size(20.dp), tint = ink.muted)
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(c.fromName, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("→ " + c.toName, color = ink.muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+        }
         if (s.lines.isNotEmpty()) item("lines") {
             Section(L10n.t("Lines")) {
                 s.lines.forEachIndexed { i, line ->
@@ -130,7 +149,7 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
                 }
             }
         }
-        if (s.stops.isEmpty() && s.places.isEmpty() && s.lines.isEmpty()) item("empty") {
+        if (s.stops.isEmpty() && s.places.isEmpty() && s.lines.isEmpty() && s.connections.isEmpty()) item("empty") {
             Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Filled.Star, null, tint = ink.muted, modifier = Modifier.size(32.dp))
                 Text(L10n.t("Nothing else saved yet"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)

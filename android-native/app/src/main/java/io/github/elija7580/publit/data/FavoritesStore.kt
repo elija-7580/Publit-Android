@@ -144,9 +144,41 @@ data class SavedLine(
     }
 }
 
+/**
+ * A saved connection from one place to another (SavedConnection on iOS, Publit#28): one tap plans it
+ * again, leaving now; "Way back" plans it the other way round.
+ */
+@Serializable
+data class SavedConnection(
+    val fromName: String,
+    val fromLat: Double,
+    val fromLon: Double,
+    val toName: String,
+    val toLat: Double,
+    val toLon: Double,
+) {
+    val from: LatLon get() = LatLon(fromLat, fromLon)
+    val to: LatLon get() = LatLon(toLat, toLon)
+    val id: String get() = key(from) + ">" + key(to)
+    val title: String get() = "$fromName → $toName"
+    val reversed: SavedConnection get() = SavedConnection(toName, toLat, toLon, fromName, fromLat, fromLon)
+
+    companion object {
+        private fun key(p: LatLon) = String.format(Locale.US, "%.4f,%.4f", p.lat, p.lon)
+        fun of(fromName: String, from: LatLon, toName: String, to: LatLon) =
+            SavedConnection(fromName, from.lat, from.lon, toName, to.lat, to.lon)
+
+        /** Saves `c`, or removes it when the same connection (same ends, rounded to ~10 m) is saved already. */
+        fun toggled(saved: List<SavedConnection>, c: SavedConnection): List<SavedConnection> =
+            if (saved.any { it.id == c.id }) saved.filter { it.id != c.id } else saved + c
+    }
+}
+
 /** Saved places, stops and lines, as FavoritesStore on iOS (same storage keys). */
 class FavoritesStore(private val prefs: SharedPreferences) {
-    data class State(val items: List<SavedPlace> = emptyList(), val lines: List<SavedLine> = emptyList()) {
+    data class State(val items: List<SavedPlace> = emptyList(), val lines: List<SavedLine> = emptyList(),
+                     val connections: List<SavedConnection> = emptyList()) {
+        fun containsConnection(c: SavedConnection) = connections.any { it.id == c.id }
         val stops get() = items.filter { it.isStop && it.role == null }
         val places get() = items.filter { !it.isStop && it.role == null }
         fun place(role: PlaceRole) = items.firstOrNull { it.role == role }
@@ -157,9 +189,11 @@ class FavoritesStore(private val prefs: SharedPreferences) {
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
     private val placesSer = ListSerializer(SavedPlace.serializer())
     private val linesSer = ListSerializer(SavedLine.serializer())
+    private val connectionsSer = ListSerializer(SavedConnection.serializer())
     private val _state = MutableStateFlow(State(
         prefs.getString(KEY, null)?.let { runCatching { json.decodeFromString(placesSer, it) }.getOrNull() }.orEmpty(),
         prefs.getString(LINES_KEY, null)?.let { runCatching { json.decodeFromString(linesSer, it) }.getOrNull() }.orEmpty(),
+        prefs.getString(CONNECTIONS_KEY, null)?.let { runCatching { json.decodeFromString(connectionsSer, it) }.getOrNull() }.orEmpty(),
     ))
     val state = _state.asStateFlow()
 
@@ -181,6 +215,16 @@ class FavoritesStore(private val prefs: SharedPreferences) {
     fun movePlace(index: Int, up: Boolean) = savePlaces(SavedOrder.stepped(_state.value.items, index, up) { !it.isStop && it.role == null })
     fun moveLine(index: Int, up: Boolean) = saveLines(SavedOrder.stepped(_state.value.lines, index, up) { true })
 
+    // Saved connections (iOS Publit#28).
+    fun toggle(connection: SavedConnection) = saveConnections(SavedConnection.toggled(_state.value.connections, connection))
+    fun removeConnection(id: String) = saveConnections(_state.value.connections.filter { it.id != id })
+    fun moveConnection(index: Int, up: Boolean) = saveConnections(SavedOrder.stepped(_state.value.connections, index, up) { true })
+
+    private fun saveConnections(list: List<SavedConnection>) {
+        _state.value = _state.value.copy(connections = list)
+        prefs.edit().putString(CONNECTIONS_KEY, json.encodeToString(connectionsSer, list)).apply()
+    }
+
     private fun savePlaces(items: List<SavedPlace>) {
         _state.value = _state.value.copy(items = items)
         prefs.edit().putString(KEY, json.encodeToString(placesSer, items)).apply()
@@ -193,5 +237,6 @@ class FavoritesStore(private val prefs: SharedPreferences) {
     companion object {
         const val KEY = "publit.favorites.v1"
         const val LINES_KEY = "publit.lines.v1"
+        const val CONNECTIONS_KEY = "publit.connections.v1"
     }
 }

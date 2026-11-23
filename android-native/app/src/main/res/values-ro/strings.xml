@@ -2,4 +2,6 @@
 <resources>
     <string name="widget_departures">Plecări</string>
     <string name="widget_description">Următoarele plecări dintr-o stație aleasă.</string>
+    <string name="widget_shortcuts">Scurtături</string>
+    <string name="widget_shortcuts_description">Rute spre Acasă, Serviciu sau locurile tale cu o atingere.</string>
 </resources>
