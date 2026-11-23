@@ -19,7 +19,12 @@ struct SavedPlace: Codable, Hashable, Identifiable {
     /// Same saved thing: same ID, or the same station reached via a different stop ID
     /// (search returns one platform, Nearby another).
     func isSame(as other: SavedPlace) -> Bool {
-        if id == other.id { return true }
+        if id == other.id {
+            // A stop is known by its ID. An address ID is not unique: the search can hand out the
+            // same one for two addresses, so two addresses are the same only at the same spot.
+            if isStop || other.isStop { return true }
+            return coordinate.distance(to: other.coordinate) < Self.sameSpotRadius
+        }
         guard isStop, other.isStop else { return false }
         if stopId == other.stopId { return true }
         // The stop across the road has the same name but other departures.
@@ -28,6 +33,17 @@ struct SavedPlace: Codable, Hashable, Identifiable {
             && coordinate.distance(to: other.coordinate) < StopGrouping.mergeRadius
     }
     var coordinate: LatLon { LatLon(lat: lat, lon: lon) }
+
+    /// Two addresses with the same ID closer than this (metres) are one saved place.
+    static let sameSpotRadius: Double = 30
+
+    /// A stable ID of its own for an address whose ID another saved address already has.
+    var ownID: String { "\(id)|\(String(format: "%.5f,%.5f", lat, lon))" }
+
+    /// The same saved thing, also when this address was saved under its own ID (`ownID`).
+    func isSaved(as saved: SavedPlace) -> Bool {
+        saved.isSame(as: self) || (!isStop && saved.id == ownID)
+    }
 
     init(id: String, name: String, subtitle: String?, lat: Double, lon: Double, stopId: String?) {
         self.id = id; self.name = name; self.subtitle = subtitle
@@ -139,8 +155,25 @@ final class FavoritesStore {
         for i in items.indices where items[i].role == role { items[i].role = nil }
         var p = place
         p.role = role
-        if let i = items.firstIndex(where: { $0.id == place.id }) { items[i] = p } else { items.append(p) }
+        if let i = items.firstIndex(where: { $0.id == place.id && $0.isSame(as: place) }), items[i].role == nil {
+            // The same saved place becomes Home or Work.
+            items[i] = p
+        } else if items.contains(where: { $0.id == place.id }) {
+            // The ID is taken: by the other role (same place, or an address ID the geocoder reuses
+            // in another country) or by another saved address. Keep that entry and store this role
+            // separately, so setting Work never removes Home or a saved place.
+            p.id = Self.slotID(role, for: place)
+            items.removeAll { $0.id == p.id }
+            items.append(p)
+        } else {
+            items.append(p)
+        }
         persist()
+    }
+
+    /// A stable ID of its own for a place whose ID already holds the other role.
+    static func slotID(_ role: PlaceRole, for place: SavedPlace) -> String {
+        "\(role.rawValue)|\(place.id)|\(String(format: "%.5f,%.5f", place.lat, place.lon))"
     }
 
     func clear(_ role: PlaceRole) {
@@ -149,10 +182,17 @@ final class FavoritesStore {
     }
 
     func contains(_ id: String) -> Bool { items.contains { $0.id == id } }
-    func contains(_ place: SavedPlace) -> Bool { items.contains { $0.isSame(as: place) } }
+    func contains(_ place: SavedPlace) -> Bool { items.contains { place.isSaved(as: $0) } }
 
     func toggle(_ place: SavedPlace) {
-        if contains(place) { items.removeAll { $0.isSame(as: place) } } else { items.append(place) }
+        if contains(place) {
+            items.removeAll { place.isSaved(as: $0) }
+        } else {
+            var p = place
+            // Another address with this ID is saved already: both stay, each under its own ID.
+            if items.contains(where: { $0.id == p.id }) { p.id = place.ownID }
+            items.append(p)
+        }
         persist()
     }
 
