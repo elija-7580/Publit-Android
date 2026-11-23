@@ -16,6 +16,8 @@ android {
         targetSdk = 36
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "0.10.0"
+        // Device tests (src/androidTest): ticket recognition on an emulator, see android-device-test.yml.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Optional Google Wallet export: the signing service's HTTPS URL (services/google-wallet-signer).
         // Without it the button stays hidden. The issuer key never goes into the app.
         manifestPlaceholders["walletSignerUrl"] = (project.findProperty("publit.walletSignerUrl") as String?) ?: ""
@@ -113,4 +115,6 @@ dependencies {
     implementation("androidx.exifinterface:exifinterface:1.4.1")
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
 }

@@ -1,0 +1,133 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-FileCopyrightText: 2026 Elija Samuel Friedrich-Ulrich
+name: Android im Emulator testen
+
+# Both app versions (play = with Google services, foss = without) on a real Android emulator (API 35):
+# 1. Device tests (app/src/androidTest): ticket import reads text, QR and Aztec codes from an image and a PDF.
+# 2. The four main views with demo data (screenshots/capture.py), checked by OCR in German and English.
+# 3. 2500 random taps and swipes (monkey) with demo data; any crash or "not responding" fails the run.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [native-android]
+    paths: ['android-native/**', '.github/workflows/android-device-test.yml']
+
+concurrency:
+  group: android-device-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SYSTEM_IMAGE: 'system-images;android-35;google_apis;x86_64'
+  OUT: ${{ github.workspace }}/device-test
+
+jobs:
+  emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.14.3' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Strings from the iOS catalog
+        run: |
+          bash scripts/fetch-ios-strings.sh
+          python3 android-native/tools/strings.py Sources/Publit/Resources/Localizable.xcstrings android-native/app/src/main/assets/strings
+      - name: Build (both versions, x86_64)
+        working-directory: android-native
+        run: gradle --no-daemon -Ppublit.emulatorAbi=true :app:assemblePlayScreenshots :app:assembleFossScreenshots :app:assemblePlayDebug :app:assembleFossDebug :app:assemblePlayDebugAndroidTest :app:assembleFossDebugAndroidTest
+      - name: Tools (OCR for the view checks)
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q tesseract-ocr tesseract-ocr-deu tesseract-ocr-eng >/dev/null
+          pip install -q pillow numpy
+          mkdir -p "$OUT/diagnostics"
+      - name: Emulator (API 35)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          export ANDROID_AVD_HOME="$HOME/.android/avd"; mkdir -p "$ANDROID_AVD_HOME"; echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          SDK="$ANDROID_HOME"; BIN="$SDK/cmdline-tools/latest/bin"
+          yes | "$BIN/sdkmanager" --licenses >/dev/null || true
+          "$BIN/sdkmanager" --install emulator platform-tools "$SYSTEM_IMAGE" >/dev/null
+          DEV=pixel_8_pro; "$BIN/avdmanager" list device -c | grep -qx pixel_8_pro || DEV=pixel_7_pro
+          echo no | "$BIN/avdmanager" create avd -n dev -k "$SYSTEM_IMAGE" -d "$DEV" --force
+          CFG="$ANDROID_AVD_HOME/dev.avd/config.ini"
+          sed -i '/^hw.lcd.width\|^hw.lcd.height\|^hw.lcd.density\|^skin\.\|^showDeviceFrame\|^hw.ramSize\|^disk.dataPartition.size\|^hw.keyboard\|^hw.gpu/d' "$CFG"
+          printf '%s\n' hw.lcd.width=1344 hw.lcd.height=2992 hw.lcd.density=480 skin.name=1344x2992 skin.dynamic=yes \
+            showDeviceFrame=no hw.ramSize=4096 disk.dataPartition.size=6G hw.keyboard=yes hw.gpu.enabled=yes hw.gpu.mode=swiftshader_indirect >> "$CFG"
+          nohup "$SDK/emulator/emulator" -avd dev -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
+            -timezone Europe/Berlin -camera-back none -camera-front none -netfast > "$OUT/diagnostics/emulator.log" 2>&1 &
+          export PATH="$SDK/platform-tools:$PATH"
+          timeout 300 adb wait-for-device || { echo "::error::Emulator did not appear"; tail -50 "$OUT/diagnostics/emulator.log"; exit 1; }
+          for i in $(seq 1 120); do [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ] && break; sleep 5; done
+          adb shell getprop sys.boot_completed | grep -q 1
+          sleep 20; adb shell input keyevent 82 || true
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+      - name: 1. Device tests (ticket recognition)
+        id: device
+        continue-on-error: true
+        working-directory: android-native
+        run: |
+          fail=0
+          for v in Foss Play; do
+            adb logcat -c || true
+            gradle --no-daemon -Ppublit.emulatorAbi=true :app:connected${v}DebugAndroidTest || { fail=1; echo "::error::Device tests failed: $v"; }
+            adb logcat -d -s TicketScanDeviceTest:I > "$OUT/diagnostics/ticket-scan-$v.txt" || true
+            cat "$OUT/diagnostics/ticket-scan-$v.txt"
+            mkdir -p "$OUT/device-tests/$v"; cp -r app/build/outputs/androidTest-results "app/build/reports/androidTests" "$OUT/device-tests/$v/" 2>/dev/null || true
+          done
+          exit $fail
+      - name: 2. Main views with demo data (both versions)
+        id: views
+        continue-on-error: true
+        working-directory: android-native/screenshots
+        run: |
+          nohup python3 mock_server.py --fixtures fixtures/munich --port 8765 --log "$OUT/diagnostics/requests.jsonl" > "$OUT/diagnostics/server.log" 2>&1 &
+          sleep 2; curl -fsS "http://127.0.0.1:8765/_demo/stats" >/dev/null
+          fail=0
+          for v in play foss; do
+            adb uninstall io.github.elija7580.publit.screenshots >/dev/null 2>&1 || true
+            python3 capture.py --apk ../app/build/outputs/apk/$v/screenshots/app-$v-x86_64-screenshots.apk --out "$OUT/views-$v" --server http://127.0.0.1:8765 --themes light \
+              || { fail=1; echo "::error::View check failed: $v"; }
+          done
+          exit $fail
+      - name: 3. Random taps (monkey, both versions)
+        id: monkey
+        continue-on-error: true
+        working-directory: android-native/screenshots
+        run: |
+          curl -fsS "http://127.0.0.1:8765/_demo/stats" >/dev/null || { nohup python3 mock_server.py --fixtures fixtures/munich --port 8765 > "$OUT/diagnostics/server2.log" 2>&1 & sleep 2; }
+          PKG=io.github.elija7580.publit.screenshots; fail=0
+          for v in play foss; do
+            adb uninstall $PKG >/dev/null 2>&1 || true
+            adb install -r -g ../app/build/outputs/apk/$v/screenshots/app-$v-x86_64-screenshots.apk
+            adb shell am start -W -n $PKG/io.github.elija7580.publit.MainActivity; sleep 8
+            adb logcat -c || true
+            adb shell monkey -p $PKG -s 4711 --throttle 250 --pct-syskeys 0 --pct-appswitch 2 --ignore-security-exceptions -v 2500 > "$OUT/diagnostics/monkey-$v.txt" 2>&1 || true
+            adb logcat -d -v time > "$OUT/diagnostics/logcat-monkey-$v.txt" || true
+            adb exec-out screencap -p > "$OUT/diagnostics/monkey-end-$v.png" || true
+            tail -5 "$OUT/diagnostics/monkey-$v.txt"
+            if grep -q "// CRASH\|// NOT RESPONDING" "$OUT/diagnostics/monkey-$v.txt" || grep -q "FATAL EXCEPTION" "$OUT/diagnostics/logcat-monkey-$v.txt"; then
+              fail=1; echo "::error::App crashed or hung during random taps: $v"
+              grep -A25 "FATAL EXCEPTION\|// CRASH\|// NOT RESPONDING" "$OUT/diagnostics/logcat-monkey-$v.txt" "$OUT/diagnostics/monkey-$v.txt" | head -80
+            fi
+          done
+          exit $fail
+      - name: Summary
+        if: always()
+        run: |
+          { echo "| Prüfung | Ergebnis |"; echo "|---|---|"
+            echo "| Ticket-Erkennung (Bild + PDF, beide Versionen) | ${{ steps.device.outcome }} |"
+            echo "| Hauptansichten mit Demodaten (beide Versionen, DE/EN) | ${{ steps.views.outcome }} |"
+            echo "| Zufällige Eingaben ohne Absturz (beide Versionen) | ${{ steps.monkey.outcome }} |"; } >> "$GITHUB_STEP_SUMMARY"
+          adb exec-out screencap -p > "$OUT/diagnostics/end.png" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: device-test-results, path: '${{ env.OUT }}' }
+      - name: Result
+        if: always()
+        run: |
+          [ "${{ steps.device.outcome }}" = success ] && [ "${{ steps.views.outcome }}" = success ] && [ "${{ steps.monkey.outcome }}" = success ]
