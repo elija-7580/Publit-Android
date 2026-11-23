@@ -124,3 +124,8 @@ Quelle: iOS PRs #92–#94 (`DelayHistory.swift`, `TransferWalk.swift`, `SmartRou
 - [x] Tests `ChangeChanceTest` mit denselben Vektoren wie Python/iOS (`test/resources/change-chance-vectors.json`, Kopie von `services/delay-history/tests/vectors.json` im iOS-Repo).
 - Android-Grenzen: ohne gestartete Fahrt (Vordergrund-Dienst) rechnet Android nur bei Trip-Refreshs in der App und beim Live-Tick neu; Doze verzögert Alarme. Keine Server-Pushes.
 - Strings: `upstream/IOS_COMMIT` auf den iOS-Stand mit den neuen Texten.
+
+## Gespeicherte Adressen mit gleicher ID (2026-11-23, Issue #21, iOS #59 und #121)
+- [x] `data/FavoritesStore.kt`: Regeln als reine Funktionen in `SavedPlaces` (`set`, `toggle`). Zwei Adressen mit derselben Geocoder-ID sind nur am selben Ort (unter 30 m) derselbe Platz; ist die ID vergeben, bekommt der neue Eintrag eine eigene (`<id>|<lat>,<lon>`, für Home/Work `home|…` bzw. `work|…` wie iOS `slotID`). Work ersetzt Home nicht mehr, weitere Adressen erscheinen, Speichern entfernt keine andere Adresse. Haltestellen wie bisher über die ID. Gespeicherte Daten bleiben, wie sie sind.
+- [x] Tests `SavedPlacesTest` (dieselben Fälle wie iOS `CoreTests`).
+- Offen: am Gerät prüfen (zwei Hausnummern derselben Straße speichern, eine als Work setzen). Kein „What's new“-Eintrag, `versionName` unverändert.
