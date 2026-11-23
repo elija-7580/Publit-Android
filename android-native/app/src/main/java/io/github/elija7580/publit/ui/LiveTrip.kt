@@ -579,6 +579,9 @@ private fun WaitStage(it: Itinerary, legIndex: Int, now: Instant) {
         PlatformLine(leg.from, big = true)
         if ((leg.mode == "BUS" || leg.mode == "COACH") && (leg.routeShortName ?: "").uppercase().let { n -> n.startsWith("SEV") || n.startsWith("EV") || n.contains("ERSATZ") }) Text(L10n.t("Rail replacement bus"), color = ink.delay, fontWeight = FontWeight.SemiBold)
         if (leg.cancelled == true) Text(L10n.t("This trip is cancelled."), color = ink.danger, fontWeight = FontWeight.SemiBold)
+        // Where to stand on the platform: the part of the train nearest the way out or the next train.
+        val exitsVersion by StationExits.version.collectAsState()
+        remember(it, legIndex, exitsVersion) { ExitAdvice.forRide(legIndex, it.legs) }?.let { a -> ExitAdviceRow(a) }
         SmartRouting.changes(it).firstOrNull { c -> c.outgoingIndex == legIndex }?.let { c -> ChangeLine(c) }
         leg.alerts.orEmpty().take(2).forEach { a -> Text(a.headerText, color = ink.delay, fontSize = 13.sp) }
         Text(listOf(L10n.f("%lld stops", max(leg.allStops.size - 1, 1)), Fmt.duration(leg.duration), L10n.f("Get off at %@", leg.to.name)).joinToString(" · "), color = ink.muted, fontSize = 14.sp)
@@ -617,6 +620,9 @@ private fun RideStage(it: Itinerary, legIndex: Int, now: Instant, progress: Trip
             is TripProgress.Between -> stops.getOrNull(progress.index + 1)?.let { s -> L10n.f("Next: %@", s.name) }
             else -> null
         }?.let { Text(it, color = ink.muted, fontSize = 15.sp) }
+        // Which end of the train to be at when the doors open, and the exit.
+        val exitsVersion by StationExits.version.collectAsState()
+        remember(it, legIndex, exitsVersion) { ExitAdvice.forRide(legIndex, it.legs) }?.let { a -> ExitAdviceLine(a) }
         LinearProgressIndicator(progress = { value.toFloat().coerceIn(0f, 1f) }, color = lineStroke(leg, ink.dark), trackColor = ink.fill, modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)))
         Text(L10n.t(if (leg.realTime) "Position estimated from live stop times." else "Position estimated from the timetable."), color = ink.muted, fontSize = 12.sp)
         SmartRouting.changes(it).firstOrNull { c -> c.outgoingIndex > legIndex }?.let { c -> ChangeLine(c) }

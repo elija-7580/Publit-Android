@@ -143,7 +143,11 @@ object TripNotifications {
 
         val title = listOfNotNull(leg?.takeIf { live }?.lineName, s.headline).joinToString(" · ")
         // On board with location: the next stop and stops to go, from where the phone really is (iOS #69).
-        val detail = (if (live && riding) GetOffAlerts.rideNote(trip.id) else null) ?: s.detail
+        val note = (if (live && riding) GetOffAlerts.rideNote(trip.id) else null) ?: s.detail
+        // On board: the end of the train nearest the exit or the next train ("Front of the train · Exit B2").
+        val advice = if (live && riding) legs.indexOfFirst { l -> l.isTransit && l.endTime > now }.takeIf { i -> i >= 0 }
+            ?.let { i -> io.github.elija7580.publit.data.ExitAdvice.forRide(i, legs)?.short } else null
+        val detail = listOfNotNull(advice, note.ifEmpty { null }).joinToString(" · ")
         val line2 = listOfNotNull(platform?.let { p -> (if (changed) "⚠ " else "") + L10n.f("Pl. %@", p) }, detail.ifEmpty { null }).joinToString(" · ")
         // The stages, done ones ticked: "✓ Walk to Karlsplatz", "▶ U1 → Leopoldau 14:05–14:19", …
         val steps = io.github.elija7580.publit.data.TripGuide.steps(it)
