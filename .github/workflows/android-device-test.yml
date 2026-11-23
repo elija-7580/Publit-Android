@@ -87,11 +87,17 @@ jobs:
         run: |
           nohup python3 mock_server.py --fixtures fixtures/munich --port 8765 --log "$OUT/diagnostics/requests.jsonl" > "$OUT/diagnostics/server.log" 2>&1 &
           sleep 2; curl -fsS "http://127.0.0.1:8765/_demo/stats" >/dev/null
-          fail=0
+          set -o pipefail; fail=0
           for v in play foss; do
             adb uninstall io.github.elija7580.publit.screenshots >/dev/null 2>&1 || true
-            python3 capture.py --apk ../app/build/outputs/apk/$v/screenshots/app-$v-x86_64-screenshots.apk --out "$OUT/views-$v" --server http://127.0.0.1:8765 --themes light \
-              || { fail=1; echo "::error::View check failed: $v"; }
+            APK=../app/build/outputs/apk/$v/screenshots/app-$v-x86_64-screenshots.apk
+            # One retry of the failed scenes: the emulator sometimes drops a deep link right after a view loaded.
+            if ! python3 capture.py --apk $APK --out "$OUT/views-$v" --server http://127.0.0.1:8765 --themes light | tee "$OUT/views-$v.log"; then
+              ONLY=$(sed -n '/^.*FAILED:$/,$p' "$OUT/views-$v.log" | sed -n 's/^  [a-z]*-\([a-z]*\):.*/\1/p' | sort -u | paste -sd, -)
+              echo "::warning::Retrying failed views ($v): $ONLY"
+              python3 capture.py --apk $APK --out "$OUT/views-$v-retry" --server http://127.0.0.1:8765 --themes light --only "$ONLY" \
+                || { fail=1; echo "::error::View check failed: $v"; }
+            fi
           done
           exit $fail
       - name: 3. Random taps (monkey, both versions)
