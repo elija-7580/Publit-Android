@@ -136,3 +136,11 @@ Quelle: iOS PRs #92–#94 (`DelayHistory.swift`, `TransferWalk.swift`, `SmartRou
 - [x] `ui/SettingsScreen.kt`: erste Seite sagt „routes wherever you go“ statt „routes across Europe“, wie iOS. Publit plant überall, wo Transitous Daten hat.
 - [x] Strings: der neue Satz steht mit 14 Übersetzungen (aus dem iOS-Katalog, Commit 0109af5) in `tools/strings-android.json`, bis der Katalog hier den iOS-Stand hat; dann gewinnt der Katalog von selbst.
 - Kein „What's new“-Eintrag, `versionName` unverändert.
+
+## Eigene Reihenfolge unter „Saved“ (2026-11-23, iOS #124, PR #154)
+- [x] `data/FavoritesStore.kt`: `SavedOrder.moved` (wie iOS `FavoritesStore.moved`: nur Einträge einer Art tauschen untereinander die Plätze; Haltestellen, Orte, Home und Work bleiben eine gespeicherte Liste) und `SavedOrder.stepped` (ein Platz hoch oder runter); `FavoritesStore.moveStop/movePlace/moveLine`. Speicherformat unverändert, neue Einträge kommen weiter ans Ende.
+- [x] `ui/SavedScreen.kt`: Linien, Haltestellen und Orte bekommen im Langdruck-Menü „Move up“ und „Move down“ (nur wo es einen Platz gibt). Anders als iOS kein Ziehen: Android hat hier Langdruck-Menüs, wie bei „Remove“.
+- [x] Strings: „Move up“, „Move down“ mit 14 Übersetzungen in `tools/strings-android.json` (gibt es im iOS-Katalog nicht).
+- [x] Tests `SavedOrderTest` (dieselben Fälle wie iOS `FavoritesOrderTests`, dazu ein Schritt hoch/runter und die Enden).
+- Offen: am Gerät prüfen (drei Haltestellen speichern, die letzte nach oben schieben, App neu starten). Kein „What's new“-Eintrag, `versionName` unverändert.
+- iOS #115 (Straße neben gleichnamiger Haltestelle in der Suche): nichts zu portieren, Android sucht nur über Transitous und führt keine zweite Quelle zusammen.
