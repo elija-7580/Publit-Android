@@ -129,3 +129,8 @@ Quelle: iOS PRs #92–#94 (`DelayHistory.swift`, `TransferWalk.swift`, `SmartRou
 - [x] `data/FavoritesStore.kt`: Regeln als reine Funktionen in `SavedPlaces` (`set`, `toggle`). Zwei Adressen mit derselben Geocoder-ID sind nur am selben Ort (unter 30 m) derselbe Platz; ist die ID vergeben, bekommt der neue Eintrag eine eigene (`<id>|<lat>,<lon>`, für Home/Work `home|…` bzw. `work|…` wie iOS `slotID`). Work ersetzt Home nicht mehr, weitere Adressen erscheinen, Speichern entfernt keine andere Adresse. Haltestellen wie bisher über die ID. Gespeicherte Daten bleiben, wie sie sind.
 - [x] Tests `SavedPlacesTest` (dieselben Fälle wie iOS `CoreTests`).
 - Offen: am Gerät prüfen (zwei Hausnummern derselben Straße speichern, eine als Work setzen). Kein „What's new“-Eintrag, `versionName` unverändert.
+
+## Onboarding-Text ohne „across Europe“ (2026-11-23, iOS #137, PR #140)
+- [x] `ui/SettingsScreen.kt`: erste Seite sagt „routes wherever you go“ statt „routes across Europe“, wie iOS. Publit plant überall, wo Transitous Daten hat.
+- [x] Strings: der neue Satz steht mit 14 Übersetzungen (aus dem iOS-Katalog, Commit 0109af5) in `tools/strings-android.json`, bis der Katalog hier den iOS-Stand hat; dann gewinnt der Katalog von selbst.
+- Kein „What's new“-Eintrag, `versionName` unverändert.
