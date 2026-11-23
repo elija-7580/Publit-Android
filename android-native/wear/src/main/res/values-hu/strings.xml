@@ -20,4 +20,5 @@
     <string name="no_live_trip">Nincs folyamatban lévő út. Indíts egyet a Publitban a telefonon.</string>
     <string name="from_stop">innen: %1$s</string>
     <string name="stages">Lépések</string>
+    <string name="map">Térkép</string>
 </resources>

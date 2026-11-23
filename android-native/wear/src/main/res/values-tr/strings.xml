@@ -20,4 +20,5 @@
     <string name="no_live_trip">Devam eden yolculuk yok. Telefondaki Publit\'te bir yolculuk başlatın.</string>
     <string name="from_stop">%1$s durağından</string>
     <string name="stages">Adımlar</string>
+    <string name="map">Harita</string>
 </resources>

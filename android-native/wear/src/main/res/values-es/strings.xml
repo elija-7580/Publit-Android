@@ -20,4 +20,5 @@
     <string name="no_live_trip">No hay ningún viaje en curso. Inicia uno en Publit en tu móvil.</string>
     <string name="from_stop">desde %1$s</string>
     <string name="stages">Pasos</string>
+    <string name="map">Mapa</string>
 </resources>

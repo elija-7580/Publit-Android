@@ -42,8 +42,12 @@ data class LiveTrip(
     val platformChanged: Boolean,
     val then: String?,
     val stages: List<Stage>,
+    /** Shape of every leg for the map (may be empty), and the index of the leg under way. */
+    val legs: List<Shape> = emptyList(),
+    val current: Int = 0,
 ) {
     data class Stage(val text: String, val done: Boolean, val now: Boolean)
+    data class Shape(val walk: Boolean, val color: String, val points: List<Pair<Double, Double>>)
 
     val riding get() = phase == "RIDING"
 
@@ -65,6 +69,15 @@ data class LiveTrip(
                     val s = stages!!.getJSONObject(i)
                     Stage(s.optString("text"), s.optBoolean("done"), s.optBoolean("now"))
                 },
+                legs = o.optJSONArray("legs")?.let { a ->
+                    (0 until a.length()).map { i ->
+                        val l = a.getJSONObject(i)
+                        val pts = l.optJSONArray("pts")
+                        Shape(l.optBoolean("walk"), l.optString("color", "#888888"),
+                            (0 until (pts?.length() ?: 0)).map { j -> val p = pts!!.getJSONArray(j); p.getDouble(0) to p.getDouble(1) })
+                    }
+                }.orEmpty(),
+                current = o.optInt("current"),
             )
         }.getOrNull()
     }

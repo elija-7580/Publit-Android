@@ -20,4 +20,5 @@
     <string name="no_live_trip">Aucun trajet en cours. Lancez-en un dans Publit sur votre téléphone.</string>
     <string name="from_stop">depuis %1$s</string>
     <string name="stages">Étapes</string>
+    <string name="map">Carte</string>
 </resources>

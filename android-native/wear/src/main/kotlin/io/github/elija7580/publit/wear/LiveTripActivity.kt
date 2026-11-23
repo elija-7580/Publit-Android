@@ -62,6 +62,13 @@ class LiveTripActivity : ComponentActivity() {
                             }
                         }
                         if (t.line != null) item { VehicleRow(t) }
+                        if (t.legs.any { it.points.size > 1 }) item {
+                            Chip(onClick = { startActivity(android.content.Intent(this@LiveTripActivity, LiveMapActivity::class.java)) },
+                                label = { Text(stringResource(R.string.map)) },
+                                icon = { Text("🗺") },
+                                colors = ChipDefaults.secondaryChipColors(),
+                                modifier = Modifier.fillMaxWidth())
+                        }
                         if (t.phase == "BEFORE_LEAVING" && t.boardAt != null) item {
                             Text(stringResource(R.string.from_stop, t.boardAt), fontSize = 12.sp, color = Color.LightGray, textAlign = TextAlign.Center)
                         } else if ((t.riding || t.line == null) && t.detail.isNotEmpty()) item {

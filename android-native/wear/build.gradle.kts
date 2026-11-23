@@ -15,6 +15,8 @@ android {
         targetSdk = 36
         versionCode = 2_000_000 + (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "0.8.0"
+        // Watches are ARM: no x86 copies of the map library in the APK.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
     signingConfigs {
         create("test") {
@@ -50,4 +52,6 @@ dependencies {
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
     implementation("androidx.wear:wear-ongoing:1.0.0")
     implementation(libs.androidx.core.ktx)
+    // The map of the trip under way (same map library and OpenFreeMap tiles as the phone app).
+    implementation(libs.maplibre)
 }

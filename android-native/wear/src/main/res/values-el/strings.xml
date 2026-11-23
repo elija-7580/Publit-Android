@@ -20,4 +20,5 @@
     <string name="no_live_trip">Καμία διαδρομή σε εξέλιξη. Ξεκινήστε μία στο Publit στο τηλέφωνο.</string>
     <string name="from_stop">από %1$s</string>
     <string name="stages">Βήματα</string>
+    <string name="map">Χάρτης</string>
 </resources>

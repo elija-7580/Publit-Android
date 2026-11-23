@@ -20,4 +20,5 @@
     <string name="no_live_trip">Nicio călătorie în curs. Pornește una în Publit pe telefon.</string>
     <string name="from_stop">de la %1$s</string>
     <string name="stages">Pași</string>
+    <string name="map">Hartă</string>
 </resources>

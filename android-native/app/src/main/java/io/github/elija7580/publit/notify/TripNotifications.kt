@@ -209,6 +209,8 @@ object TripNotifications {
                 .put("destination", trip.toName).put("delay", s.delayMinutes)
                 .put("stepMode", stepLeg?.mode ?: "WALK")
                 .put("stages", stageList)
+                .put("legs", watchShapes(it))
+                .put("current", steps.getOrNull(current)?.legIndex ?: 0)
             leg?.takeIf { live }?.let { l ->
                 payload.put("line", l.lineName).put("lineColor", l.lineColors.background).put("lineText", l.lineColors.text)
                 l.shownDirection?.let { d -> payload.put("direction", d) }
@@ -222,6 +224,28 @@ object TripNotifications {
         // Recomputed at the next moment that matters (and at least every 2 min), from stored times.
         val next = minOf(s.nextEvent.plusSeconds(1), now.plusSeconds(120)).coerceAtLeast(now.plusSeconds(30))
         alarm(ctx, "live", next, Intent(ctx, ReminderReceiver::class.java).setAction(ACTION_LIVE))
+    }
+
+    /**
+     * The legs' shapes for the map on the watch: at most 80 points each, rounded to about a metre, so the whole trip
+     * stays a few kilobytes (Data Layer items are small and travel over Bluetooth).
+     */
+    private fun watchShapes(it: Itinerary): org.json.JSONArray {
+        val out = org.json.JSONArray()
+        for (l in it.legs) {
+            // One entry per leg, also an empty one, so "current" points at the right leg.
+            val path = l.mapPath
+            val step = maxOf(1, (path.size + 79) / 80)
+            val pts = org.json.JSONArray()
+            path.forEachIndexed { i, p ->
+                if (i % step == 0 || i == path.size - 1) pts.put(org.json.JSONArray().put(Math.round(p.lat * 1e5) / 1e5).put(Math.round(p.lon * 1e5) / 1e5))
+            }
+            out.put(org.json.JSONObject()
+                .put("walk", !l.isTransit)
+                .put("color", "#" + l.lineColors.background.removePrefix("#"))
+                .put("pts", pts))
+        }
+        return out
     }
 
     /** Android 16 Live Update: one segment per leg (line colour, walks grey), a point at each boarding. */

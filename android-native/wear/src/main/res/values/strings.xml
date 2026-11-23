@@ -20,4 +20,5 @@
     <string name="no_live_trip">No trip under way. Start one in Publit on your phone.</string>
     <string name="from_stop">from %1$s</string>
     <string name="stages">Steps</string>
+    <string name="map">Map</string>
 </resources>

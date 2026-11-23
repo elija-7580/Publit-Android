@@ -20,4 +20,5 @@
     <string name="no_live_trip">Ingen pågående resa. Starta en i Publit på telefonen.</string>
     <string name="from_stop">från %1$s</string>
     <string name="stages">Steg</string>
+    <string name="map">Karta</string>
 </resources>
