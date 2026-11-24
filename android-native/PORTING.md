@@ -100,7 +100,7 @@ Two product flavors: `play` (default; Google Play and the GitHub APKs: fused loc
 ## Weiterhin offen (ehrlich)
 1. Live-Fahrt mit der Karte im Mittelpunkt wie iOS `LiveTripView`: Android hat die Karte mit Bottom-Sheet und Etappenkarten, aber nicht StagePager/StageStrip, TripPanel, GuideStopRow und die iOS-Kamera, die beim Gehen dem Standort folgt (Android zeigt den ganzen Fußweg, folgt nur mit „Turn the map with you“).
 2. Ladezeiten: nicht untersucht (LiveOverlay-Budget pro Aufruf, MapLibre-Start auf älteren Geräten wie dem Mate 20 Lite). Neu hinzugekommen: Atlas-Download beim Start (im Hintergrund-Thread, ≤1×/20 h).
-3. Vollständiger Abgleich mit iOS: nur per Textsuche gegen `docs/FUNKTIONEN.md` (Stand #44) und die Build-Commits; kein Schirm-für-Schirm-Vergleich. Bekannt fehlend: Hinweis auf lange Fußwege über den Routen (`Reach.longWalkNote`), Fußweg-Umweg über Karten-App, „Choose on map“ auch im Von-Feld von Go Now (Android-Go-Now hat kein Von-Feld).
+3. Vollständiger Abgleich mit iOS: nur per Textsuche gegen `docs/FUNKTIONEN.md` (Stand #44) und die Build-Commits; kein Schirm-für-Schirm-Vergleich. Bekannt fehlend: Fußweg-Umweg über Karten-App, „Choose on map“ auch im Von-Feld von Go Now (Android-Go-Now hat kein Von-Feld).
 4. Nichts davon wurde auf einem echten Gerät getestet (nur Unit-Tests und CI-Build).
 5. Besseres Satellitenbild (Entscheidung und Schlüssel vom Owner), Play-Upload-Key als CI-Secret, danach `Sources/` entfernen.
 
@@ -196,3 +196,7 @@ Quelle: iOS PRs #92–#94 (`DelayHistory.swift`, `TransferWalk.swift`, `SmartRou
 - [x] `ui/NearbyMap.kt`: das Sheet mit der Liste lässt sich jetzt ganz nach unten ziehen (`skipHiddenState = false`). Erst wenn es nach dem Loslassen unten liegt, öffnet sich die Stationskarte, nie mitten im Ziehen; ein kurzes Vibrieren, sobald Loslassen sie öffnen würde. Zurück auf „In der Nähe“ steht die Liste wieder auf halber Höhe und öffnet die Karte nicht erneut. Die Liste im Kartenmodus hat kein Ziehen-zum-Aktualisieren, also kein Konflikt wie auf iOS.
 - [x] What's new Release 7, versionName 0.12.1. Strings: Titel aus dem iOS-Katalog (#173), Satz Android-eigen, beide mit 14 Übersetzungen in `tools/strings-android.json`.
 - Offen: am Gerät prüfen.
+
+## Hinweis auf lange Fußwege über den Routen (2026-11-24, iOS `Reach.longWalkNote`, Publit#178)
+- [x] `data/StopGrouping.kt` `Reach.longestAccessWalk` und `Reach.longWalkNote` (Port von `Reach.swift`): längster Fußweg zur ersten oder von der letzten Haltestelle über alle Routen mit Fahrt; Rad, Roller und Auto zählen nicht, Routen nur zu Fuß auch nicht. `PlanViewModel.plan()` setzt die Zeile „These routes include a long walk: up to … min to or from the stop.“ über die Routen, wenn mit einem Fußweg-Limit über 30 min gesucht wurde (nichts im üblichen Umkreis gefunden, oder das Limit in den Routenoptionen steht höher) und der längste Fußweg über 30 min liegt. `PlanState.noteIsWalk`: Fußgänger-Symbol statt Auto. Anders als iOS: gemessen an den gezeigten Routen (nach Smart Routing, ohne Umwege), nicht an der rohen Antwort. Die Park-and-Ride-Zeile bleibt.
+- Tests: `LongWalkNoteTest`. Kein neuer Text (Schlüssel aus dem iOS-Katalog), kein „What's new“-Eintrag, `versionName` unverändert. Nicht am Gerät getestet.
