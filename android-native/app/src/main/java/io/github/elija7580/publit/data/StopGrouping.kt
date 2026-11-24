@@ -106,4 +106,23 @@ object Reach {
 
     fun farNote(meters: Double): String =
         L10n.f("The nearest departures are %@ away, about %lld min on foot.", Fmt.distance(meters), walkMinutes(meters))
+
+    /** Walks to or from a stop longer than this are pointed out above the routes. */
+    const val LONG_WALK_SECONDS = 1800
+
+    /** Longest walk to the first or from the last stop over all routes with transit (seconds). */
+    fun longestAccessWalk(itineraries: List<Itinerary>): Int =
+        itineraries.filter { !it.isDirect }.maxOfOrNull { route ->
+            // Bike, scooter or car to the stop is not walking.
+            val first = route.legs.takeWhile { !it.isTransit }.filter { it.mode == "WALK" }.sumOf { it.duration }
+            val last = route.legs.asReversed().takeWhile { !it.isTransit }.filter { it.mode == "WALK" }.sumOf { it.duration }
+            maxOf(first, last)
+        } ?: 0
+
+    /** Above routes that were only found with a longer walk than usual; null when no walk is long. */
+    fun longWalkNote(itineraries: List<Itinerary>): String? {
+        val longest = longestAccessWalk(itineraries)
+        if (longest <= LONG_WALK_SECONDS) return null
+        return L10n.f("These routes include a long walk: up to %lld min to or from the stop.", Math.round(longest / 60.0).toInt())
+    }
 }

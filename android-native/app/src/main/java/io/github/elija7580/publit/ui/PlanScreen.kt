@@ -972,7 +972,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.routeResults(state: P
         }
         if (!state.loading && state.note != null && state.routes.isNotEmpty()) item("note") {
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.DirectionsCar, null, tint = ink.muted, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                Icon(if (state.noteIsWalk) Icons.AutoMirrored.Filled.DirectionsWalk else Icons.Filled.DirectionsCar, null, tint = ink.muted, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
                 Text(state.note, color = ink.muted, fontSize = 13.sp)
             }
         }
