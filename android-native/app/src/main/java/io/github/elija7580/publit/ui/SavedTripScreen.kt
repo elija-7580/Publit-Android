@@ -96,14 +96,20 @@ fun SavedTripScreen(client: TransitousClient, store: TripStore, tripId: String, 
     var details by remember { mutableStateOf(openedOnDetails) }
     if (state.activeId == tripId && !details) { LiveTripScreen(client, store, trip, error, onBack, onDetails = { details = true }, tickets = { tickets(trip) }); return }
     if (details && !openedOnDetails) androidx.activity.compose.BackHandler { details = false }
-    ItineraryDetail(trip.itinerary, { if (details && !openedOnDetails) details = false else onBack() }, title = trip.toName) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            OfflineNote(client)
-            StatusCard(trip, error)
-            TripActions(store, trip.itinerary, trip.fromName, trip.toName) { }
-            tickets(trip)
-        }
-    }
+    ItineraryDetail(trip.itinerary, { if (details && !openedOnDetails) details = false else onBack() }, title = trip.toName,
+        top = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OfflineNote(client)
+                StatusCard(trip, error)
+            }
+        },
+        tickets = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                TicketLinksCard(trip.itinerary)
+                tickets(trip)
+            }
+        },
+        bar = { TripActionBar(store, trip.itinerary, trip.fromName, trip.toName) { } })
 }
 
 @Composable

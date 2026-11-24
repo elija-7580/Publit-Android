@@ -110,7 +110,7 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.gi
             if (searching == Field.FROM) vm.setFrom(e) else vm.setTo(e)
             searching = null
         }
-        opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }) { actions(opened, state.from.title, state.to?.title ?: "") } }
+        opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }, tickets = { TicketLinksCard(opened) }, bar = { actions(opened, state.from.title, state.to?.title ?: "") }) }
         else -> PlanForm(state, vm, onPick = { searching = it }, onOptions = { options = true }, onSettings = onSettings, pinned = pinned)
     }
 }
@@ -275,9 +275,13 @@ private fun LegBadge(leg: Leg) {
 }
 
 @Composable
-fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, top: @Composable () -> Unit = {}) {
+fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, top: @Composable () -> Unit = {},
+                    tickets: @Composable () -> Unit = {}, bar: @Composable () -> Unit = {}) {
     val ink = LocalInk.current
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    // Overview at the top, then the steps, then tickets and fares; the actions are the bar pinned to the bottom
+    // (iOS route screen, layout A), so they never sit between the overview and the steps.
+    androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.weight(1f).statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
@@ -325,8 +329,11 @@ fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, to
                 }
             }
         }
+        item("tickets") { tickets() }
         val products = io.github.elija7580.publit.data.Fares.products(it)
         if (products.isNotEmpty()) item("fares") { FareCard(it, products) }
+    }
+    bar()
     }
 }
 
@@ -1025,7 +1032,7 @@ fun GoNowScreen(vm: PlanViewModel, onBack: () -> Unit, saved: List<io.github.eli
         searching -> PlaceSearch(vm, allowHere = false, onBack = { if (state.to == null) onBack() else searching = false }, saved = saved, onSetRole = onSetRole) { e ->
             vm.route(Endpoint.Here, e); searching = false
         }
-        opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }) { actions(opened, L10n.t("Current location"), state.to?.title ?: "") } }
+        opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }, tickets = { TicketLinksCard(opened) }, bar = { actions(opened, L10n.t("Current location"), state.to?.title ?: "") }) }
         else -> {
             BackHandler(onBack = onBack)
             LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {

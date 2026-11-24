@@ -9,6 +9,8 @@ import android.provider.CalendarContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsNone
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.StopCircle
@@ -45,6 +48,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -60,9 +65,11 @@ import io.github.elija7580.publit.notify.TripNotifications
 import java.time.Instant
 import kotlinx.coroutines.launch
 
-/** Start, save, calendar, share and leave reminder for one route (TripActionsSection on iOS). */
+/** The route's actions in one bar pinned to the bottom of the route screen (TripActionBar on iOS): save, calendar,
+ *  share and leave reminder as small square buttons, "Start trip" as the wide ink button; while the trip runs,
+ *  share and a red "End trip". Stays one tap away while scrolling through long trips. */
 @Composable
-fun TripActions(store: TripStore, it: Itinerary, fromName: String, toName: String, onStarted: (SavedTrip) -> Unit) {
+fun TripActionBar(store: TripStore, it: Itinerary, fromName: String, toName: String, onStarted: (SavedTrip) -> Unit) {
     val ink = LocalInk.current
     val ctx = LocalContext.current
     val state by store.state.collectAsStateWithLifecycle()
@@ -75,68 +82,82 @@ fun TripActions(store: TripStore, it: Itinerary, fromName: String, toName: Strin
     fun withNotifications(block: () -> Unit) {
         if (Build.VERSION.SDK_INT >= 33 && !TripNotifications.allowed(ctx)) { afterPermission = block; permission.launch(Manifest.permission.POST_NOTIFICATIONS) } else block()
     }
+    val active = saved != null && state.activeId == saved.id
+    val blocked = if (active) null else TripStatus.startBlocked(it, Instant.now())
+    val upcoming = it.endTime > Instant.now()
+    val share = {
+        val link = io.github.elija7580.publit.data.ShareLinks.route(io.github.elija7580.publit.data.SharedRoute.of(it, fromName, toName))
+        val text = (if (upcoming) L10n.f("I'm arriving at %@ at %@.", toName, Fmt.time(it.endTime, it.legs.lastOrNull()?.to?.tz))
+            else "$fromName → $toName") + "\n" + link
+        ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
 
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            val active = saved != null && state.activeId == saved.id
-            if (active) {
-                OutlinedButton(onClick = {
-                    TripSession.stop(ctx, store, saved!!); reminderOn = false; note = L10n.t("Trip ended")
-                }, Modifier.fillMaxWidth()) { Icon(Icons.Filled.StopCircle, null); Spacer(Modifier.width(8.dp)); Text(L10n.t("End trip")) }
-            } else {
-                val blocked = TripStatus.startBlocked(it, Instant.now())
-                Button(onClick = { withNotifications { val t = ensureSaved(); TripSession.start(ctx, store, t); onStarted(t) } },
-                    Modifier.fillMaxWidth().height(50.dp), enabled = blocked == null,
-                    colors = ButtonDefaults.buttonColors(containerColor = ink.ink, contentColor = ink.onInk)) {
-                    // Starting on foot: the button says so and opens the walk turn by turn (iOS #66).
-                    if (TripStatus.startsOnFoot(it, Instant.now())) {
-                        Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null); Spacer(Modifier.width(8.dp))
-                        Text(L10n.t("Start walking navigation"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                    } else Text(L10n.t("Start trip"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                }
-                blocked?.let { b -> Text(b, color = ink.muted, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Action(if (saved != null) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
-                    L10n.t(if (saved != null) "Saved" else "Save trip"), Modifier.weight(1f)) {
-                    if (saved != null) { TripSession.forget(ctx, store, saved) } else { store.save(it, fromName, toName); io.github.elija7580.publit.data.SmartRouting.learn(it) }
-                }
-                Action(Icons.Filled.CalendarMonth, L10n.t("Add to Calendar"), Modifier.weight(1f)) { openCalendar(ctx, ensureSaved()) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                val upcoming = it.endTime > Instant.now()
-                Action(Icons.Filled.Share, L10n.t(if (upcoming) "Share arrival" else "Share trip"), Modifier.weight(1f)) {
-                    val link = io.github.elija7580.publit.data.ShareLinks.route(io.github.elija7580.publit.data.SharedRoute.of(it, fromName, toName))
-                    val text = (if (upcoming) L10n.f("I'm arriving at %@ at %@.", toName, Fmt.time(it.endTime, it.legs.lastOrNull()?.to?.tz))
-                        else "$fromName → $toName") + "\n" + link
-                    ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }
-                if (it.startTime > Instant.now()) Action(if (reminderOn) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
-                    L10n.t(if (reminderOn) "Reminder on" else "Leave reminder"), Modifier.weight(1f)) {
-                    val trip = ensureSaved()
-                    if (reminderOn) {
-                        TripNotifications.cancelLeave(ctx, trip.id)
-                        if (state.activeId != trip.id) { store.setFollowLive(trip.id, false); TripNotifications.endLive(ctx) }
-                        reminderOn = false; note = null
-                    } else withNotifications {
-                        note = when (TripNotifications.scheduleLeave(ctx, trip)) {
-                            TripNotifications.Result.DENIED -> L10n.t("Allow notifications for Publit in Settings.")
-                            TripNotifications.Result.TOO_LATE -> L10n.t("This trip starts now.")
-                            TripNotifications.Result.SCHEDULED -> {
-                                reminderOn = true; store.setFollowLive(trip.id, true)
-                                L10n.f("We'll remind you at %@.", Fmt.time(maxOf(TripStatus.reminderTime(trip.itinerary), Instant.now()), trip.itinerary.legs.firstOrNull()?.from?.tz))
+    Surface(Modifier.fillMaxWidth(), color = ink.surface) {
+        Column {
+            androidx.compose.material3.HorizontalDivider(color = ink.hairline)
+            Column(Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // A grey button with no reason looked broken.
+                (blocked ?: note)?.let { n -> Text(n, color = ink.muted, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (active) {
+                        BarIcon(Icons.Filled.Share, L10n.t(if (upcoming) "Share arrival" else "Share trip"), share)
+                        Button(onClick = { TripSession.stop(ctx, store, saved!!); reminderOn = false; note = L10n.t("Trip ended") },
+                            Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = ink.danger, contentColor = androidx.compose.ui.graphics.Color.White)) {
+                            Icon(Icons.Filled.StopCircle, null); Spacer(Modifier.width(8.dp)); Text(L10n.t("End trip"), fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        }
+                    } else {
+                        BarIcon(if (saved != null) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder, L10n.t(if (saved != null) "Saved" else "Save trip")) {
+                            if (saved != null) { TripSession.forget(ctx, store, saved) } else { store.save(it, fromName, toName); io.github.elija7580.publit.data.SmartRouting.learn(it) }
+                        }
+                        BarIcon(Icons.Filled.CalendarMonth, L10n.t("Add to Calendar")) { openCalendar(ctx, ensureSaved()) }
+                        BarIcon(Icons.Filled.Share, L10n.t(if (upcoming) "Share arrival" else "Share trip"), share)
+                        if (it.startTime > Instant.now()) BarIcon(if (reminderOn) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
+                            L10n.t(if (reminderOn) "Reminder on" else "Leave reminder")) {
+                            val trip = ensureSaved()
+                            if (reminderOn) {
+                                TripNotifications.cancelLeave(ctx, trip.id)
+                                if (state.activeId != trip.id) { store.setFollowLive(trip.id, false); TripNotifications.endLive(ctx) }
+                                reminderOn = false; note = null
+                            } else withNotifications {
+                                note = when (TripNotifications.scheduleLeave(ctx, trip)) {
+                                    TripNotifications.Result.DENIED -> L10n.t("Allow notifications for Publit in Settings.")
+                                    TripNotifications.Result.TOO_LATE -> L10n.t("This trip starts now.")
+                                    TripNotifications.Result.SCHEDULED -> {
+                                        reminderOn = true; store.setFollowLive(trip.id, true)
+                                        L10n.f("We'll remind you at %@.", Fmt.time(maxOf(TripStatus.reminderTime(trip.itinerary), Instant.now()), trip.itinerary.legs.firstOrNull()?.from?.tz))
+                                    }
+                                }
                             }
                         }
+                        val walking = TripStatus.startsOnFoot(it, Instant.now())
+                        Button(onClick = { withNotifications { val t = ensureSaved(); TripSession.start(ctx, store, t); onStarted(t) } },
+                            Modifier.weight(1f).height(48.dp).semantics { contentDescription = L10n.t(if (walking) "Start walking navigation" else "Start trip") },
+                            enabled = blocked == null, shape = RoundedCornerShape(14.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = ink.ink, contentColor = ink.onInk)) {
+                            // Starting on foot: the button says so and opens the walk turn by turn (iOS #66).
+                            Icon(if (walking) Icons.AutoMirrored.Filled.DirectionsWalk else Icons.Filled.PlayArrow, null, Modifier.size(20.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(L10n.t(if (walking) "Start" else "Start trip"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp,
+                                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        }
                     }
-                } else Spacer(Modifier.weight(1f))
+                }
             }
-            note?.let { n -> Text(n, color = ink.muted, fontSize = 13.sp) }
         }
     }
-    Text(L10n.t("The calendar entry links back to this trip with its live status."), color = ink.muted, fontSize = 12.sp,
-        modifier = Modifier.padding(horizontal = 28.dp))
-    TicketLinksCard(it)
+}
+
+/** A square, icon-only action next to the start button; the title is read out by TalkBack. */
+@Composable
+private fun BarIcon(icon: ImageVector, title: String, onClick: () -> Unit) {
+    val ink = LocalInk.current
+    Surface(onClick = onClick, modifier = Modifier.size(48.dp).semantics { contentDescription = title },
+        shape = RoundedCornerShape(14.dp), color = ink.fill, contentColor = ink.ink) {
+        Box(contentAlignment = Alignment.Center) { Icon(icon, null, Modifier.size(22.dp)) }
+    }
 }
 
 /** "Buy ticket" per operator (TicketSection on iOS). DB and FlixBus open on the user's connection. */
@@ -170,17 +191,6 @@ fun TicketLinksCard(it: Itinerary) {
             }
             if (links.any { l -> l.isPartner }) Text(L10n.t("Some ticket links are partner links: Publit may get a small commission. The price stays the same, and Publit sends nothing about you."),
                 color = ink.muted, fontSize = 12.sp)
-        }
-    }
-}
-
-@Composable
-private fun Action(icon: ImageVector, title: String, modifier: Modifier, onClick: () -> Unit) {
-    val ink = LocalInk.current
-    Surface(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(12.dp), color = ink.fill) {
-        Column(Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Icon(icon, null, Modifier.size(22.dp))
-            Text(title, fontSize = 13.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
         }
     }
 }

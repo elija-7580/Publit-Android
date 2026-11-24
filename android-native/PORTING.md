@@ -150,3 +150,8 @@ Quelle: iOS PRs #92–#94 (`DelayHistory.swift`, `TransferWalk.swift`, `SmartRou
 - [x] Tests `SavedOrderTest` (dieselben Fälle wie iOS `FavoritesOrderTests`, dazu ein Schritt hoch/runter und die Enden).
 - Offen: am Gerät prüfen (drei Haltestellen speichern, die letzte nach oben schieben, App neu starten). Kein „What's new“-Eintrag, `versionName` unverändert.
 - iOS #115 (Straße neben gleichnamiger Haltestelle in der Suche): nichts zu portieren, Android sucht nur über Transitous und führt keine zweite Quelle zusammen.
+
+## Routendetail Layout A: Aktionsleiste unten, Tickets nach den Schritten (2026-11-24, iOS PR #170)
+- [x] `ui/TripActions.kt`: `TripActionBar` ersetzt die Kachel-Karte `TripActions`: feste Leiste am unteren Rand (Fläche mit Haarlinie oben, über der Navigationsleiste), Speichern, Kalender, Teilen, Erinnerung als 48-dp-Quadrate (nur Symbol, TalkBack liest den Namen), daneben „Start trip“ in Tinte (zu Fuß: „Start“ mit Gehsymbol). Läuft die Fahrt: Teilen und roter Knopf „End trip“. Hinweise („Trip ended“, „We'll remind you at …“, Grund für gesperrten Start) klein über der Leiste.
+- [x] `ui/PlanScreen.kt` `ItineraryDetail`: neue Plätze `tickets` (nach den Schritten, vor den Preisen) und `bar` (unter der Liste). Plan, „Where to now?“, geteilte Route und gespeicherte Fahrt nutzen sie; `TicketLinksCard` steht jetzt am Ende statt unter den Aktionen.
+- Keine neuen Texte (alle Schlüssel gibt es im iOS-Katalog). Offen: am Gerät prüfen (lange Reise mit vielen Umstiegen, Fahrt starten und beenden). Kein „What's new“-Eintrag, `versionName` unverändert.
