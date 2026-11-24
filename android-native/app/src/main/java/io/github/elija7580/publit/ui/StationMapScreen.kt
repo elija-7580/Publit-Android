@@ -249,7 +249,7 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                                 Spacer(Modifier.width(12.dp))
                                 Column {
                                     Text(m.name, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    if (m.subtitle.isNotEmpty()) Text(m.subtitle, fontSize = 12.sp, color = ink.muted, maxLines = 1)
+                                    if (m.subtitle.isNotEmpty()) Text(m.subtitle, fontSize = 13.sp, color = ink.muted, maxLines = 1)
                                 }
                             }
                             HorizontalDivider(color = ink.hairline)
@@ -324,7 +324,7 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                             Text(st.name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
                             Text(rentals.groupName(st.providerGroupId), color = ink.muted)
                             st.numVehiclesAvailable?.let { n -> Text(L10n.t("Available now") + ": " + n, fontWeight = FontWeight.SemiBold, color = if (n > 0) ink.live else ink.muted) }
-                            Text(L10n.t("Rent in the provider's app"), color = ink.muted, fontSize = 12.sp)
+                            Text(L10n.t("Rent in the provider's app"), color = ink.muted, fontSize = 13.sp)
                             (st.rentalUriAndroid ?: st.rentalUriWeb)?.let { u -> androidx.compose.material3.TextButton({ runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }) { Text(L10n.t("Open in the provider's app"), color = ink.ink) } }
                         }
                         sel.startsWith("rv|") -> rentals.vehicles.firstOrNull { it.id == sel.removePrefix("rv|") }?.let { v ->

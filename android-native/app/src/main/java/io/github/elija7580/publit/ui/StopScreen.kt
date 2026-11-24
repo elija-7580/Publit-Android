@@ -174,7 +174,7 @@ private fun LineRow(line: LineAtStop, now: Instant) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             LineBadge(line.first)
-            line.first.serviceDetail?.let { Spacer(Modifier.width(8.dp)); Text(it, color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+            line.first.serviceDetail?.let { Spacer(Modifier.width(8.dp)); Text(it, color = ink.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
         }
         line.byDirection(3).take(3).forEach { (direction, deps) ->
             Row {

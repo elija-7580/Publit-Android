@@ -143,7 +143,7 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
                 }
             }
             if (upcoming.isEmpty()) Text(L10n.t("Save a route to see it here, add it to your calendar and get a reminder when to leave."),
-                color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 6.dp))
+                color = ink.muted, fontSize = 13.sp, modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 6.dp))
         }
         if (s.connections.isNotEmpty()) item("connections") {
             Section(L10n.t("Connections")) {

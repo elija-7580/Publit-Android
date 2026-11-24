@@ -246,7 +246,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                     }
                 }
                 composable("plan") {
-                    PlanScreen(plan, onSettings = { nav.navigate("settings") }, saved = favorites.state.collectAsStateWithLifecycle().value.items, favorites = favorites, onSetRole = { role, p -> favorites.set(p, role) }) { it, from, to -> TripActions(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
+                    PlanScreen(plan, onSettings = { nav.navigate("settings") }, saved = favorites.state.collectAsStateWithLifecycle().value.items, favorites = favorites, onSetRole = { role, p -> favorites.set(p, role) }) { it, from, to -> TripActionBar(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
                 }
                 composable("savedtrip?id={id}&details={details}", arguments = listOf(
                     androidx.navigation.navArgument("details") { type = androidx.navigation.NavType.BoolType; defaultValue = false })) { e ->
@@ -308,7 +308,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                 }
                 composable("gonow") {
                     GoNowScreen(goNow, onBack = { goNow.open(null); nav.popBackStack() }, saved = favorites.state.collectAsStateWithLifecycle().value.items,
-                        onSetRole = { role, p -> favorites.set(p, role) }) { it, from, to -> TripActions(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
+                        onSetRole = { role, p -> favorites.set(p, role) }) { it, from, to -> TripActionBar(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
                 }
                 composable("sharedroute") {
                     val r = sharedRoute
@@ -694,9 +694,8 @@ fun SharedRouteScreen(client: io.github.elija7580.publit.data.TransitousClient, 
     }
     val loaded = it
     when {
-        loaded != null -> ItineraryDetail(loaded, onBack, title = route.toName) {
-            TripActions(trips, loaded, route.fromName, route.toName, onStarted)
-        }
+        loaded != null -> ItineraryDetail(loaded, onBack, title = route.toName, tickets = { TicketLinksCard(loaded) },
+            bar = { TripActionBar(trips, loaded, route.fromName, route.toName, onStarted) })
         else -> androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().statusBarsPadding()) {
             androidx.compose.material3.IconButton(onClick = onBack) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, L10n.t("Back")) }
             androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally,

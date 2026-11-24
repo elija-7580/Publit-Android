@@ -165,3 +165,17 @@ Quelle: iOS PRs #92–#94 (`DelayHistory.swift`, `TransferWalk.swift`, `SmartRou
 - [x] Tests `SavedOrderTest` (dieselben Fälle wie iOS `FavoritesOrderTests`, dazu ein Schritt hoch/runter und die Enden).
 - Offen: am Gerät prüfen (drei Haltestellen speichern, die letzte nach oben schieben, App neu starten). Kein „What's new“-Eintrag, `versionName` unverändert.
 - iOS #115 (Straße neben gleichnamiger Haltestelle in der Suche): nichts zu portieren, Android sucht nur über Transitous und führt keine zweite Quelle zusammen.
+
+## Routendetail Layout A: Aktionsleiste unten, Tickets nach den Schritten (2026-11-24, iOS PR #170)
+- [x] `ui/TripActions.kt`: `TripActionBar` ersetzt die Kachel-Karte `TripActions`: feste Leiste am unteren Rand (Fläche mit Haarlinie oben, über der Navigationsleiste), Speichern, Kalender, Teilen, Erinnerung als 48-dp-Quadrate (nur Symbol, TalkBack liest den Namen), daneben „Start trip“ in Tinte (zu Fuß: „Start“ mit Gehsymbol). Läuft die Fahrt: Teilen und roter Knopf „End trip“. Hinweise („Trip ended“, „We'll remind you at …“, Grund für gesperrten Start) klein über der Leiste.
+- [x] `ui/PlanScreen.kt` `ItineraryDetail`: neue Plätze `tickets` (nach den Schritten, vor den Preisen) und `bar` (unter der Liste). Plan, „Where to now?“, geteilte Route und gespeicherte Fahrt nutzen sie; `TicketLinksCard` steht jetzt am Ende statt unter den Aktionen.
+- Keine neuen Texte (alle Schlüssel gibt es im iOS-Katalog). Offen: am Gerät prüfen (lange Reise mit vielen Umstiegen, Fahrt starten und beenden). Kein „What's new“-Eintrag, `versionName` unverändert.
+
+## Live-Fahrt Layout A und Einstellungen Layout A (2026-11-24, iOS PR #170)
+- [x] `ui/LiveTrip.kt`: die Etappen-Chips (`StageStrip`) sind weg. Unter der Etappenkarte steht die nächste Umsteigekarte (`NextChangeCard`: wo, Minuten Puffer groß, Gleise, Linie, wie sicher); ein Tipp öffnet die Warte-Etappe. Die Zeitleiste „Trip overview“ steht immer im Sheet, jeder Umstieg als eigene Zeile (`LiveChangeRow`) zwischen den Fahrten. Keine „3/8“-Zähler mehr. Sheet-Höhe wächst um die Karte.
+- Offen: Ausgänge der U-Bahn in der Umsteigezeile (iOS `ExitAdvice`) gibt es auf native-android noch nicht.
+- [x] `ui/SettingsScreen.kt` (Kalender-Abschnitt aus #36 steht unter Reisen): Startseite mit Suche, Community-Karte und Kategorien (Allgemein, Reisen, Karte, Benachrichtigungen, Daten, Diagnose, Über); jede Kategorie ist eine eigene kurze Seite mit den Gruppen von vorher, Zurück führt zur Startseite. Die Suche findet jede Einstellung ohne Groß-/Kleinschreibung und Akzente (`SettingsCategory.search`).
+- [x] Strings: „Search settings“ und „No settings match your search.“ mit 14 Übersetzungen aus dem iOS-Katalog in `tools/strings-android.json`, bis IOS_COMMIT den Stand von iOS #170 hat. Alle anderen Texte gibt es schon im Katalog.
+
+## Design-Durchgang Tickets, Gespeichert, Station, Einstellungen, Community (2026-11-24, iOS PR #170)
+- [x] Nebenzeilen in Grau (Fußnoten, Untertitel, Hinweise) mindestens 13 sp wie `footnote` auf iOS (docs/design/README.md §9), vorher 11–12 sp.

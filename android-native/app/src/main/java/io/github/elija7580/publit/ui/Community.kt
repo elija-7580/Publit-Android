@@ -218,7 +218,7 @@ fun WishesScreen(prefs: SharedPreferences, onBack: () -> Unit) {
                         message?.let { (m, err) -> Text(m, color = if (err) ink.delay else ink.muted, fontSize = 14.sp) }
                     }
                 }
-                Text(L10n.t("Check the list first: if your idea is there, vote for it instead."), color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp))
+                Text(L10n.t("Check the list first: if your idea is there, vote for it instead."), color = ink.muted, fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp))
             }
             item {
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
@@ -337,7 +337,7 @@ fun SupportScreen(onBack: () -> Unit) {
                     if (state.monthly.isNotEmpty()) item {
                         Text(L10n.t("Monthly"), color = ink.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 6.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { state.monthly.forEach { Amount(it) } }
-                        Text(L10n.t("Monthly support renews every month until you cancel it. Cancel it any time in Google Play."), color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp))
+                        Text(L10n.t("Monthly support renews every month until you cancel it. Cancel it any time in Google Play."), color = ink.muted, fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp))
                     }
                     if (state.oneTime.isNotEmpty()) item {
                         Text(L10n.t("One-time"), color = ink.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 6.dp))
@@ -346,7 +346,7 @@ fun SupportScreen(onBack: () -> Unit) {
                 }
             }
             item {
-                Text(L10n.t("Support unlocks nothing: every feature stays free for everyone."), color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                Text(L10n.t("Support unlocks nothing: every feature stays free for everyone."), color = ink.muted, fontSize = 13.sp, modifier = Modifier.padding(16.dp))
                 TextButton({ open("https://publit.eu/privacy/") }) { Text(L10n.t("Privacy policy"), color = ink.ink) }
             }
         }
