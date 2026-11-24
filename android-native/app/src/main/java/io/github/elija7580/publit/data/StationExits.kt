@@ -22,7 +22,12 @@ object StationExits {
     const val RADIUS = 250.0
     const val NEAR_EXIT = 40.0
     const val NEAR_PATH = 20.0
-    private val endpoints = listOf("https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter")
+    /** No door on the way: the signed one at most this much out of the way towards where the walk heads. */
+    const val MAX_DETOUR = 150.0
+    /** Where the walk heads, for that: this far along it (or its end). */
+    const val HEADING_AHEAD = 300.0
+    private val endpoints = listOf("https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass.private.coffee/api/interpreter")
 
     private val areas = ConcurrentHashMap<String, List<StationEntrance>>()
     private val walks = ConcurrentHashMap<String, String>()
@@ -99,7 +104,8 @@ object StationExits {
         return (0 until els.length()).mapNotNull { i ->
             val el = els.optJSONObject(i) ?: return@mapNotNull null
             if (!el.has("lat") || !el.has("lon")) return@mapNotNull null
-            val ref = el.optJSONObject("tags")?.optString("ref")?.let(::clean) ?: return@mapNotNull null
+            val tags = el.optJSONObject("tags")
+            val ref = (tags?.optString("ref")?.let(::clean) ?: tags?.optString("local_ref")?.let(::clean)) ?: return@mapNotNull null
             StationEntrance(el.optLong("id"), ref, LatLon(el.getDouble("lat"), el.getDouble("lon")))
         }
     }
@@ -117,7 +123,14 @@ object StationExits {
             if (near != null && near.coordinate.distanceTo(exitPoint) <= NEAR_EXIT) return near
         }
         val limit = exitAlong?.let { it + NEAR_EXIT } ?: Double.MAX_VALUE
-        return entrances.mapNotNull { e -> along(e)?.takeIf { it.offset <= NEAR_PATH && it.along <= limit }?.let { e to it.along } }
-            .minByOrNull { it.second }?.first
+        entrances.mapNotNull { e -> along(e)?.takeIf { it.offset <= NEAR_PATH && it.along <= limit }?.let { e to it.along } }
+            .minByOrNull { it.second }?.first?.let { return it }
+        // No door on the way (rough walk path): the door least out of the way towards where the walk heads.
+        val start = path.firstOrNull() ?: return null
+        val ahead = PathGeometry.point(minOf(PathGeometry.length(path), HEADING_AHEAD), path) ?: return null
+        val straight = start.distanceTo(ahead)
+        if (straight <= NEAR_EXIT) return null
+        fun detour(e: StationEntrance) = start.distanceTo(e.coordinate) + e.coordinate.distanceTo(ahead) - straight
+        return entrances.filter { detour(it) <= MAX_DETOUR }.minByOrNull { detour(it) }
     }
 }
