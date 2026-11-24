@@ -42,7 +42,11 @@ Two product flavors: `play` (default; Google Play and the GitHub APKs: fused loc
 - [x] Verbindungen speichern (#28): `SavedConnection` (`publit.connections.v1`), Stern in Planen wenn Von und Nach Orte sind, Abschnitt „Connections“ in Gespeichert mit „Way back“ und eigener Reihenfolge
 - [x] Kurzbefehle-Widget (#6): `widget/ShortcutsWidget.kt` (Glance), Zuhause, Arbeit, dann gespeicherte Orte (max. 4), Links `publit://go/…` und `publit://place?…`; folgt den gespeicherten Orten (`PublitApplication`)
 - [x] Wallet-Pässe (#20): `tickets/WalletPassImport.kt` (pass.json aus der ZIP, Codes inkl. UIC-Bytes, Felder, Farbe), im Ticket-Import und beim Öffnen einer .pkpass aus anderen Apps (Intent-Filter)
-- [ ] Offen gegenüber iOS: eigene Kurzbefehle mit Symbol (#22), Linie mit Richtung (#21), Abfahrten-in-der-Nähe-Widget (#19), Wear-Komplikation (#18), um ein Ticket planen (#23/#24)
+- [x] Eigene Kurzbefehle mit Symbol (#22): `SavedPlace.shortcut/symbol`, `ui/ShortcutSymbols.kt`, in Gespeichert (Home und Work), Nähe, Planen und Widget
+- [x] Linie mit Richtung (#21): `SavedLine.directionId/headsign`, Linie und Fahrt speichern in der gezeigten Richtung
+- [x] Widget „Abfahrten in der Nähe“ (#19): `widget/NearbyWidget.kt`, gespeicherte Haltestellen bis 600 m zuerst; Standort aus der App-Berechtigung (letzter bekannter Standort im Hintergrund)
+- [x] Wear-Komplikation (#18): `wear/…/PublitComplication.kt` (SHORT_TEXT/LONG_TEXT): Countdown der laufenden Fahrt, sonst ein Tipp zu Publit
+- [x] Um ein Ticket planen (#23/#24): Ticket-Detail „Plan around this ticket“ → Weg zum Start (Ankunft 10 min vor Abfahrt) oder weiter ab dem Ziel (`tickets/TicketPlan.kt`); kein Abschnittsplaner wie auf iOS
 
 ## Feedback 2026-11-16 (iOS PR #87)
 - [x] Live-Fahrt: unter der Etappe keine Liste aller Etappen mehr; Tasten „Back to now“ und „Trip overview“; Etappenliste nur in der Übersicht

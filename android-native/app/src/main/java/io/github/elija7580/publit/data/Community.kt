@@ -134,10 +134,10 @@ object WhatsNew {
 
     /** Newest first. `release` counts Android releases with a note; raise it for each new entry. */
     val entries = listOf(
-        // 0.11.0: community wishes from iOS build 100 (Publit#6, #28, #20).
+        // 0.11.0: community wishes from iOS build 100 (Publit#6, #18, #19, #20, #21, #22, #23, #24, #28).
         Entry(5, listOf(
-            Item("widget", "Shortcuts widget", "Home, Work and your places on the home screen: one tap opens the routes from where you are."),
-            Item("star", "Save connections", "Save a connection with the star in Plan; Saved plans it again, or the way back, in one tap."),
+            Item("widget", "Home screen widgets", "Home, Work, your own shortcuts and departures nearby on the home screen, and your trip on the watch face."),
+            Item("star", "Save connections and lines", "Star a connection in Plan or a line in its direction; Saved opens them, and the way back, in one tap."),
             Item("ticket", "Wallet passes", "Open a .pkpass file in Publit or add it under Tickets: its code and details are taken over as they are."),
         )),
         // 0.10.0: iOS builds 87–88 (measured change chances, change alerts; same texts as iOS, translated there).

@@ -1,5 +1,7 @@
 package io.github.elija7580.publit.ui
 
+import kotlinx.coroutines.launch
+
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Work
@@ -115,6 +117,29 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         var openPassEditor by remember { mutableStateOf(false) }
         LaunchedEffect(tab, openPassEditor) {
             if (openPassEditor && tab == "tickets") { openPassEditor = false; runCatching { ticketsNav.navigate("passedit?new=true") } }
+        }
+        val planScope = androidx.compose.runtime.rememberCoroutineScope()
+        /** Plan around a ticket (iOS Publit#23, #24): to its start, arriving before it leaves, or on from its end. */
+        fun planAround(pass: io.github.elija7580.publit.tickets.TicketPass, onward: Boolean) {
+            val station = (if (onward) pass.destination else pass.origin) ?: return
+            planScope.launch {
+                val match = runCatching { client.geocode(station, null, L10n.locale.language.ifEmpty { "en" }) }.getOrNull()
+                    ?.let { list -> list.firstOrNull { it.isStop } ?: list.firstOrNull() }
+                if (match == null) {
+                    android.widget.Toast.makeText(linkContext, L10n.f("No place found for %@.", station), android.widget.Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+                val at = Endpoint.At(match.name, io.github.elija7580.publit.core.LatLon(match.lat, match.lon))
+                if (onward) {
+                    plan.setTime(io.github.elija7580.publit.tickets.TicketPlan.onwardFrom(pass), false)
+                    plan.route(at, null); plan.requestSearch()
+                } else {
+                    val by = io.github.elija7580.publit.tickets.TicketPlan.arriveBy(pass)
+                    plan.setTime(by, by != null)
+                    plan.route(Endpoint.Here, at)
+                }
+                openPlan()
+            }
         }
         LaunchedEffect(tripLink) {
             val link = tripLink ?: return@LaunchedEffect
@@ -235,7 +260,8 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                         onArchive = { nav.navigate("passarchive") }, onSettings = { nav.navigate("settings") })
                 }
                 composable("pass?id={id}") { e ->
-                    PassDetailScreen(passes, e.arguments?.getString("id").orEmpty(), onBack = { nav.popBackStack() }) { id ->
+                    PassDetailScreen(passes, e.arguments?.getString("id").orEmpty(), onBack = { nav.popBackStack() },
+                        onPlan = { pass, onward -> planAround(pass, onward) }) { id ->
                         passes.pass(id)?.let { pendingPass = PendingImport(it, null, null, 0, null); nav.navigate("passedit?new=false") }
                     }
                 }

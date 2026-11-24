@@ -270,7 +270,7 @@ fun PassCode(store: PassStore, p: TicketPass, onTap: (() -> Unit)? = null, big: 
 
 /** One pass with its code, details, original and actions (PassDetailView on iOS). Screen at full brightness for the gate. */
 @Composable
-fun PassDetailScreen(store: PassStore, id: String, onBack: () -> Unit, onEdit: (String) -> Unit) {
+fun PassDetailScreen(store: PassStore, id: String, onBack: () -> Unit, onPlan: ((TicketPass, onward: Boolean) -> Unit)? = null, onEdit: (String) -> Unit) {
     val ink = LocalInk.current
     val passes by store.passes.collectAsStateWithLifecycle()
     val p = passes.firstOrNull { it.id == id }
@@ -301,6 +301,19 @@ fun PassDetailScreen(store: PassStore, id: String, onBack: () -> Unit, onEdit: (
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             PassCard(p, compact = false, store = store) { PassCode(store, p, onTap = { fullCode = true }) }
             if (p.document != null) OutlinedSurfaceButton(L10n.t("Show original")) { original = true }
+            // Plan around this ticket (iOS Publit#23, #24): the way to its start, or on from its end.
+            if (onPlan != null && (p.origin != null || p.destination != null)) {
+                var choose by remember { mutableStateOf(false) }
+                OutlinedSurfaceButton(L10n.t("Plan around this ticket")) { choose = true }
+                if (choose) AlertDialog(onDismissRequest = { choose = false }, title = { Text(L10n.t("Plan around this ticket")) },
+                    text = {
+                        Column {
+                            p.origin?.let { o -> TextButton({ choose = false; onPlan(p, false) }) { Text(L10n.t("Way to the ticket") + " · " + o, color = ink.ink) } }
+                            p.destination?.let { d -> TextButton({ choose = false; onPlan(p, true) }) { Text(L10n.t("On from the ticket") + " · " + d, color = ink.ink) } }
+                        }
+                    },
+                    confirmButton = {}, dismissButton = { TextButton({ choose = false }) { Text(L10n.t("Cancel")) } })
+            }
             WalletButton(p)
             p.reference?.let { InfoRow(L10n.t("Ticket number"), it) }
             p.notes?.takeIf { it.isNotBlank() }?.let { InfoRow(L10n.t("Notes"), it) }

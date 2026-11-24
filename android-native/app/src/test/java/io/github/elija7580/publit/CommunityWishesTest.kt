@@ -5,6 +5,11 @@ package io.github.elija7580.publit
 import io.github.elija7580.publit.core.LatLon
 import io.github.elija7580.publit.data.PlaceRole
 import io.github.elija7580.publit.data.SavedConnection
+import io.github.elija7580.publit.data.SavedLine
+import io.github.elija7580.publit.data.StopGroup
+import io.github.elija7580.publit.tickets.TicketPlan
+import io.github.elija7580.publit.widget.NearbyWidget
+import java.time.ZoneId
 import io.github.elija7580.publit.data.SavedPlace
 import io.github.elija7580.publit.tickets.TicketPass
 import io.github.elija7580.publit.tickets.WalletPassImport
@@ -101,5 +106,46 @@ class CommunityWishesTest {
         assertTrue(runCatching { WalletPassImport.readJson("[1]".toByteArray()) }.exceptionOrNull() is WalletPassImport.NotAPass)
         assertEquals("0C2238", WalletPassImport.hex("#0c2238"))
         assertNull(WalletPassImport.hex("rgb(300, 0, 0)"))
+    }
+
+    @Test fun shortcutsAreSeparateFromPlaces() {
+        val items = listOf(
+            SavedPlace("h", "Flat", null, 48.19, 16.35, role = PlaceRole.HOME),
+            SavedPlace("g", "Gym", null, 48.22, 16.39, shortcut = true, symbol = "fitness"),
+            SavedPlace("p", "Park", null, 48.23, 16.4),
+        )
+        val state = io.github.elija7580.publit.data.FavoritesStore.State(items)
+        assertEquals(listOf("g"), state.shortcuts.map { it.id })
+        assertEquals(listOf("p"), state.places.map { it.id })
+        assertEquals(listOf("h", "g"), state.pinned.map { it.id })
+        assertEquals("Home", state.pinned[0].keyTitle)
+        // Widget: Home, then the shortcut before the other place.
+        assertEquals(listOf("publit://go/home", "★", "●"), ShortcutsWidget.tiles(items).let { listOf(it[0].link, it[1].symbol, it[2].symbol) })
+    }
+
+    @Test fun lineWithDirectionHasItsOwnId() {
+        val both = SavedLine("r1", "SUBWAY", "U6", null, null, null, "s1", "Westbahnhof", 48.19, 16.33)
+        val one = both.copy(directionId = "Floridsdorf", headsign = "Floridsdorf")
+        assertEquals("r1@s1", both.id)
+        assertEquals("r1@s1>Floridsdorf", one.id)
+        assertEquals(both.id, one.anyDirection.id)
+    }
+
+    @Test fun nearbyFavouritesFirstOnlyWhenNear() {
+        fun g(id: String, name: String, d: Double) = StopGroup(id, name, wien, listOf(id), emptyList(), d)
+        val saved = listOf(SavedPlace("far", "Far", null, wien.lat, wien.lon, stopId = "far"), SavedPlace("b", "B", null, wien.lat, wien.lon, stopId = "b"))
+        val order = NearbyWidget.ordered(listOf(g("a", "A", 50.0), g("b", "B", 400.0), g("far", "Far", 900.0)), saved)
+        assertEquals(listOf("b", "a", "far"), order.map { it.first.id })
+        assertEquals(listOf(true, false, false), order.map { it.second })
+    }
+
+    @Test fun ticketPlanTimes() {
+        val zone = ZoneId.of("Europe/Vienna")
+        val now = Instant.parse("2026-12-01T06:00:00Z")
+        val timed = TicketPass(validFrom = Instant.parse("2026-12-01T08:30:00Z"), validUntil = Instant.parse("2026-12-01T22:59:00Z"))
+        assertEquals(Instant.parse("2026-12-01T08:20:00Z"), TicketPlan.arriveBy(timed, now, zone))
+        assertNull(TicketPlan.onwardFrom(timed, now, zone)) // 23:59 local is only "valid all day"
+        val dayOnly = TicketPass(validFrom = Instant.parse("2026-11-30T23:00:00Z")) // 00:00 in Vienna
+        assertNull(TicketPlan.departure(dayOnly, zone))
     }
 }
