@@ -3,6 +3,7 @@ package io.github.elija7580.publit.ui
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.provider.CalendarContract
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -25,8 +26,10 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -36,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +58,7 @@ import io.github.elija7580.publit.data.TripStatus
 import io.github.elija7580.publit.data.TripStore
 import io.github.elija7580.publit.notify.TripNotifications
 import java.time.Instant
+import kotlinx.coroutines.launch
 
 /** Start, save, calendar, share and leave reminder for one route (TripActionsSection on iOS). */
 @Composable
@@ -131,6 +136,42 @@ fun TripActions(store: TripStore, it: Itinerary, fromName: String, toName: Strin
     }
     Text(L10n.t("The calendar entry links back to this trip with its live status."), color = ink.muted, fontSize = 12.sp,
         modifier = Modifier.padding(horizontal = 28.dp))
+    TicketLinksCard(it)
+}
+
+/** "Buy ticket" per operator (TicketSection on iOS). DB and FlixBus open on the user's connection. */
+@Composable
+fun TicketLinksCard(it: Itinerary) {
+    val links = remember(it) { io.github.elija7580.publit.data.TicketLinks.links(it) }
+    if (it.isDirect || links.isEmpty()) return
+    val ink = LocalInk.current
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var opening by remember { mutableStateOf<String?>(null) }
+    fun open(url: String) = runCatching {
+        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(L10n.t("Tickets"), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            links.forEach { l ->
+                OutlinedButton(onClick = {
+                    if (opening != null) return@OutlinedButton
+                    if (l.search == null || l.search.shop == io.github.elija7580.publit.data.ShopSearch.Shop.DB) open(l.url)
+                    else {
+                        opening = l.url
+                        scope.launch { open(io.github.elija7580.publit.data.TicketLinks.resolve(l)); opening = null }
+                    }
+                }, Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.ShoppingCart, null); Spacer(Modifier.width(8.dp))
+                    Text(l.title, Modifier.weight(1f))
+                    if (opening == l.url) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                }
+            }
+            if (links.any { l -> l.isPartner }) Text(L10n.t("Some ticket links are partner links: Publit may get a small commission. The price stays the same, and Publit sends nothing about you."),
+                color = ink.muted, fontSize = 12.sp)
+        }
+    }
 }
 
 @Composable

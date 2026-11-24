@@ -48,6 +48,11 @@ Two product flavors: `play` (default; Google Play and the GitHub APKs: fused loc
 - [x] Wear-Komplikation (#18): `wear/…/PublitComplication.kt` (SHORT_TEXT/LONG_TEXT): Countdown der laufenden Fahrt, sonst ein Tipp zu Publit
 - [x] Um ein Ticket planen (#23/#24): Ticket-Detail „Plan around this ticket“ → Weg zum Start (Ankunft 10 min vor Abfahrt) oder weiter ab dem Ziel (`tickets/TicketPlan.kt`); kein Abschnittsplaner wie auf iOS
 
+## Ticket-Links (2026-11-24, iOS #148, #151, #168)
+- [x] „Buy ticket: …“ je Betreiber unter den Fahrt-Aktionen (`data/TicketLinks.kt`, `TicketLinksCard`): Feed-Link → Tarifseite → Website → bekannter Shop; Partnerprogramme eingebaut, aber leer (wie iOS).
+- [x] Vorausgefüllte Suche: DB öffnet bahn.de mit Start, Ziel und Abfahrt; FlixBus sucht beim Tippen die Städte-IDs (nur Haltestellennamen an FlixBus) und öffnet die Shop-Suche. Ein Verbund-Shop (MVV) schlägt die DB-Suche.
+- Offen: eigene Ticket-Apps verknüpfen, Partnerliste vom Ticket-Link-Dienst laden, Ticket-Shop im App-Kauf.
+
 ## Feedback 2026-11-16 (iOS PR #87)
 - [x] Live-Fahrt: unter der Etappe keine Liste aller Etappen mehr; Tasten „Back to now“ und „Trip overview“; Etappenliste nur in der Übersicht
 - [x] Karte je Etappe an ihrem Ort (Warten/Umstieg: Einstiegshalt); nur auf dem aktuellen Fußweg nahe dem Weg folgt sie dir (`walkWith`)

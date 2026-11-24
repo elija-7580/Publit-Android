@@ -27,7 +27,11 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.wear.compose.material.*
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.*
+import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -41,10 +45,10 @@ import kotlin.math.ceil
 
 /** Standalone Wear OS counterpart of WatchNearbyView. No phone or Google account required. */
 class WearActivity : ComponentActivity() {
-    private var groups by mutableStateOf<List<StopGroup>>(emptyList())
+    private var groups by mutableStateOf(lastGroups)
     private var status by mutableStateOf(R.string.waiting_location)
     private var busy by mutableStateOf(false)
-    private var updated by mutableStateOf<Instant?>(null)
+    private var updated by mutableStateOf(lastUpdated)
     private var job: Job? = null
     /** The live trip opened by itself since the app came to the front (as WatchAutoOpen on the Apple Watch). */
     private var autoOpened: String? = null
@@ -67,7 +71,7 @@ class WearActivity : ComponentActivity() {
                 fun request() {
                     if (hasLocation()) refresh() else permission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                 }
-                LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refresh() }
+                LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refresh(force = false) }
                 Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(list) }, vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) }) {
                     ScalingLazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 32.dp)) {
                         liveTrip?.let { t ->
@@ -123,8 +127,10 @@ class WearActivity : ComponentActivity() {
 
     private fun hasLocation() = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED || checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-    private fun refresh() {
+    private fun refresh(force: Boolean = true) {
         if (job?.isActive == true) return
+        val last = updated
+        if (!force && groups.isNotEmpty() && last != null && Instant.now().epochSecond - last.epochSecond < FRESH_SECONDS) return
         job = lifecycleScope.launch {
             if (!hasLocation()) { status = R.string.location_off; return@launch }
             busy = true
@@ -143,14 +149,44 @@ class WearActivity : ComponentActivity() {
                 groups = result
                 status = R.string.no_departures
                 updated = Instant.now()
+                lastGroups = result
+                lastUpdated = updated
             } catch (cancelled: CancellationException) { throw cancelled }
               catch (_: Exception) { status = R.string.try_again }
             finally { busy = false }
         }
     }
 
+    /**
+     * Where you are: Google's fused provider first (on a watch connected to the phone over Bluetooth it takes the
+     * phone's position), then the watch's own providers. Without a fresh fix in time, a position up to half an
+     * hour old is better than nothing for a list of stops nearby.
+     */
+    private suspend fun locate(): Location? =
+        fused() ?: own() ?: lastKnown(1_800_000_000_000L)
+
     @Suppress("MissingPermission")
-    private suspend fun locate(): Location? = withTimeoutOrNull(20_000) {
+    private suspend fun fused(): Location? = runCatching {
+        val client = LocationServices.getFusedLocationProviderClient(this)
+        val last = withTimeoutOrNull(3_000) { client.lastLocation.await() }
+        if (last != null && ageNanos(last) < 300_000_000_000L) return@runCatching last
+        val token = CancellationTokenSource()
+        try {
+            withTimeoutOrNull(10_000) { client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, token.token).await() }
+        } finally { token.cancel() }
+    }.getOrNull()
+
+    private fun ageNanos(location: Location) = android.os.SystemClock.elapsedRealtimeNanos() - location.elapsedRealtimeNanos
+
+    @Suppress("MissingPermission")
+    private fun lastKnown(maxAgeNanos: Long): Location? {
+        val manager = getSystemService(LocationManager::class.java)
+        return runCatching { manager.getProviders(true).mapNotNull { manager.getLastKnownLocation(it) } }.getOrDefault(emptyList())
+            .filter { ageNanos(it) < maxAgeNanos }.maxByOrNull { it.elapsedRealtimeNanos }
+    }
+
+    @Suppress("MissingPermission")
+    private suspend fun own(): Location? = withTimeoutOrNull(15_000) {
         val manager = getSystemService(LocationManager::class.java)
         val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).filter { manager.isProviderEnabled(it) }
         val cached = providers.mapNotNull { manager.getLastKnownLocation(it) }.maxByOrNull { it.elapsedRealtimeNanos }
@@ -171,15 +207,26 @@ class WearActivity : ComponentActivity() {
 
 private data class Departure(val stopId: String, val name: String, val lat: Double, val lon: Double, val mode: String, val line: String, val direction: String, val time: Instant, val zone: String, val delay: Long, val cancelled: Boolean, val live: Boolean, val trip: String)
 private data class StopGroup(val name: String, val lat: Double, val lon: Double, val pole: Boolean, val ids: MutableSet<String>, val distance: Float, val departures: MutableList<Departure>)
+/**
+ * The last result outlives the screen (for as long as the app process lives), so reopening the app shows
+ * departures at once instead of an empty list while the watch reloads over a slow Bluetooth link.
+ */
+private var lastGroups: List<StopGroup> = emptyList()
+private var lastUpdated: Instant? = null
+/** Coming back to the app within this time shows the last result without loading again. */
+private const val FRESH_SECONDS = 60L
 private val street = setOf("BUS", "COACH", "TRAM", "TROLLEYBUS", "CABLE_CAR")
 
 private fun fetch(here: Location, radius: Int): List<Departure> {
-    val connection = URL("https://api.transitous.org/api/v6/stoptimes?center=${here.latitude},${here.longitude}&radius=$radius&n=40&withAlerts=true").openConnection() as HttpURLConnection
+    val connection = URL("https://api.transitous.org/api/v6/stoptimes?center=${here.latitude},${here.longitude}&radius=$radius&n=40").openConnection() as HttpURLConnection
     connection.connectTimeout = 15_000; connection.readTimeout = 20_000
+    // Compressed answers: over the phone's Bluetooth link every kilobyte counts (alerts are not shown here, so not asked for).
+    connection.setRequestProperty("Accept-Encoding", "gzip")
     connection.setRequestProperty("User-Agent", "Publit/0.6.0 (WearOS; +https://github.com/elija-7580/Publit-Android)")
     try {
         check(connection.responseCode == 200)
-        val times = JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).getJSONArray("stopTimes")
+        val body = if (connection.contentEncoding.equals("gzip", ignoreCase = true)) java.util.zip.GZIPInputStream(connection.inputStream) else connection.inputStream
+        val times = JSONObject(body.bufferedReader().use { it.readText() }).getJSONArray("stopTimes")
         return (0 until times.length()).mapNotNull { index ->
             runCatching {
                 val row = times.getJSONObject(index); val p = row.getJSONObject("place")
