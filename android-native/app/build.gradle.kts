@@ -14,7 +14,8 @@ android {
         applicationId = "io.github.elija7580.publit"
         minSdk = 26
         targetSdk = 36
-        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+        // PUBLIT_VERSION_CODE (Play upload) wins over the CI run number.
+        versionCode = (System.getenv("PUBLIT_VERSION_CODE") ?: System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "0.12.1"
         // Device tests (src/androidTest): ticket recognition on an emulator, see android-device-test.yml.
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -43,6 +44,16 @@ android {
             keyAlias = "publit-test"
             keyPassword = "publit-test"
         }
+        // The Google Play upload key, only when its keystore is given (never committed): Play re-signs with
+        // the app signing key it holds (Play App Signing). Build with PUBLIT_UPLOAD_KEYSTORE, ..._PASSWORD set.
+        System.getenv("PUBLIT_UPLOAD_KEYSTORE")?.takeIf { it.isNotBlank() }?.let { path ->
+            create("upload") {
+                storeFile = file(path)
+                storePassword = System.getenv("PUBLIT_UPLOAD_PASSWORD")
+                keyAlias = System.getenv("PUBLIT_UPLOAD_ALIAS") ?: "publit-upload"
+                keyPassword = System.getenv("PUBLIT_UPLOAD_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -50,7 +61,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("test")
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("test")
         }
         debug {
             applicationIdSuffix = ".debug"
@@ -72,8 +83,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     // MapLibre ships native code: one APK per ARM architecture keeps each small (Play uses bundles).
+    // App bundles (Google Play, -Ppublit.bundle=true) split by ABI on Play's side and refuse multiple APKs here.
     splits { abi {
-        isEnable = true; reset(); include("arm64-v8a", "armeabi-v7a"); isUniversalApk = false
+        isEnable = project.findProperty("publit.bundle") != "true"; reset(); include("arm64-v8a", "armeabi-v7a"); isUniversalApk = false
         // The screenshot workflow runs an x86_64 emulator: -Ppublit.emulatorAbi=true adds that APK.
         if (project.findProperty("publit.emulatorAbi") == "true") include("x86_64")
     } }
@@ -104,7 +116,7 @@ dependencies {
     implementation(libs.maplibre)
     implementation("androidx.glance:glance-appwidget:1.1.1")
     // Supporting Publit: monthly support and one-time tips (Google Play Billing).
-    "playImplementation"("com.android.billingclient:billing-ktx:7.1.1")
+    "playImplementation"("com.android.billingclient:billing-ktx:8.0.0")
     // Tickets, read on the device: ML Kit through Play Services (no models in the APK), ZXing draws codes again.
     "playImplementation"("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
     "playImplementation"("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")

@@ -77,7 +77,7 @@ object SupportBilling : PurchasesUpdatedListener {
         val params = QueryProductDetailsParams.newBuilder().setProductList(ids.map {
             QueryProductDetailsParams.Product.newBuilder().setProductId(it).setProductType(type).build()
         }).build()
-        c.queryProductDetailsAsync(params) { _, list -> if (cont.isActive) cont.resume(list) }
+        c.queryProductDetailsAsync(params) { _, result -> if (cont.isActive) cont.resume(result.productDetailsList) }
     }
 
     private suspend fun refresh(c: BillingClient) {

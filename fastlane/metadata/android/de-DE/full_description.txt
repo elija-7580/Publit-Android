@@ -1,23 +1,23 @@
-Öffentlicher Verkehr, ohne Lärm. Publit ist eine kostenlose Open-Source-App für Bus und Bahn auf Basis des offenen Routing-Dienstes Transitous. Ohne Werbung, ohne Konto, ohne Tracking.
+Eine App für Nah- und Fernverkehr in ganz Europa. In Wien brauchst du eine App, in München die nächste und für den Zug nach Venedig eine dritte. Publit zeigt dir Abfahrten und Verbindungen überall, wo es offene Fahrpläne gibt, und begleitet dich bis zum Aussteigen. Ohne Werbung, ohne Konto, ohne Tracking.
 
 • Abfahrten in der Nähe: Linie, Richtung, Steig und Live-Zeiten um dich herum
-• Alle Wege auf einer Zeitachse: Verbindungen vergleichen, sehen, wo du umsteigst und wo es knapp wird
-• Jeder Schritt der Route: Karte und Schritte in den Farben der Linien, mit Steig, Haltestellen und Verspätungen
-• Smart Routing: Publit bewertet, wie sicher ein Umstieg klappt und wie lange du wartest und gehst. Die Route, die sich am kürzesten anfühlt, steht oben
-• Live-Fahrt: deine Linie, die Minuten bis zum Ziel und wo du aussteigst, auch als laufende Benachrichtigung
-• Neue Verbindung ab hier: Anschluss verpasst? Ein Tipp, und Publit sucht den besten Weg von dort, wo du gerade bist
-• Erinnerung zum Aussteigen kurz vor deinem Halt, auf Wunsch mit Ansage
-• Karte mit allen Stationen, Linien und den Abfahrten direkt an der Station
-• Eine Suche für Orte, Adressen und Haltestellen; auch Links aus Google Maps landen am richtigen Ort
-• Cafés, Apotheken, Supermärkte in der Nähe auf der Karte (OpenStreetMap)
-• Tickets in der App: aus PDF, Foto oder Screenshot, ausgelesen auf deinem Handy, nichts wird hochgeladen
-• Zuhause, Arbeit, Gespeichert: nur auf deinem Gerät gespeichert
-• Kalender und Teilen, mit Ankunftszeit für die anderen
-• Homescreen-Widget mit den nächsten Abfahrten an einer Haltestelle deiner Wahl
-• Hell und dunkel, gestaltet für Tag und Nacht
-• 15 Sprachen
+• Alle Verbindungen auf einer Zeitachse: sehen, wo du umsteigst und wo es knapp wird
+• Smart Routing: Publit bewertet jeden Umstieg. Die Route, die sich am kürzesten anfühlt, steht oben
+• Jeder Schritt der Route in den Farben der Linien, mit Steig, Haltestellen und Verspätungen
+• Live-Fahrt: deine Linie, die Minuten bis zum Ziel und wo du aussteigst, auch auf dem Sperrbildschirm
+• Neue Verbindung ab hier: Anschluss verpasst? Ein Tipp, und Publit sucht den Weg von dort, wo du gerade bist
+• Erinnerung zum Aussteigen kurz vor deinem Halt
+• Karte mit Stationen, Linien, Abfahrten und Ausgängen; Cafés, Apotheken und Supermärkte in der Nähe
+• Tickets an einem Ort: aus PDF, Foto oder Screenshot, ausgelesen auf deinem Handy, nichts wird hochgeladen
+• Ticket-Links zu Bahn und Fernbus mit Start, Ziel und Datum schon ausgefüllt
+• Wear OS: Abfahrten in der Nähe und deine laufende Fahrt am Handgelenk
+• Widget mit den nächsten Abfahrten, Kalender und Teilen
+• Hell und dunkel, 15 Sprachen
 
-Daten: Routen und Abfahrten von Transitous (MOTIS, GTFS- und GTFS-RT-Daten der Verkehrsbetriebe), Karten von OpenFreeMap / OpenStreetMap. Kartendaten © OpenStreetMap-Mitwirkende.
+Fahrplandaten kommen vom offenen Dienst Transitous (GTFS und GTFS-Realtime der Verkehrsbetriebe), Karten von OpenFreeMap. Kartendaten © OpenStreetMap-Mitwirkende. Wie gut die Abdeckung in deiner Stadt ist, zeigt die Karte auf publit.eu.
 
-Datenschutz: https://elija-7580.github.io/publit-site/privacy/
-Quellcode (MIT): https://github.com/elija-7580/Publit-Android
+Publit ist ein Community-Projekt aus Wien: Wünsche kannst du auf publit.eu/wuensche einreichen und abstimmen. Alle Funktionen bleiben kostenlos; wer mag, unterstützt die Entwicklung freiwillig.
+
+Datenschutz: https://publit.eu/privacy/
+Quellcode (AGPL-3.0): https://github.com/elija-7580/Publit-Android
+Support: support@publit.eu
