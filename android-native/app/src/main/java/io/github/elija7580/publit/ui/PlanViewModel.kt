@@ -128,6 +128,15 @@ class PlanViewModel(
     }
     fun open(it: Itinerary?) { _state.update { s -> s.copy(opened = it) } }
 
+    /** A search for building a route leg by leg (#142, #143): from a point onward, with the own route options. */
+    suspend fun planOnward(from: LatLon, to: LatLon, time: Instant, cursor: String? = null): io.github.elija7580.publit.data.PlanResponse {
+        val o = _state.value.options
+        return client.plan(from, to, time, false, o.maxWalkMinutes * 60, cursor, o)
+    }
+
+    /** The whole trip of one vehicle, all its stops. */
+    suspend fun trip(id: String): Itinerary = client.trip(id)
+
     /** Search as you type, 300 ms after the last key. */
     fun query(text: String) {
         geocode?.cancel()
