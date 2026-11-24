@@ -253,7 +253,7 @@ private fun DepartureRow(d: JSONObject, narrow: Boolean) {
 }
 
 @Composable
-private fun LineBadge(d: JSONObject) {
+internal fun LineBadge(d: JSONObject) {
     val bg = DroidWidgets.color(d.optString("background"), Color(0xFF111111))
     val fg = DroidWidgets.color(d.optString("foreground"), Color.White)
     Box(GlanceModifier.background(bg).cornerRadius(4.dp).padding(horizontal = 5.dp, vertical = 1.dp)) {

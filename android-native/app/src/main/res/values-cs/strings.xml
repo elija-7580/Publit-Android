@@ -4,4 +4,6 @@
     <string name="widget_description">Nejbližší odjezdy ze zvolené zastávky.</string>
     <string name="widget_shortcuts">Zkratky</string>
     <string name="widget_shortcuts_description">Trasy domů, do práce nebo na vaše místa jedním klepnutím.</string>
+    <string name="widget_nearby">Odjezdy v okolí</string>
+    <string name="widget_nearby_description">Odjezdy z nejbližších zastávek. Uložené zastávky jako první, když jste poblíž.</string>
 </resources>

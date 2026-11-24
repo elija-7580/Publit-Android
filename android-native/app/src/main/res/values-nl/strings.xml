@@ -4,4 +4,6 @@
     <string name="widget_description">Volgende vertrektijden bij een halte naar keuze.</string>
     <string name="widget_shortcuts">Snelkoppelingen</string>
     <string name="widget_shortcuts_description">Routes naar Thuis, Werk of je eigen plekken met één tik.</string>
+    <string name="widget_nearby">Vertrekken in de buurt</string>
+    <string name="widget_nearby_description">Vertrekken bij de haltes het dichtst bij je. Bewaarde haltes eerst als je in de buurt bent.</string>
 </resources>

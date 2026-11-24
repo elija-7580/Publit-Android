@@ -115,6 +115,8 @@ class MainActivity : ComponentActivity() {
         stopLink(intent)?.let { openTrip.value = it }
         if (savedInstanceState == null) shared(intent)
         lifecycleScope.launch { runCatching { io.github.elija7580.publit.notify.LineAlerts.check(app); io.github.elija7580.publit.notify.LineAlerts.schedule(app) } }
+        // The nearby widget gets a fresh position while the app is open (iOS Publit#19).
+        lifecycleScope.launch { runCatching { io.github.elija7580.publit.widget.NearbyWidget.refreshAll(app) } }
         setContent { PublitApp(nearby, plan, app.client, app.favorites, getSharedPreferences("publit", MODE_PRIVATE), app.trips, app.passes, openTrip, crash, goNow) }
     }
 }

@@ -4,4 +4,6 @@
     <string name="widget_description">Nächste Abfahrten an einer Haltestelle deiner Wahl.</string>
     <string name="widget_shortcuts">Kurzbefehle</string>
     <string name="widget_shortcuts_description">Routen nach Hause, zur Arbeit oder zu deinen Orten mit einem Tipp.</string>
+    <string name="widget_nearby">Abfahrten in der Nähe</string>
+    <string name="widget_nearby_description">Abfahrten an den Haltestellen in deiner Nähe. Gespeicherte Haltestellen zuerst, wenn du in der Nähe bist.</string>
 </resources>

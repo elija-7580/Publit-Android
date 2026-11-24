@@ -4,4 +4,6 @@
     <string name="widget_description">Найближчі відправлення з вибраної зупинки.</string>
     <string name="widget_shortcuts">Швидкі дії</string>
     <string name="widget_shortcuts_description">Маршрути додому, на роботу чи до ваших місць одним дотиком.</string>
+    <string name="widget_nearby">Відправлення поруч</string>
+    <string name="widget_nearby_description">Відправлення з найближчих зупинок. Збережені зупинки першими, коли ви поруч.</string>
 </resources>

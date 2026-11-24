@@ -4,4 +4,6 @@
     <string name="widget_description">Următoarele plecări dintr-o stație aleasă.</string>
     <string name="widget_shortcuts">Scurtături</string>
     <string name="widget_shortcuts_description">Rute spre Acasă, Serviciu sau locurile tale cu o atingere.</string>
+    <string name="widget_nearby">Plecări în apropiere</string>
+    <string name="widget_nearby_description">Plecări din stațiile cele mai apropiate. Stațiile salvate primele când ești aproape.</string>
 </resources>

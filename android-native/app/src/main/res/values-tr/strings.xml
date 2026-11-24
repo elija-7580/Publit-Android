@@ -4,4 +4,6 @@
     <string name="widget_description">Seçtiğiniz duraktan sonraki kalkışlar.</string>
     <string name="widget_shortcuts">Kısayollar</string>
     <string name="widget_shortcuts_description">Tek dokunuşla Ev, İş veya kendi yerlerinize rotalar.</string>
+    <string name="widget_nearby">Yakındaki kalkışlar</string>
+    <string name="widget_nearby_description">Size en yakın duraklardan kalkışlar. Yakınındayken kayıtlı duraklar önce gelir.</string>
 </resources>

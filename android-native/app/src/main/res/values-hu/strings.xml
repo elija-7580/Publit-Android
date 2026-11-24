@@ -4,4 +4,6 @@
     <string name="widget_description">Következő indulások egy választott megállóból.</string>
     <string name="widget_shortcuts">Gyorsparancsok</string>
     <string name="widget_shortcuts_description">Útvonalak haza, a munkahelyre vagy saját helyeidre egy koppintással.</string>
+    <string name="widget_nearby">Indulások a közelben</string>
+    <string name="widget_nearby_description">Indulások a legközelebbi megállókból. A mentett megállók elöl, ha a közelükben vagy.</string>
 </resources>
