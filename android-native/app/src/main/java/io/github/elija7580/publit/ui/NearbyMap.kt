@@ -29,7 +29,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.material3.rememberStandardBottomSheetState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +53,7 @@ import io.github.elija7580.publit.core.L10n
 import io.github.elija7580.publit.core.LatLon
 import io.github.elija7580.publit.data.StopGroup
 import kotlin.math.max
+import kotlinx.coroutines.launch
 
 /** Settings → Nearby → "Map" (iOS NearbyMap.defaultsKey). */
 const val NEARBY_MAP_KEY = "nearbyMap"
@@ -68,6 +74,7 @@ fun WhereToRow(onClick: () -> Unit) {
  * like the live trip. It starts half way up; "Where to now?" heads the sheet, so the search is there at
  * every height. Up, a strip of the map stays visible. Settings and the station map (with its search) stay
  * as keys at the top. The map frames you and the nearest stations once, then it is free to move.
+ * Pulling the board down past half and letting go opens the station map.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,7 +101,27 @@ fun NearbyMapLayout(state: NearbyState, onOpenMap: () -> Unit, onSettings: () ->
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val half = maxHeight * 0.55f
-        val sheet = rememberBottomSheetScaffoldState()
+        // Pull the board all the way down and let go: the station map opens (iOS MapHero pull-to-expand).
+        // It opens only once the sheet has settled after the release, never mid-drag; a tick when the
+        // drag passes the point where letting go opens it. Back on Nearby the board is half way up again.
+        val sheet = rememberBottomSheetScaffoldState(rememberStandardBottomSheetState(skipHiddenState = false))
+        val haptic = LocalHapticFeedback.current
+        LaunchedEffect(sheet.bottomSheetState) {
+            // Coming back from the station map the sheet may still be down: up to half first, so it
+            // does not open the map again.
+            if (sheet.bottomSheetState.currentValue == SheetValue.Hidden) sheet.bottomSheetState.partialExpand()
+            launch {
+                snapshotFlow { sheet.bottomSheetState.targetValue }.collect {
+                    if (it == SheetValue.Hidden) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                }
+            }
+            snapshotFlow { sheet.bottomSheetState.currentValue }.collect {
+                if (it == SheetValue.Hidden) {
+                    onOpenMap()
+                    sheet.bottomSheetState.partialExpand()
+                }
+            }
+        }
         BottomSheetScaffold(
             scaffoldState = sheet,
             sheetPeekHeight = half,

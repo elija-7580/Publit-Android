@@ -134,6 +134,10 @@ object WhatsNew {
 
     /** Newest first. `release` counts Android releases with a note; raise it for each new entry. */
     val entries = listOf(
+        // 0.12.1: the station map opens smoothly from Nearby (iOS build 102, Publit#173).
+        Entry(7, listOf(
+            Item("map", "Smoother station map", "Pull the list in Nearby all the way down and let go: the station map opens."),
+        )),
         // 0.12.0: build your own connection (Publit#142, #143), exits in the live trip, way back from the station map.
         Entry(6, listOf(
             Item("swap", "Go on another way", "Open a ride in a route and choose another way to go on from there; the way up to it stays."),

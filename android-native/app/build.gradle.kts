@@ -15,7 +15,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-        versionName = "0.12.0"
+        versionName = "0.12.1"
         // Device tests (src/androidTest): ticket recognition on an emulator, see android-device-test.yml.
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Optional Google Wallet export: the signing service's HTTPS URL (services/google-wallet-signer).
