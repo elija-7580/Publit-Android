@@ -115,6 +115,7 @@ object LiveTripStore {
         state.value = trip
         loaded = true
         show(ctx, trip)
+        PublitComplicationService.refresh(ctx)
         return isNew
     }
 
@@ -123,6 +124,7 @@ object LiveTripStore {
         state.value = null
         loaded = true
         ctx.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
+        PublitComplicationService.refresh(ctx)
     }
 
     fun cueLabel(ctx: Context, cue: String): String = when (cue) {
