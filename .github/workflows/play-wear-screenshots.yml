@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-FileCopyrightText: 2026 Elija Samuel Friedrich-Ulrich
+name: Play-Screenshots Wear OS
+
+# Wear OS screenshots for Google Play from the real watch app in a Wear OS emulator (round, 454 px):
+# departures nearby (live from Transitous, Vienna) and a trip under way with its map, in English and
+# German. See android-native/screenshots/wear_shots.py. The images go to the pre-release "play-assets".
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/project-thread-gx2ziz]
+    paths: ['android-native/screenshots/wear_shots.py', '.github/workflows/play-wear-screenshots.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: play-wear-screenshots
+  cancel-in-progress: true
+
+env:
+  SYSTEM_IMAGE: 'system-images;android-34;android-wear;x86_64'
+  OUT: ${{ github.workspace }}/shots
+
+jobs:
+  wear:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.14.3' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Build the watch app (debug, so the trip can be seeded with run-as)
+        working-directory: android-native
+        run: gradle --no-daemon :wear:assembleDebug 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+      - name: Wear OS emulator (large round, API 34)
+        run: |
+          mkdir -p "$OUT/diagnostics"
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          export ANDROID_AVD_HOME="$HOME/.android/avd"; mkdir -p "$ANDROID_AVD_HOME"; echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          SDK="$ANDROID_HOME"; BIN="$SDK/cmdline-tools/latest/bin"
+          yes | "$BIN/sdkmanager" --licenses >/dev/null || true
+          "$BIN/sdkmanager" --install emulator platform-tools "$SYSTEM_IMAGE" >/dev/null
+          "$BIN/avdmanager" list device -c > "$OUT/diagnostics/devices.txt"
+          DEV=wearos_large_round; grep -qx $DEV "$OUT/diagnostics/devices.txt" || DEV=wearos_small_round
+          echo no | "$BIN/avdmanager" create avd -n wear -k "$SYSTEM_IMAGE" -d "$DEV" --force
+          CFG="$ANDROID_AVD_HOME/wear.avd/config.ini"; cp "$CFG" "$OUT/diagnostics/avd-config.ini"
+          nohup "$SDK/emulator/emulator" -avd wear -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
+            -timezone Europe/Vienna -netfast > "$OUT/diagnostics/emulator.log" 2>&1 &
+          export PATH="$SDK/platform-tools:$PATH"
+          timeout 300 adb wait-for-device || { echo "::error::Emulator did not appear"; tail -50 "$OUT/diagnostics/emulator.log"; exit 1; }
+          for i in $(seq 1 120); do [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ] && break; sleep 5; done
+          adb shell getprop sys.boot_completed | grep -q 1
+          sleep 30; adb shell input keyevent KEYCODE_WAKEUP || true
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+      - name: Screenshots
+        working-directory: android-native/screenshots
+        run: python3 wear_shots.py --apk ../wear/build/outputs/apk/debug/wear-debug.apk --out "$OUT"
+      - name: Diagnostics
+        if: always()
+        run: |
+          adb logcat -d -v time > "$OUT/diagnostics/logcat-all.txt" 2>/dev/null || true
+          cd "$OUT" && zip -qr diagnostics.zip diagnostics && (zip -qr wear-screenshots.zip wear || true)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: wear-screenshots, path: "${{ env.OUT }}/wear\n${{ env.OUT }}/diagnostics.zip" }
+      - name: Publish to the pre-release "play-assets"
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          TAG=play-assets; R="--repo $GITHUB_REPOSITORY"
+          gh release view $TAG $R >/dev/null 2>&1 || gh release create $TAG $R --title "Google Play: Begleitmaterial" --notes "Material für die Play Console. Keine App zum Installieren." --prerelease --target "$GITHUB_SHA"
+          cd "$OUT/wear"; for d in */; do for f in "$d"*.png; do cp "$f" "../wear-${d%/}-$(basename "$f")"; done; done
+          gh release upload $TAG $R "$OUT"/wear-*.png "$OUT/wear-screenshots.zip" --clobber
