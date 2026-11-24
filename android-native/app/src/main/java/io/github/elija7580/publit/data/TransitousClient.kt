@@ -80,8 +80,9 @@ class TransitousClient(
         pageCursor?.let { q += "pageCursor" to it }
         q += SmartRouting.queryItems()
         val res = json.decodeFromString(PlanResponse.serializer(), get("/api/v6/plan", q, if (time == null) 20 else 60, if (options.isSlowSearch) 45_000 else 20_000))
-        // Own tickets: rides they do not cover (an IC filed as plain RAIL, a train abroad) come out here.
-        val covered = if (options.ownTickets.isEmpty()) res.itineraries else res.itineraries.filter(options::allows)
+        // Own tickets: rides they do not cover (an IC filed as plain RAIL, a train abroad) come out here;
+        // so do long-distance trains by name with "Without long-distance trains".
+        val covered = if (!options.filtersRides) res.itineraries else res.itineraries.filter(options::allows)
         return res.copy(itineraries = io.github.elija7580.publit.live.LiveOverlay.apply(covered))
     }
 

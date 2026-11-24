@@ -440,7 +440,8 @@ fun RouteOptionsScreen(initial: io.github.elija7580.publit.data.RouteOptions, on
         }
         LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item {
-                OptionGroup(L10n.t("Transport modes"), L10n.t("Routes only use the modes that are switched on.")) {
+                OptionGroup(L10n.t("Transport modes"), L10n.t("Routes only use the modes that are switched on.") + "\n" +
+                    L10n.t("Long-distance trains are high-speed, intercity and night trains (ICE, TGV, Railjet …).")) {
                     val f = o.filter
                     io.github.elija7580.publit.data.ModeGroup.entries.forEach { g ->
                         val on = f.allows(g)
@@ -451,6 +452,7 @@ fun RouteOptionsScreen(initial: io.github.elija7580.publit.data.RouteOptions, on
                             o = o.copy(modes = if (next.size == io.github.elija7580.publit.data.ModeGroup.entries.size) emptyList() else next.map { it.raw })
                         }
                     }
+                    SwitchRow(L10n.t("Without long-distance trains"), o.regionalOnly) { v -> o = o.copy(regionalOnly = v) }
                 }
             }
             item {
