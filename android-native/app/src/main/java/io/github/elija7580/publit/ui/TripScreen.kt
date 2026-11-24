@@ -75,7 +75,7 @@ data class TripTarget(val stopTime: StopTime, val stationName: String, val stati
  */
 @Composable
 fun TripScreen(client: TransitousClient, favorites: io.github.elija7580.publit.data.FavoritesStore, target: TripTarget, onBack: () -> Unit,
-               onTrack: (() -> Unit)? = null, onRoute: (from: Place?, to: Place?) -> Unit) {
+               onTrack: (() -> Unit)? = null, onDepartures: ((Place) -> Unit)? = null, onRoute: (from: Place?, to: Place?) -> Unit) {
     val ink = LocalInk.current
     val stopTime = target.stopTime
     var trip by remember { mutableStateOf<Itinerary?>(null) }
@@ -188,6 +188,9 @@ fun TripScreen(client: TransitousClient, favorites: io.github.elija7580.publit.d
                                         onClick = { menu = false; onRoute(stopTime.place.copy(name = target.stationName), stop) })
                                     DropdownMenuItem(text = { Text(L10n.t("Route here")) }, onClick = { menu = false; onRoute(null, stop) })
                                     DropdownMenuItem(text = { Text(L10n.t("Route from here")) }, onClick = { menu = false; onRoute(stop, null) })
+                                    // The stop's own departure board; back returns to this trip (iOS Publit#130).
+                                    if (onDepartures != null && stop.boardId != null)
+                                        DropdownMenuItem(text = { Text(L10n.t("Departures")) }, onClick = { menu = false; onDepartures(stop) })
                                 }
                             }
                         }
