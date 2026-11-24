@@ -29,4 +29,12 @@ class StationExitsTest {
         assertNull(StationExits.clean("Ausgang Nord-West"))
         assertNull(StationExits.clean("A;B"))
     }
+
+    @Test fun doorTowardsTheWalkWhenNoneIsOnTheWay() {
+        val walk = listOf(LatLon(48.0, 11.0), LatLon(48.0027, 11.0))
+        val north = StationEntrance(1, "3", LatLon(48.0003, 11.0005))
+        val south = StationEntrance(2, "1", LatLon(47.9997, 11.0005))
+        assertEquals("3", StationExits.pick(listOf(south, north), walk, null, null, emptySet())?.ref)
+        assertNull(StationExits.pick(listOf(StationEntrance(4, "9", LatLon(48.0, 11.003))), walk, null, null, emptySet()))
+    }
 }
