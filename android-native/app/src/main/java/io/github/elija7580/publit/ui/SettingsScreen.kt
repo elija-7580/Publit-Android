@@ -156,6 +156,8 @@ fun SettingsScreen(prefs: SharedPreferences, onWishes: () -> Unit = {}, onSuppor
                     }
                 }
             }
+            // Calendar events with a clear place as destinations (CalendarSettingsSection on iOS).
+            item { Box(Modifier.padding(horizontal = 12.dp)) { CalendarSettingsSection() } }
             item {
                 Group(L10n.t("Data"), footer = listOf(
                     L10n.t("Times marked live come from the operator's real-time feed; all others are timetable times."),
