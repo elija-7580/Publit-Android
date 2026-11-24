@@ -66,7 +66,7 @@ class TicketLinksTest {
         val own = TicketLinks.link(leg("Some Bus", munich, augsburg, mode = "BUS", website = "busco.example"))
         assertEquals("https://busco.example", own?.url)
         assertEquals(TicketLink.Source.WEBSITE, own?.source)
-        assertNull(TicketLinks.webURL("tel:123"))
+        assertNull(TicketLinks.webURL("myapp://open"))
     }
 
     @Test fun flixSearchUsesCityIDsAndShopDate() {
