@@ -2,4 +2,8 @@
 <resources>
     <string name="widget_departures">Avgångar</string>
     <string name="widget_description">Nästa avgångar från valfri hållplats.</string>
+    <string name="widget_shortcuts">Genvägar</string>
+    <string name="widget_shortcuts_description">Resor till Hem, Jobb eller dina egna platser med ett tryck.</string>
+    <string name="widget_nearby">Avgångar i närheten</string>
+    <string name="widget_nearby_description">Avgångar vid hållplatserna närmast dig. Sparade hållplatser först när du är nära.</string>
 </resources>

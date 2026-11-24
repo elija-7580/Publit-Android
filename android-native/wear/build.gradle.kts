@@ -55,6 +55,8 @@ dependencies {
     // The trip under way from the phone (Data Layer) and as an ongoing activity on the watch face.
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
     implementation("androidx.wear:wear-ongoing:1.0.0")
+    // Publit on the watch face: the next step of a trip under way, or one tap to departures nearby.
+    implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1")
     implementation(libs.androidx.core.ktx)
     // The map of the trip under way (same map library and OpenFreeMap tiles as the phone app).
     implementation(libs.maplibre)

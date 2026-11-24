@@ -15,6 +15,13 @@
         </activity>
         <activity android:name=".LiveTripActivity" android:exported="false" android:launchMode="singleTop" />
         <activity android:name=".LiveMapActivity" android:exported="false" />
+        <!-- Watch face complication: countdown of a trip under way, else one tap to departures nearby (iOS Publit#18). -->
+        <service android:name=".PublitComplicationService" android:exported="true" android:label="Publit"
+            android:icon="@drawable/ic_notification" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" /></intent-filter>
+            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SHORT_TEXT,LONG_TEXT" />
+            <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="600" />
+        </service>
         <!-- Receives the trip under way from the phone app (Data Layer item /live-trip). -->
         <service android:name=".LiveTripService" android:exported="true">
             <intent-filter>

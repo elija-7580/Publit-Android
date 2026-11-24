@@ -114,9 +114,11 @@ fun TripScreen(client: TransitousClient, favorites: io.github.elija7580.publit.d
             Text(stopTime.lineName, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f))
             val saved by favorites.state.collectAsStateWithLifecycle()
-            val line = remember(stopTime.id) { SavedLine.of(stopTime, target.stationId, target.stationName, target.coordinate) }
-            val isSaved = saved.containsLine(line.id)
-            IconButton(onClick = { favorites.toggle(line) }) {
+            // Saved in this ride's direction (iOS Publit#21); a line saved before for both directions counts too.
+            val line = remember(stopTime.id) { SavedLine.of(stopTime, target.stationId, target.stationName, target.coordinate).towards(stopTime) }
+            val existing = saved.lines.firstOrNull { it.id == line.id || it.id == line.anyDirection.id }
+            val isSaved = existing != null
+            IconButton(onClick = { if (existing != null) favorites.removeLine(existing.id) else favorites.toggle(line) }) {
                 Icon(if (isSaved) Icons.Filled.Star else Icons.Filled.StarBorder, L10n.t(if (isSaved) "Saved line" else "Save line"))
             }
         }

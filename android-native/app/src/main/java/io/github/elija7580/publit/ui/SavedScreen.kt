@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
@@ -66,7 +67,8 @@ import java.time.Instant
 @Composable
 fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.TripStore, onOpenTrip: (String) -> Unit, onPastTrips: () -> Unit,
                 onRoute: (SavedPlace) -> Unit, onOpenStop: (SavedPlace) -> Unit,
-                onOpenLine: (SavedLine) -> Unit, onSearch: (title: String, (SavedPlace) -> Unit) -> Unit, onSettings: () -> Unit) {
+                onOpenLine: (SavedLine) -> Unit, onSearch: (title: String, (SavedPlace) -> Unit) -> Unit, onSettings: () -> Unit,
+                onConnection: (io.github.elija7580.publit.data.SavedConnection) -> Unit = {}) {
     val ink = LocalInk.current
     val s by store.state.collectAsStateWithLifecycle()
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -98,7 +100,33 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
                         }
                     }
                 }
+                // Own shortcuts next to Home and Work (iOS Publit#22).
+                s.shortcuts.forEachIndexed { i, p ->
+                    Divider()
+                    var menu by remember { mutableStateOf(false) }
+                    var symbols by remember { mutableStateOf(false) }
+                    Box {
+                        KeyRow(ShortcutSymbol.icon(p.symbol), p.name, p.subtitle, onClick = { onRoute(p) }, onLong = { menu = true })
+                        DropdownMenu(menu, { menu = false }) {
+                            DropdownMenuItem({ Text(L10n.t("Symbol")) }, { menu = false; symbols = true })
+                            moveActions(i, s.shortcuts.size) { up -> store.moveShortcut(i, up) }.forEach { (t, a) -> DropdownMenuItem({ Text(t) }, { menu = false; a() }) }
+                            DropdownMenuItem({ Text(L10n.t("Remove shortcut")) }, { menu = false; store.removeShortcut(p.id) })
+                            DropdownMenuItem({ Text(L10n.t("Remove"), color = LocalInk.current.danger) }, { menu = false; store.remove(p.id) })
+                        }
+                        DropdownMenu(symbols, { symbols = false }) {
+                            ShortcutSymbol.all.forEach { (name, icon) ->
+                                DropdownMenuItem({ Icon(icon, name, tint = if (name == (p.symbol ?: ShortcutSymbol.DEFAULT)) LocalInk.current.ink else LocalInk.current.muted) },
+                                    { symbols = false; store.setSymbol(p.id, name) })
+                            }
+                        }
+                    }
+                }
+                Divider()
+                KeyRow(Icons.Filled.Add, L10n.t("Add shortcut"), null,
+                    onClick = { onSearch(L10n.t("Add shortcut")) { picked -> store.addShortcut(picked, ShortcutSymbol.DEFAULT) } })
             }
+            Text(L10n.t("Shortcuts are also on the Nearby screen, in Plan and in the widget."), color = ink.muted, fontSize = 12.sp,
+                modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 6.dp))
         }
         item("trips") {
             val ts by trips.state.collectAsStateWithLifecycle()
@@ -117,6 +145,23 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
             if (upcoming.isEmpty()) Text(L10n.t("Save a route to see it here, add it to your calendar and get a reminder when to leave."),
                 color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 6.dp))
         }
+        if (s.connections.isNotEmpty()) item("connections") {
+            Section(L10n.t("Connections")) {
+                s.connections.forEachIndexed { i, c ->
+                    if (i > 0) Divider()
+                    RemovableRow(onClick = { onConnection(c) }, onRemove = { store.removeConnection(c.id) },
+                        extra = listOf(L10n.t("Way back") to { onConnection(c.reversed) }) +
+                            moveActions(i, s.connections.size) { up -> store.moveConnection(i, up) }) {
+                        Icon(Icons.Filled.Route, null, Modifier.size(20.dp), tint = ink.muted)
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(c.fromName, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("→ " + c.toName, color = ink.muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+        }
         if (s.lines.isNotEmpty()) item("lines") {
             Section(L10n.t("Lines")) {
                 s.lines.forEachIndexed { i, line ->
@@ -125,12 +170,15 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
                         extra = moveActions(i, s.lines.size) { up -> store.moveLine(i, up) }) {
                         LineBadge(line)
                         Spacer(Modifier.width(10.dp))
-                        Text(L10n.f("At %@", line.stopName), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Column {
+                            Text(L10n.f("At %@", line.stopName), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            line.headsign?.let { Text("→ $it", color = ink.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        }
                     }
                 }
             }
         }
-        if (s.stops.isEmpty() && s.places.isEmpty() && s.lines.isEmpty()) item("empty") {
+        if (s.stops.isEmpty() && s.places.isEmpty() && s.lines.isEmpty() && s.connections.isEmpty()) item("empty") {
             Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Filled.Star, null, tint = ink.muted, modifier = Modifier.size(32.dp))
                 Text(L10n.t("Nothing else saved yet"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
@@ -151,7 +199,8 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
                 s.places.forEachIndexed { i, p ->
                     if (i > 0) Divider()
                     RemovableRow(onClick = { onRoute(p) }, onRemove = { store.remove(p.id) },
-                        extra = listOf(L10n.t("Home") to { store.set(p, PlaceRole.HOME) }, L10n.t("Work") to { store.set(p, PlaceRole.WORK) }) +
+                        extra = listOf(L10n.t("Home") to { store.set(p, PlaceRole.HOME) }, L10n.t("Work") to { store.set(p, PlaceRole.WORK) },
+                            L10n.t("Make a shortcut") to { store.addShortcut(p, ShortcutSymbol.DEFAULT) }) +
                             moveActions(i, s.places.size) { up -> store.movePlace(i, up) }) {
                         PlaceText(Icons.Filled.Place, p)
                     }
