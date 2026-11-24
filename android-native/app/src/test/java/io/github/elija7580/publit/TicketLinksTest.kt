@@ -89,6 +89,12 @@ class TicketLinksTest {
         assertNull(FlixCities.nearest(cities, LatLon(40.4, -3.7)))
     }
 
+    @Test fun operatorNamesMatchWithoutAccentsAndCase() {
+        assertEquals("obb-personenverkehr ag", TicketLinks.operatorKey("  ÖBB-Personenverkehr   AG "))
+        assertEquals("https://tickets.oebb.at", TicketLinks.match("ÖBB", TicketLinks.knownShops))
+        assertEquals("https://www.mvg.de/tickets-tarife.html", TicketLinks.match("U-Bahn München", TicketLinks.knownShops))
+    }
+
     @Test fun partnerLinksWrapOnlyActivePrograms() {
         val programs = listOf(PartnerProgram("DB", listOf("bahn.de"), "https://www.awin1.com/cread.php?awinmid=1&awinaffid=2&ued={url}"))
         val wrapped = PartnerLinks.wrap("https://int.bahn.de/en?x=1", programs)!!
