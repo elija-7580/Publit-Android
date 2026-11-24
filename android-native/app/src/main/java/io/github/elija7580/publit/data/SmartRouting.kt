@@ -65,20 +65,31 @@ data class RouteOptions(
     @SerialName("order") val sort: RouteSort = RouteSort.RECOMMENDED,
     /** Own tickets (OwnTicket raw values): routes only use rides they cover. */
     val tickets: List<String> = emptyList(),
+    /** "Without long-distance trains" (iOS RouteOptions.regionalOnly, Publit#119): no high-speed, intercity or night trains. */
+    val regionalOnly: Boolean = false,
 ) {
     val ownTickets: Set<OwnTicket> get() = tickets.mapNotNull { OwnTicket.of(it) }.toSet()
-    /** `transitModes` for the search: the chosen modes without those none of the tickets covers. null = all. */
+    /**
+     * `transitModes` for the search: the chosen modes without those none of the tickets covers and, with
+     * "Without long-distance trains", without high-speed, long-distance and night trains. null = all.
+     */
     val transitModesValue: String?
         get() {
-            val own = ownTickets
-            if (own.isEmpty()) return filter.apiValue
+            if (!filtersRides) return filter.apiValue
             // "RAIL" stands for every train in MOTIS (ICE included); the train classes are listed one by one.
-            val excluded = OwnTicket.excludedModes(own) + "RAIL"
+            var excluded = OwnTicket.excludedModes(ownTickets) + "RAIL"
+            if (regionalOnly) excluded = excluded + OwnTicket.LONG_DISTANCE_MODES + "NIGHT_RAIL"
             return ModeGroup.entries.filter { filter.allows(it) }.flatMap { it.apiModes }.filter { it !in excluded }.joinToString(",")
         }
-    fun allows(it: Itinerary) = OwnTicket.covers(it, ownTickets)
+    /** The answer needs a second look ride by ride (`allows`), not only the modes sent to the server. */
+    val filtersRides get() = ownTickets.isNotEmpty() || regionalOnly
+    /**
+     * Drops routes with a ride none of the tickets covers and, with "Without long-distance trains",
+     * routes with a long-distance train by any name (an IC filed as a plain train).
+     */
+    fun allows(it: Itinerary) = OwnTicket.covers(it, ownTickets) && !(regionalOnly && it.legs.any { leg -> OwnTicket.isLongDistance(leg) })
     val filter: ModeFilter get() = ModeFilter(modes.mapNotNull { ModeGroup.fromRaw(it) }.toSet())
-    val isDefault get() = !filter.isActive && maxTransfers == null && maxWalkMinutes == DEFAULT_WALK && !wheelchair && !sharing && firstMile == FirstMile.WALK && ownTickets.isEmpty()
+    val isDefault get() = !filter.isActive && maxTransfers == null && maxWalkMinutes == DEFAULT_WALK && !wheelchair && !sharing && firstMile == FirstMile.WALK && ownTickets.isEmpty() && !regionalOnly
     val preTransitModes: List<String> get() = listOfNotNull("WALK", firstMile.apiMode, if (sharing) "RENTAL" else null)
     val postTransitModes: List<String> get() = if (sharing) listOf("WALK", "RENTAL") else listOf("WALK")
     val comparisonModes: List<String> get() = if (compareStreetModes) listOf("BIKE", "CAR") else emptyList()
@@ -90,6 +101,7 @@ data class RouteOptions(
         get() {
             val parts = ArrayList<String>()
             filter.summary?.let { parts += it }
+            if (regionalOnly) parts += L10n.t("Without long-distance trains")
             maxTransfers?.let { parts += if (it == 0) L10n.t("Direct only") else L10n.f("Changes: up to %lld", it) }
             if (maxWalkMinutes != DEFAULT_WALK) parts += L10n.f("Walk up to %lld min", maxWalkMinutes)
             if (wheelchair) parts += L10n.t("Step-free")

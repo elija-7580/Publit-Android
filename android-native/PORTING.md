@@ -64,6 +64,9 @@ Two product flavors: `play` (default; Google Play and the GitHub APKs: fused loc
 - [x] Vorausgefüllte Suche: DB öffnet bahn.de mit Start, Ziel und Abfahrt; FlixBus sucht beim Tippen die Städte-IDs (nur Haltestellennamen an FlixBus) und öffnet die Shop-Suche. Ein Verbund-Shop (MVV) schlägt die DB-Suche.
 - Offen: eigene Ticket-Apps verknüpfen, Partnerliste vom Ticket-Link-Dienst laden, Ticket-Shop im App-Kauf.
 
+## Ohne Fernzüge (2026-11-24, iOS #119)
+- [x] Routenoptionen → „Without long-distance trains“ unter den Verkehrsmitteln (`RouteOptions.regionalOnly`, Port von `TransitFilter.swift`): Die Suche fragt keine Hochgeschwindigkeits-, Fern- und Nachtzüge an (wie bei den Tickets auch kein „RAIL“), und Routen mit einem Fernzug nach Name oder Betreiber fallen aus der Antwort (`RouteOptions.allows`, `filtersRides`). Gespeichert mit den übrigen Optionen; alte Optionen laden ohne den Schalter. Tests: `OwnTicketsTest`. Zwei Texte in `tools/strings-android.json` (Übersetzungen aus dem iOS-Katalog), bis IOS_COMMIT sie enthält. Nicht am Gerät getestet.
+
 ## Feedback 2026-11-16 (iOS PR #87)
 - [x] Live-Fahrt: unter der Etappe keine Liste aller Etappen mehr; Tasten „Back to now“ und „Trip overview“; Etappenliste nur in der Übersicht
 - [x] Karte je Etappe an ihrem Ort (Warten/Umstieg: Einstiegshalt); nur auf dem aktuellen Fußweg nahe dem Weg folgt sie dir (`walkWith`)
