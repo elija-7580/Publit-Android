@@ -2,4 +2,8 @@
 <resources>
     <string name="widget_departures">Αναχωρήσεις</string>
     <string name="widget_description">Επόμενες αναχωρήσεις από στάση της επιλογής σας.</string>
+    <string name="widget_shortcuts">Συντομεύσεις</string>
+    <string name="widget_shortcuts_description">Διαδρομές για Σπίτι, Δουλειά ή τα μέρη σας με ένα άγγιγμα.</string>
+    <string name="widget_nearby">Αναχωρήσεις κοντά</string>
+    <string name="widget_nearby_description">Αναχωρήσεις στις πιο κοντινές στάσεις. Οι αποθηκευμένες στάσεις πρώτες όταν είστε κοντά.</string>
 </resources>

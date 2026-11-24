@@ -270,7 +270,7 @@ fun PassCode(store: PassStore, p: TicketPass, onTap: (() -> Unit)? = null, big: 
 
 /** One pass with its code, details, original and actions (PassDetailView on iOS). Screen at full brightness for the gate. */
 @Composable
-fun PassDetailScreen(store: PassStore, id: String, onBack: () -> Unit, onEdit: (String) -> Unit) {
+fun PassDetailScreen(store: PassStore, id: String, onBack: () -> Unit, onPlan: ((TicketPass, onward: Boolean) -> Unit)? = null, onEdit: (String) -> Unit) {
     val ink = LocalInk.current
     val passes by store.passes.collectAsStateWithLifecycle()
     val p = passes.firstOrNull { it.id == id }
@@ -301,6 +301,19 @@ fun PassDetailScreen(store: PassStore, id: String, onBack: () -> Unit, onEdit: (
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             PassCard(p, compact = false, store = store) { PassCode(store, p, onTap = { fullCode = true }) }
             if (p.document != null) OutlinedSurfaceButton(L10n.t("Show original")) { original = true }
+            // Plan around this ticket (iOS Publit#23, #24): the way to its start, or on from its end.
+            if (onPlan != null && (p.origin != null || p.destination != null)) {
+                var choose by remember { mutableStateOf(false) }
+                OutlinedSurfaceButton(L10n.t("Plan around this ticket")) { choose = true }
+                if (choose) AlertDialog(onDismissRequest = { choose = false }, title = { Text(L10n.t("Plan around this ticket")) },
+                    text = {
+                        Column {
+                            p.origin?.let { o -> TextButton({ choose = false; onPlan(p, false) }) { Text(L10n.t("Way to the ticket") + " · " + o, color = ink.ink) } }
+                            p.destination?.let { d -> TextButton({ choose = false; onPlan(p, true) }) { Text(L10n.t("On from the ticket") + " · " + d, color = ink.ink) } }
+                        }
+                    },
+                    confirmButton = {}, dismissButton = { TextButton({ choose = false }) { Text(L10n.t("Cancel")) } })
+            }
             WalletButton(p)
             p.reference?.let { InfoRow(L10n.t("Ticket number"), it) }
             p.notes?.takeIf { it.isNotBlank() }?.let { InfoRow(L10n.t("Notes"), it) }
@@ -437,6 +450,11 @@ fun PassImportScreen(store: PassStore, tripId: String?, onBack: () -> Unit, onRe
             val bytes = loaded ?: withContext(Dispatchers.IO) { ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } } ?: throw TicketRecognizer.Unreadable()
             if (bytes.size > PassStore.MAX_DOCUMENT_BYTES) throw PassStore.TooLarge()
             loaded = bytes
+            // A Wallet pass (.pkpass, iOS Publit#20): its code and fields as they are, no recognition needed.
+            if (io.github.elija7580.publit.tickets.WalletPassImport.isZip(bytes)) {
+                val r = withContext(Dispatchers.Default) { io.github.elija7580.publit.tickets.WalletPassImport.read(bytes) }
+                onRead(PendingImport(r.pass.copy(tripId = tripId), null, null, 0, null)); return@LaunchedEffect
+            }
             val pdf = pdfHint || (bytes.size > 4 && String(bytes, 0, 4) == "%PDF")
             val tmp = File(ctx.cacheDir, "import." + if (pdf) "pdf" else "img").apply { writeBytes(bytes) }
             if (!pdf) { finish(bytes, false, 0, TicketRecognizer.scan(tmp, false, 0)); return@LaunchedEffect }
@@ -488,7 +506,9 @@ fun PassImportScreen(store: PassStore, tripId: String?, onBack: () -> Unit, onRe
                     }
                 }
                 else -> {
-                    ImportOption(Icons.Filled.Description, L10n.t("PDF or image file")) { file.launch(arrayOf("application/pdf", "image/*")) }
+                    ImportOption(Icons.Filled.Description, L10n.t("PDF, image or Wallet pass")) {
+                        file.launch(arrayOf("application/pdf", "image/*", "application/vnd.apple.pkpass", "application/vnd-com.apple.pkpass", "application/zip", "application/octet-stream"))
+                    }
                     ImportOption(Icons.Filled.Image, L10n.t("Photo or screenshot")) { photo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                     if (TicketVision.canScanPaper) ImportOption(Icons.Filled.DocumentScanner, L10n.t("Scan a paper ticket")) {
                         val activity = ctx as? Activity ?: return@ImportOption

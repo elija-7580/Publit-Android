@@ -1,5 +1,7 @@
 package io.github.elija7580.publit.ui
 
+import kotlinx.coroutines.launch
+
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Work
@@ -110,10 +112,49 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         val tripLink by openTrip.collectAsStateWithLifecycle()
         val linkContext = androidx.compose.ui.platform.LocalContext.current
         var sharedRoute by remember { mutableStateOf<io.github.elija7580.publit.data.SharedRoute?>(null) }
+        var pendingPass by remember { mutableStateOf<PendingImport?>(null) }
+        /** A Wallet pass from another app waits for the Tickets tab's screens before its editor opens. */
+        var openPassEditor by remember { mutableStateOf(false) }
+        LaunchedEffect(tab, openPassEditor) {
+            if (openPassEditor && tab == "tickets") { openPassEditor = false; runCatching { ticketsNav.navigate("passedit?new=true") } }
+        }
+        val planScope = androidx.compose.runtime.rememberCoroutineScope()
+        /** Plan around a ticket (iOS Publit#23, #24): to its start, arriving before it leaves, or on from its end. */
+        fun planAround(pass: io.github.elija7580.publit.tickets.TicketPass, onward: Boolean) {
+            val station = (if (onward) pass.destination else pass.origin) ?: return
+            planScope.launch {
+                val match = runCatching { client.geocode(station, null, L10n.locale.language.ifEmpty { "en" }) }.getOrNull()
+                    ?.let { list -> list.firstOrNull { it.isStop } ?: list.firstOrNull() }
+                if (match == null) {
+                    android.widget.Toast.makeText(linkContext, L10n.f("No place found for %@.", station), android.widget.Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+                val at = Endpoint.At(match.name, io.github.elija7580.publit.core.LatLon(match.lat, match.lon))
+                if (onward) {
+                    plan.setTime(io.github.elija7580.publit.tickets.TicketPlan.onwardFrom(pass), false)
+                    plan.route(at, null); plan.requestSearch()
+                } else {
+                    val by = io.github.elija7580.publit.tickets.TicketPlan.arriveBy(pass)
+                    plan.setTime(by, by != null)
+                    plan.route(Endpoint.Here, at)
+                }
+                openPlan()
+            }
+        }
         LaunchedEffect(tripLink) {
             val link = tripLink ?: return@LaunchedEffect
             openTrip.value = null
-            if (link.startsWith("route:")) {
+            if (link.startsWith("pkpass:")) {
+                // A Wallet pass opened from another app: straight to the ticket editor.
+                val file = java.io.File(linkContext.cacheDir, "opened.pkpass")
+                val read = if (link == "pkpass:") runCatching {
+                    io.github.elija7580.publit.tickets.WalletPassImport.read(file.readBytes())
+                }.also { file.delete() } else null
+                val r = read?.getOrNull()
+                if (r != null) {
+                    pendingPass = PendingImport(r.pass, null, null, 0, null); tab = "tickets"; openPassEditor = true
+                } else android.widget.Toast.makeText(linkContext, read?.exceptionOrNull()?.message ?: L10n.t("This file is not a Wallet pass Publit can read."), android.widget.Toast.LENGTH_LONG).show()
+            } else if (link.startsWith("route:")) {
                 sharedRoute = io.github.elija7580.publit.data.SharedRoute.parse(link.removePrefix("route:"))
                 if (sharedRoute != null) nav.navigate("sharedroute") { launchSingleTop = true }
             } else if (link.startsWith("place:")) {
@@ -140,7 +181,6 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                 nav.navigate("stop?id=${Uri.encode(id)}&name=${Uri.encode(name)}&exact=false")
             } else nav.navigate("savedtrip?id=$link") { launchSingleTop = true }
         }
-        var pendingPass by remember { mutableStateOf<PendingImport?>(null) }
         var tripTarget by remember { mutableStateOf<TripTarget?>(null) }
         val openTrip = { t: TripTarget -> tripTarget = t; nav.navigate("trip") }
         val tabs = listOf(
@@ -175,7 +215,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
             androidx.navigation.compose.NavHost(nav, startDestination = tab, modifier = Modifier.padding(padding)) {
                 composable("nearby") {
                     NearbyScreen(vm, onOpenMap = { nav.navigate("stationmap") }, onSettings = { nav.navigate("settings") },
-                        pinned = favorites.state.collectAsStateWithLifecycle().value.let { st -> io.github.elija7580.publit.data.PlaceRole.entries.mapNotNull { st.place(it) } },
+                        pinned = favorites.state.collectAsStateWithLifecycle().value.pinned,
                         onWhereTo = { goNow.route(Endpoint.Here, null); nav.navigate("gonow") { launchSingleTop = true } },
                         nextTrip = trips.state.collectAsStateWithLifecycle().value.let { st -> st.trips.filter { t -> t.id != st.activeId && t.startTime > java.time.Instant.now() }.minByOrNull { it.startTime } },
                         onOpenSaved = { id -> nav.navigate("savedtrip?id=$id") },
@@ -206,7 +246,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                     }
                 }
                 composable("plan") {
-                    PlanScreen(plan, onSettings = { nav.navigate("settings") }, saved = favorites.state.collectAsStateWithLifecycle().value.items, onSetRole = { role, p -> favorites.set(p, role) }) { it, from, to -> TripActions(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
+                    PlanScreen(plan, onSettings = { nav.navigate("settings") }, saved = favorites.state.collectAsStateWithLifecycle().value.items, favorites = favorites, onSetRole = { role, p -> favorites.set(p, role) }) { it, from, to -> TripActions(trips, it, from, to) { t -> nav.navigate("savedtrip?id=${t.id}") } }
                 }
                 composable("savedtrip?id={id}&details={details}", arguments = listOf(
                     androidx.navigation.navArgument("details") { type = androidx.navigation.NavType.BoolType; defaultValue = false })) { e ->
@@ -220,7 +260,8 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                         onArchive = { nav.navigate("passarchive") }, onSettings = { nav.navigate("settings") })
                 }
                 composable("pass?id={id}") { e ->
-                    PassDetailScreen(passes, e.arguments?.getString("id").orEmpty(), onBack = { nav.popBackStack() }) { id ->
+                    PassDetailScreen(passes, e.arguments?.getString("id").orEmpty(), onBack = { nav.popBackStack() },
+                        onPlan = { pass, onward -> planAround(pass, onward) }) { id ->
                         passes.pass(id)?.let { pendingPass = PendingImport(it, null, null, 0, null); nav.navigate("passedit?new=false") }
                     }
                 }
@@ -257,7 +298,8 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                         onOpenStop = { p -> nav.navigate("stop?id=${Uri.encode(p.stopId ?: p.id)}&name=${Uri.encode(p.name)}&exact=${p.exact == true}") },
                         onOpenLine = { l -> savedLine = l; nav.navigate("line") },
                         onSearch = { title, done -> pickFor = title to done },
-                        onSettings = { nav.navigate("settings") })
+                        onSettings = { nav.navigate("settings") },
+                        onConnection = { c -> plan.route(Endpoint.At(c.fromName, c.from), Endpoint.At(c.toName, c.to)); openPlan() })
                 }
                 composable("line") {
                     val l = savedLine
@@ -423,12 +465,11 @@ private fun nearbyBoard(scope: androidx.compose.foundation.lazy.LazyListScope, s
                     if (!first) HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
                     first = false
                     Row(Modifier.fillMaxWidth().clickable { onRoute(p.name, p.coordinate) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Icon(if (p.role == io.github.elija7580.publit.data.PlaceRole.HOME) androidx.compose.material.icons.Icons.Filled.Home
-                            else androidx.compose.material.icons.Icons.Filled.Work, null, Modifier.width(20.dp))
+                        androidx.compose.material3.Icon(ShortcutSymbol.of(p), null, Modifier.width(20.dp))
                         Spacer(Modifier.width(12.dp))
-                        Text(p.role?.title ?: p.name, fontWeight = FontWeight.SemiBold)
+                        Text(p.keyTitle, fontWeight = FontWeight.SemiBold, maxLines = 1)
                         Spacer(Modifier.weight(1f))
-                        Text(p.name, color = ink.muted, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
+                        if (p.role != null) Text(p.name, color = ink.muted, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
                     }
                 }
             }

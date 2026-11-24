@@ -2,4 +2,8 @@
 <resources>
     <string name="widget_departures">Départs</string>
     <string name="widget_description">Prochains départs à l’arrêt de votre choix.</string>
+    <string name="widget_shortcuts">Raccourcis</string>
+    <string name="widget_shortcuts_description">Itinéraires vers Domicile, Travail ou vos lieux en un geste.</string>
+    <string name="widget_nearby">Départs à proximité</string>
+    <string name="widget_nearby_description">Départs aux arrêts les plus proches. Vos arrêts enregistrés en premier quand vous êtes à côté.</string>
 </resources>

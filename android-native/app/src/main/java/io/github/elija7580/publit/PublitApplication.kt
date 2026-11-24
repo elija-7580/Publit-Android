@@ -11,6 +11,10 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import java.util.Locale
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 class PublitApplication : Application() {
     lateinit var client: TransitousClient
@@ -38,6 +42,12 @@ class PublitApplication : Application() {
         io.github.elija7580.publit.tickets.TicketVision.install(this)
         Thread { runCatching { io.github.elija7580.publit.data.CoverageAtlas.load(this); io.github.elija7580.publit.data.CoverageAtlas.refreshIfNeeded(this) } }.start()
         Thread { runCatching { client.pruneDisk() } }.start()
+        // The shortcuts widget follows Home, Work and saved places (iOS Publit#6).
+        kotlinx.coroutines.MainScope().launch {
+            favorites.state.map { it.items }.distinctUntilChanged().drop(1).collect {
+                runCatching { io.github.elija7580.publit.widget.ShortcutsWidget.refreshAll(this@PublitApplication) }
+            }
+        }
     }
 
     /** Screenshot builds only (android-native/screenshots): skip onboarding, no extra live sources besides the demo server. */

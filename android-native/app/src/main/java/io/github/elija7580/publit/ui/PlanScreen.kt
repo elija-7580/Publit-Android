@@ -2,9 +2,11 @@ package io.github.elija7580.publit.ui
 
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Star
 import kotlin.math.roundToInt
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Close
@@ -95,7 +97,7 @@ import java.time.ZoneId
 private enum class Field { FROM, TO }
 
 @Composable
-fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), onSetRole: ((io.github.elija7580.publit.data.PlaceRole, io.github.elija7580.publit.data.SavedPlace) -> Unit)? = null, actions: @Composable (Itinerary, String, String) -> Unit = { _, _, _ -> }) {
+fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), onSetRole: ((io.github.elija7580.publit.data.PlaceRole, io.github.elija7580.publit.data.SavedPlace) -> Unit)? = null, favorites: io.github.elija7580.publit.data.FavoritesStore? = null, actions: @Composable (Itinerary, String, String) -> Unit = { _, _, _ -> }) {
     val state by vm.state.collectAsStateWithLifecycle()
     var searching by remember { mutableStateOf<Field?>(null) }
     var options by remember { mutableStateOf(false) }
@@ -103,7 +105,7 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.gi
     var handled by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(searchRequest) }
     LaunchedEffect(searchRequest) { if (searchRequest != handled) { handled = searchRequest; searching = Field.TO } }
     val opened = state.opened
-    val pinned = io.github.elija7580.publit.data.PlaceRole.entries.mapNotNull { r -> saved.firstOrNull { it.role == r } }
+    val pinned = io.github.elija7580.publit.data.PlaceRole.entries.mapNotNull { r -> saved.firstOrNull { it.role == r } } + saved.filter { it.isShortcut }
     when {
         options -> { BackHandler { options = false }; RouteOptionsScreen(state.options, onDone = { vm.setOptions(it); options = false }) }
         searching != null -> PlaceSearch(vm, allowHere = searching == Field.FROM, onBack = { searching = null }, saved = saved, onSetRole = onSetRole, chooseOnMap = true) { e ->
@@ -111,13 +113,14 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.gi
             searching = null
         }
         opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }) { actions(opened, state.from.title, state.to?.title ?: "") } }
-        else -> PlanForm(state, vm, onPick = { searching = it }, onOptions = { options = true }, onSettings = onSettings, pinned = pinned, saved = saved)
+        else -> PlanForm(state, vm, onPick = { searching = it }, onOptions = { options = true }, onSettings = onSettings, pinned = pinned, favorites = favorites, saved = saved)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Unit, onOptions: () -> Unit, onSettings: () -> Unit, pinned: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), saved: List<io.github.elija7580.publit.data.SavedPlace> = emptyList()) {
+private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Unit, onOptions: () -> Unit, onSettings: () -> Unit, pinned: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(),
+                     favorites: io.github.elija7580.publit.data.FavoritesStore? = null, saved: List<io.github.elija7580.publit.data.SavedPlace> = emptyList()) {
     val ink = LocalInk.current
     var picking by remember { mutableStateOf<Boolean?>(null) } // arriveBy?
     val timelines = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("publit", android.content.Context.MODE_PRIVATE).getBoolean("showTimelines", false)
@@ -125,6 +128,17 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(L10n.t("Plan"), fontWeight = FontWeight.Bold, fontSize = 32.sp, modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp))
+                // Both ends are places: the connection can be saved (iOS Publit#28).
+                val from = state.from as? Endpoint.At
+                val to = state.to as? Endpoint.At
+                if (favorites != null && from != null && to != null) {
+                    val saved by favorites.state.collectAsStateWithLifecycle()
+                    val c = io.github.elija7580.publit.data.SavedConnection.of(from.name, from.point, to.name, to.point)
+                    val on = saved.containsConnection(c)
+                    IconButton(onClick = { favorites.toggle(c) }) {
+                        Icon(if (on) Icons.Filled.Star else Icons.Filled.StarBorder, L10n.t(if (on) "Saved connection" else "Save connection"))
+                    }
+                }
                 IconButton(onClick = onSettings, modifier = Modifier.padding(end = 8.dp)) { Icon(Icons.Filled.Settings, L10n.t("Settings")) }
             }
         }
@@ -166,11 +180,10 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
             }
         }
         if (pinned.isNotEmpty()) item("pinned") {
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 pinned.forEach { p ->
-                    val icon = if (p.role == io.github.elija7580.publit.data.PlaceRole.WORK) Icons.Filled.Work else Icons.Filled.Home
-                    AssistChip(onClick = { vm.setTo(Endpoint.At(p.role?.title ?: p.name, p.coordinate)) },
-                        label = { Text(p.role?.title ?: p.name) }, leadingIcon = { Icon(icon, null, Modifier.size(18.dp)) })
+                    AssistChip(onClick = { vm.setTo(Endpoint.At(p.keyTitle, p.coordinate)) },
+                        label = { Text(p.keyTitle, maxLines = 1) }, leadingIcon = { Icon(ShortcutSymbol.of(p), null, Modifier.size(18.dp)) })
                 }
             }
         }

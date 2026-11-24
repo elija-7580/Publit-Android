@@ -43,6 +43,16 @@ Two product flavors: `play` (default; Google Play and the GitHub APKs: fused loc
 - [x] Nur Termine mit eindeutigem Ort (Feedback 2026-11-24): Kartenpin, Adresse (Straße + Nummer, PLZ + Ort, „Name, Ort“), oder ein gespeicherter Ort (Arbeit/Zuhause in allen App-Sprachen, sonst Name eines gespeicherten Orts). „Betriebsversammlung“, „Raum 3“ usw. erscheinen nicht. Tests: `CalendarTripsTest`.
 - Offen: Termine auch in der Zielsuche und in Nearby (iOS hat beides).
 
+## Community-Wünsche aus iOS Build 100 (2026-11-23, Android 0.11.0)
+- [x] Verbindungen speichern (#28): `SavedConnection` (`publit.connections.v1`), Stern in Planen wenn Von und Nach Orte sind, Abschnitt „Connections“ in Gespeichert mit „Way back“ und eigener Reihenfolge
+- [x] Kurzbefehle-Widget (#6): `widget/ShortcutsWidget.kt` (Glance), Zuhause, Arbeit, dann gespeicherte Orte (max. 4), Links `publit://go/…` und `publit://place?…`; folgt den gespeicherten Orten (`PublitApplication`)
+- [x] Wallet-Pässe (#20): `tickets/WalletPassImport.kt` (pass.json aus der ZIP, Codes inkl. UIC-Bytes, Felder, Farbe), im Ticket-Import und beim Öffnen einer .pkpass aus anderen Apps (Intent-Filter)
+- [x] Eigene Kurzbefehle mit Symbol (#22): `SavedPlace.shortcut/symbol`, `ui/ShortcutSymbols.kt`, in Gespeichert (Home und Work), Nähe, Planen und Widget
+- [x] Linie mit Richtung (#21): `SavedLine.directionId/headsign`, Linie und Fahrt speichern in der gezeigten Richtung
+- [x] Widget „Abfahrten in der Nähe“ (#19): `widget/NearbyWidget.kt`, gespeicherte Haltestellen bis 600 m zuerst; Standort aus der App-Berechtigung (letzter bekannter Standort im Hintergrund)
+- [x] Wear-Komplikation (#18): `wear/…/PublitComplication.kt` (SHORT_TEXT/LONG_TEXT): Countdown der laufenden Fahrt, sonst ein Tipp zu Publit
+- [x] Um ein Ticket planen (#23/#24): Ticket-Detail „Plan around this ticket“ → Weg zum Start (Ankunft 10 min vor Abfahrt) oder weiter ab dem Ziel (`tickets/TicketPlan.kt`); kein Abschnittsplaner wie auf iOS
+
 ## Ticket-Links (2026-11-24, iOS #148, #151, #168)
 - [x] „Buy ticket: …“ je Betreiber unter den Fahrt-Aktionen (`data/TicketLinks.kt`, `TicketLinksCard`): Feed-Link → Tarifseite → Website → bekannter Shop; Partnerprogramme eingebaut, aber leer (wie iOS).
 - [x] Vorausgefüllte Suche: DB öffnet bahn.de mit Start, Ziel und Abfahrt; FlixBus sucht beim Tippen die Städte-IDs (nur Haltestellennamen an FlixBus) und öffnet die Shop-Suche. Ein Verbund-Shop (MVV) schlägt die DB-Suche.

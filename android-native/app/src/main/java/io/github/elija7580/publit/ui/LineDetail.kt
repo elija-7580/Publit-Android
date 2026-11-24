@@ -38,7 +38,7 @@ import java.time.ZoneId
 /** One direction of a line at its stop: departures grouped by where they go. */
 private data class LineDirection(val id: String, val headsign: String, val sampleTripId: String)
 
-private fun directionId(st: StopTime) = st.directionName?.let(TransitLabels::identity) ?: st.headsign
+private fun directionId(st: StopTime) = SavedLine.direction(st)
 
 /**
  * A line (LineDetailView on iOS): direction, the route on a map with estimated vehicle positions,
@@ -50,7 +50,7 @@ fun LineDetailScreen(client: TransitousClient, favorites: FavoritesStore, line: 
     var departures by remember { mutableStateOf(emptyList<StopTime>()) }
     var error by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
-    var directionKey by remember { mutableStateOf<String?>(null) }
+    var directionKey by remember { mutableStateOf(line.directionId) }
     val legs = remember { mutableStateMapOf<String, Leg>() }
     var timetableStop by remember { mutableStateOf<Place?>(null) }
     val now by produceState(Instant.now()) { while (true) { value = Instant.now(); delay(5_000) } }
@@ -59,7 +59,7 @@ fun LineDetailScreen(client: TransitousClient, favorites: FavoritesStore, line: 
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (true) {
                 try {
-                    departures = StopTime.upcoming(client.departures(line.stopId, 100, 150).stopTimes).filter(line::matches)
+                    departures = StopTime.upcoming(client.departures(line.stopId, 100, 150).stopTimes).filter(line.anyDirection::matches)
                     error = null
                 } catch (e: CancellationException) { throw e } catch (e: Exception) { error = e.message ?: e.javaClass.simpleName }
                 loaded = true
@@ -87,8 +87,11 @@ fun LineDetailScreen(client: TransitousClient, favorites: FavoritesStore, line: 
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, L10n.t("Back")) }
             Text(line.lineName, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, modifier = Modifier.weight(1f))
-            val isSaved = saved.containsLine(line.id)
-            IconButton(onClick = { favorites.toggle(line) }) {
+            // With more than one direction the line is saved in the direction shown (iOS Publit#21).
+            val toSave = if (directions.size > 1 && direction != null) line.anyDirection.copy(directionId = direction.id, headsign = direction.headsign) else line.anyDirection
+            val existing = saved.lines.firstOrNull { it.id == toSave.id || it.id == line.anyDirection.id }
+            val isSaved = existing != null
+            IconButton(onClick = { if (existing != null) favorites.removeLine(existing.id) else favorites.toggle(toSave) }) {
                 Icon(if (isSaved) Icons.Filled.Star else Icons.Filled.StarBorder, L10n.t(if (isSaved) "Saved line" else "Save line"))
             }
         }
