@@ -113,14 +113,14 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.gi
             searching = null
         }
         opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }, tickets = { TicketLinksCard(opened) }, bar = { actions(opened, state.from.title, state.to?.title ?: "") }) }
-        else -> PlanForm(state, vm, onPick = { searching = it }, onOptions = { options = true }, onSettings = onSettings, pinned = pinned, favorites = favorites)
+        else -> PlanForm(state, vm, onPick = { searching = it }, onOptions = { options = true }, onSettings = onSettings, pinned = pinned, favorites = favorites, saved = saved)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Unit, onOptions: () -> Unit, onSettings: () -> Unit, pinned: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(),
-                     favorites: io.github.elija7580.publit.data.FavoritesStore? = null) {
+                     favorites: io.github.elija7580.publit.data.FavoritesStore? = null, saved: List<io.github.elija7580.publit.data.SavedPlace> = emptyList()) {
     val ink = LocalInk.current
     var picking by remember { mutableStateOf<Boolean?>(null) } // arriveBy?
     val timelines = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("publit", android.content.Context.MODE_PRIVATE).getBoolean("showTimelines", false)
@@ -187,7 +187,10 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
                 }
             }
         }
+        // Upcoming calendar events with a clear place (CalendarPlanSection on iOS).
+        if (!state.searched) item("calendar") { CalendarPlanSection(vm, saved) }
         if (!state.searched) item("recents") { RecentSearches(vm) }
+        if (state.searched && state.appointment != null) item("appointment") { AppointmentBanner(state) }
         item("coverage") {
             fun pt(e: Endpoint?) = when (e) { is Endpoint.At -> e.point; Endpoint.Here -> vm.lastFix; null -> null }
             val notices = io.github.elija7580.publit.data.CoverageGuide.notices(pt(state.from), pt(state.to))

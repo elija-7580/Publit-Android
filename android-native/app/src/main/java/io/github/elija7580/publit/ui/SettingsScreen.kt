@@ -156,6 +156,8 @@ fun SettingsScreen(prefs: SharedPreferences, onWishes: () -> Unit = {}, onSuppor
             }
             if (page == SettingsCategory.TRAVEL) {
                 item { Box(Modifier.padding(horizontal = 12.dp)) { SmartRoutingSettings() } }
+                // Calendar events with a clear place as destinations (CalendarSettingsSection on iOS).
+                item { Box(Modifier.padding(horizontal = 12.dp)) { CalendarSettingsSection() } }
                 // When the get-off reminder of a started trip comes (iOS #69); by location unless "By the clock only".
                 item {
                     var getOff by remember { mutableStateOf(io.github.elija7580.publit.data.GetOffAlert.current(prefs)) }
@@ -326,7 +328,7 @@ private fun CategoryRow(c: SettingsCategory, onClick: () -> Unit) {
 /** The pages of Settings (SettingsCategory on iOS) and the settings on each, by their words on screen, for the search. */
 enum class SettingsCategory(private val key: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, private val settings: List<String>) {
     GENERAL("General", Icons.Filled.Settings, listOf("Start screen")),
-    TRAVEL("Travel preferences", Icons.AutoMirrored.Filled.DirectionsWalk, listOf("Smart routing", "Started trips", "Get-off alert", "Show connection timelines", "How to read connections")),
+    TRAVEL("Travel preferences", Icons.AutoMirrored.Filled.DirectionsWalk, listOf("Smart routing", "Calendar", "Suggest appointments as destinations", "Started trips", "Get-off alert", "Show connection timelines", "How to read connections")),
     MAP("Map", Icons.Filled.Map, listOf("Nearby", "Open directions in")),
     NOTIFICATIONS("Notifications", Icons.Filled.Notifications, listOf("Disruptions on saved lines")),
     DATA("Data", Icons.Filled.Storage, listOf("Live data from more operators", "Live data sources", "Export my data")),

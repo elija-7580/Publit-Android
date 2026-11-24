@@ -53,6 +53,8 @@ data class PlanState(
     /** Walking, cycling and driving the whole way, for comparison. */
     val street: List<io.github.elija7580.publit.data.StreetComparison> = emptyList(),
     val badges: Map<String, List<io.github.elija7580.publit.data.SmartRouting.Badge>> = emptyMap(),
+    /** The calendar event this search goes to (its title and "Leave by" above the routes). */
+    val appointment: io.github.elija7580.publit.data.CalendarAppointment? = null,
 ) {
     /** The routes in the chosen order. */
     val sorted: List<Itinerary> get() = options.sort.apply(routes, arriveBy)
@@ -79,13 +81,41 @@ class PlanViewModel(
         private set
 
     fun setFrom(e: Endpoint) { _state.update { it.copy(from = e) }; plan() }
-    fun setTo(e: Endpoint) { _state.update { it.copy(to = e) }; plan() }
+    fun setTo(e: Endpoint) { _state.update { it.copy(to = e, appointment = null) }; plan() }
     /** Opens Plan with these endpoints (from a stop of a line: "Route here" / "Route from here"). */
-    fun route(from: Endpoint, to: Endpoint?) { _state.update { it.copy(from = from, to = to, opened = null) }; plan() }
+    fun route(from: Endpoint, to: Endpoint?) { _state.update { it.copy(from = from, to = to, opened = null, appointment = null) }; plan() }
+
+    /** A message in place of the routes (a calendar place that was not found). */
+    fun showError(message: String) { _state.update { it.copy(loading = false, error = message, routes = emptyList(), searched = true) } }
+
+    /** A place of an event is being looked up (one at a time). */
+    val resolving = MutableStateFlow<String?>(null)
+
+    /**
+     * Routes from here to a calendar event, arriving a few minutes before it starts (CalendarRouting on iOS).
+     * Without a pin the place is looked up now, and only now. Returns false when no place was found.
+     */
+    suspend fun routeTo(a: io.github.elija7580.publit.data.CalendarAppointment): Boolean {
+        val point = a.coordinate ?: run {
+            if (resolving.value != null) return true
+            resolving.value = a.id
+            try {
+                client.geocode(a.searchText, lastFix, L10n.locale.language.ifEmpty { "en" }).firstOrNull()?.let { LatLon(it.lat, it.lon) }
+            } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                log.note("calendar geocode error ${e.javaClass.simpleName}"); null
+            } finally { resolving.value = null }
+        } ?: return false
+        _state.update {
+            it.copy(from = Endpoint.Here, to = Endpoint.At(a.placeName, point), time = a.arriveBy, arriveBy = true,
+                lastConnection = false, opened = null, appointment = a)
+        }
+        plan()
+        return true
+    }
     /** "Where to now?" from Nearby: Plan opens with the destination search. */
     val searchRequest = MutableStateFlow(0)
     fun requestSearch() { searchRequest.value++ }
-    fun swap() { _state.update { s -> s.copy(from = s.to ?: Endpoint.Here, to = s.from) }; plan() }
+    fun swap() { _state.update { s -> s.copy(from = s.to ?: Endpoint.Here, to = s.from, appointment = null) }; plan() }
     fun setTime(time: Instant?, arriveBy: Boolean) { _state.update { it.copy(time = time, arriveBy = arriveBy, lastConnection = false) }; plan() }
     /** "Last": the last connection tonight, from the same places. */
     fun setLastConnection() { _state.update { it.copy(time = null, arriveBy = false, lastConnection = true) }; plan() }
