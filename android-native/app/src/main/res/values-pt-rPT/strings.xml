@@ -2,4 +2,8 @@
 <resources>
     <string name="widget_departures">Partidas</string>
     <string name="widget_description">Próximas partidas numa paragem à sua escolha.</string>
+    <string name="widget_shortcuts">Atalhos</string>
+    <string name="widget_shortcuts_description">Percursos para Casa, Trabalho ou os seus locais com um toque.</string>
+    <string name="widget_nearby">Partidas por perto</string>
+    <string name="widget_nearby_description">Partidas nas paragens mais próximas. As paragens guardadas primeiro quando está perto.</string>
 </resources>

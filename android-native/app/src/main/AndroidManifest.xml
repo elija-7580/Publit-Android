@@ -59,6 +59,16 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="publit.eu" android:pathPrefix="/open" />
             </intent-filter>
+            <!-- Wallet passes (.pkpass) opened from mail, the browser or Files (iOS Publit#20) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/vnd.apple.pkpass" />
+                <data android:mimeType="application/vnd-com.apple.pkpass" />
+            </intent-filter>
         </activity>
         <receiver android:name=".notify.ReminderReceiver" android:exported="false" />
         <service android:name=".notify.GetOffService" android:exported="false" android:foregroundServiceType="location" />
@@ -73,6 +83,16 @@
         <receiver android:name=".widget.DeparturesWidgetReceiver" android:exported="true" android:label="@string/widget_departures">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/departures_widget_info" />
+        </receiver>
+        <!-- Home screen widget: departures at the closest stops, saved stops first when near (iOS Publit#19) -->
+        <receiver android:name=".widget.NearbyWidgetReceiver" android:exported="true" android:label="@string/widget_nearby">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/nearby_widget_info" />
+        </receiver>
+        <!-- Home screen widget: Home, Work and saved places, one tap to their routes (iOS Publit#6) -->
+        <receiver android:name=".widget.ShortcutsWidgetReceiver" android:exported="true" android:label="@string/widget_shortcuts">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/shortcuts_widget_info" />
         </receiver>
         <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.files" android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />

@@ -2,4 +2,8 @@
 <resources>
     <string name="widget_departures">Odjazdy</string>
     <string name="widget_description">Najbliższe odjazdy z wybranego przystanku.</string>
+    <string name="widget_shortcuts">Skróty</string>
+    <string name="widget_shortcuts_description">Trasy do Domu, Pracy lub Twoich miejsc jednym dotknięciem.</string>
+    <string name="widget_nearby">Odjazdy w pobliżu</string>
+    <string name="widget_nearby_description">Odjazdy z najbliższych przystanków. Zapisane przystanki najpierw, gdy jesteś w pobliżu.</string>
 </resources>

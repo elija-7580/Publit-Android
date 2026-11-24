@@ -115,7 +115,7 @@ data class TicketPass(
         }
 
         /** The bytes to encode when the code is drawn again. */
-        val bytes: ByteArray? get() = payload?.let { android.util.Base64.decode(it, android.util.Base64.DEFAULT) } ?: message?.toByteArray()
+        val bytes: ByteArray? get() = payload?.let { runCatching { java.util.Base64.getMimeDecoder().decode(it) }.getOrNull() } ?: message?.toByteArray()
 
         /** Static rail ticket code after UIC 918.3 (header `#UT`). */
         val isUIC: Boolean get() = bytes?.let { it.size >= 3 && it[0] == '#'.code.toByte() && it[1] == 'U'.code.toByte() && it[2] == 'T'.code.toByte() } == true

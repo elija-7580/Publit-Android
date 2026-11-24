@@ -30,6 +30,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -153,6 +155,8 @@ private fun icon(name: String): ImageVector = when (name) {
     "scope" -> Icons.Filled.GpsFixed
     "walk" -> Icons.AutoMirrored.Filled.DirectionsWalk
     "car" -> Icons.Filled.DirectionsCar
+    "widget" -> Icons.Filled.Widgets
+    "star" -> Icons.Filled.Star
     else -> Icons.Filled.Lightbulb
 }
 

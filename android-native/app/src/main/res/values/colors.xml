@@ -2,4 +2,7 @@
 <resources>
     <color name="ic_launcher_background">#111111</color>
     <color name="publit_ground">#F4F4F2</color>
+    <color name="publit_ink">#111111</color>
+    <color name="publit_surface">#FFFFFF</color>
+    <color name="publit_signature">#FFC531</color>
 </resources>
