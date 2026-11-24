@@ -134,6 +134,11 @@ object WhatsNew {
 
     /** Newest first. `release` counts Android releases with a note; raise it for each new entry. */
     val entries = listOf(
+        // 0.12.0: build your own connection (Publit#142, #143), exits in the live trip, way back from the station map.
+        Entry(6, listOf(
+            Item("swap", "Go on another way", "Open a ride in a route and choose another way to go on from there; the way up to it stays."),
+            Item("map", "Change where you want", "Open a ride in a route and choose another stop or any place to change; Publit plans the way on from there."),
+        )),
         // 0.11.0: community wishes from iOS build 100 (Publit#6, #18, #19, #20, #21, #22, #23, #24, #28).
         Entry(5, listOf(
             Item("widget", "Home screen widgets", "Home, Work, your own shortcuts and departures nearby on the home screen, and your trip on the watch face."),

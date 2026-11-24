@@ -101,6 +101,7 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.gi
     val state by vm.state.collectAsStateWithLifecycle()
     var searching by remember { mutableStateOf<Field?>(null) }
     var options by remember { mutableStateOf(false) }
+    var change by remember { mutableStateOf<LegChange?>(null) }
     val searchRequest by vm.searchRequest.collectAsStateWithLifecycle()
     var handled by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(searchRequest) }
     LaunchedEffect(searchRequest) { if (searchRequest != handled) { handled = searchRequest; searching = Field.TO } }
@@ -112,7 +113,9 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.gi
             if (searching == Field.FROM) vm.setFrom(e) else vm.setTo(e)
             searching = null
         }
-        opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }, tickets = { TicketLinksCard(opened) }, bar = { actions(opened, state.from.title, state.to?.title ?: "") }) }
+        opened != null && change != null -> RouteChangeScreen(vm, opened, change!!, onBack = { change = null }) { built -> change = null; vm.open(built) }
+        opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }, tickets = { TicketLinksCard(opened) }, bar = { actions(opened, state.from.title, state.to?.title ?: "") },
+            onChange = { change = it }) }
         else -> PlanForm(state, vm, onPick = { searching = it }, onOptions = { options = true }, onSettings = onSettings, pinned = pinned, favorites = favorites, saved = saved)
     }
 }
@@ -292,7 +295,8 @@ private fun LegBadge(leg: Leg) {
 
 @Composable
 fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, top: @Composable () -> Unit = {},
-                    tickets: @Composable () -> Unit = {}, bar: @Composable () -> Unit = {}) {
+                    tickets: @Composable () -> Unit = {}, bar: @Composable () -> Unit = {},
+                    onChange: ((LegChange) -> Unit)? = null) {
     val ink = LocalInk.current
     // Overview at the top, then the steps, then tickets and fares; the actions are the bar pinned to the bottom
     // (iOS route screen, layout A), so they never sit between the overview and the steps.
@@ -337,7 +341,7 @@ fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, to
             val leg = it.legs[i]
             TransferCard(it, i)
             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
-                if (leg.isTransit) TransitLeg(leg) else Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (leg.isTransit) TransitLeg(leg, onChange?.let { f -> { elsewhere: Boolean -> f(LegChange(i, elsewhere)) } }) else Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null, tint = ink.muted)
                     Spacer(Modifier.width(8.dp))
                     val dist = leg.distance?.let { d -> " · " + Fmt.distance(d) } ?: ""
@@ -678,7 +682,7 @@ private fun TransferCard(it: Itinerary, index: Int) {
 }
 
 @Composable
-private fun TransitLeg(leg: Leg) {
+private fun TransitLeg(leg: Leg, onChange: ((Boolean) -> Unit)? = null) {
     val ink = LocalInk.current
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -693,6 +697,11 @@ private fun TransitLeg(leg: Leg) {
         StopLine(leg.endTime, leg.to.tz, leg.to.name, leg.to.track, 0, leg.realTime)
         if (leg.cancelled == true) Text(L10n.t("Cancelled"), color = ink.danger, fontWeight = FontWeight.SemiBold)
         leg.serviceAlerts.firstOrNull()?.let { Text(it.headerText, color = ink.delay, fontSize = 13.sp) }
+        // Build your own connection (#142, #143): another way on from this ride, or change somewhere else.
+        if (onChange != null) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton({ onChange(false) }) { Text(L10n.t("Go on another way"), fontWeight = FontWeight.SemiBold, color = ink.ink, fontSize = 14.sp) }
+            TextButton({ onChange(true) }) { Text(L10n.t("Change somewhere else"), fontWeight = FontWeight.SemiBold, color = ink.ink, fontSize = 14.sp) }
+        }
     }
 }
 
@@ -1040,6 +1049,7 @@ fun GoNowScreen(vm: PlanViewModel, onBack: () -> Unit, saved: List<io.github.eli
     val ink = LocalInk.current
     val state by vm.state.collectAsStateWithLifecycle()
     var options by remember { mutableStateOf(false) }
+    var change by remember { mutableStateOf<LegChange?>(null) }
     var searching by remember { mutableStateOf(state.to == null) }
     val timelines = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("publit", android.content.Context.MODE_PRIVATE).getBoolean("showTimelines", false)
     val opened = state.opened
@@ -1048,7 +1058,9 @@ fun GoNowScreen(vm: PlanViewModel, onBack: () -> Unit, saved: List<io.github.eli
         searching -> PlaceSearch(vm, allowHere = false, onBack = { if (state.to == null) onBack() else searching = false }, saved = saved, onSetRole = onSetRole) { e ->
             vm.route(Endpoint.Here, e); searching = false
         }
-        opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }, tickets = { TicketLinksCard(opened) }, bar = { actions(opened, L10n.t("Current location"), state.to?.title ?: "") }) }
+        opened != null && change != null -> RouteChangeScreen(vm, opened, change!!, onBack = { change = null }) { built -> change = null; vm.open(built) }
+        opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }, tickets = { TicketLinksCard(opened) }, bar = { actions(opened, L10n.t("Current location"), state.to?.title ?: "") },
+            onChange = { change = it }) }
         else -> {
             BackHandler(onBack = onBack)
             LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {

@@ -135,7 +135,9 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
     val heading by io.github.elija7580.publit.location.rememberHeading()
     // Layout A (iOS #170): the stage card and, under it, the next change, always in view; the stage strip is gone,
     // the timeline in the sheet shows every stage and change.
-    val nextChange = remember(it, overview, index, live) { LiveChange.target(if (overview) steps[live] else step, it)?.let { t -> LiveChange.of(it, t) } }
+    // Exit numbers for the change rows ("Exit B2") arrive from OpenStreetMap a moment later.
+    val changeExits by produceState(false, it.id) { value = StationExits.load(it) }
+    val nextChange = remember(it, overview, index, live, changeExits) { LiveChange.target(if (overview) steps[live] else step, it)?.let { t -> LiveChange.of(it, t) } }
     val sheet = rememberBottomSheetScaffoldState()
     var menu by remember { mutableStateOf(false) }
     BottomSheetScaffold(
@@ -195,7 +197,7 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
                         Section(L10n.t("Trip overview")) {
                             for (i in steps.indices) {
                                 val s = steps[i]
-                                if (s.kind == GuideStep.Kind.WAIT) LiveChange.of(it, s.legIndex)?.let { c -> LiveChangeRow(c, i < live) { show(i) } }
+                                if (s.kind == GuideStep.Kind.WAIT) key(changeExits) { LiveChange.of(it, s.legIndex)?.let { c -> LiveChangeRow(c, i < live) { show(i) } } }
                                 StageRow(s, it, trip.toName, i + 1, steps.size, i == live, i < live, !overview && i == index) { show(i) }
                             }
                         }
@@ -706,7 +708,9 @@ private fun GuideMap(it: Itinerary, steps: List<GuideStep>, live: Int, shown: In
 
 /** A change on the live trip (NextChangeCard / LiveChanges on iOS): where, minutes to spare, platforms, line, how sure. */
 private data class LiveChange(val index: Int, val stop: String, val spareSeconds: Int, val fromTrack: String?, val toTrack: String?,
-                              val toLine: String, val cancelled: Boolean, val chance: SmartRouting.Change?) {
+                              val toLine: String, val cancelled: Boolean, val chance: SmartRouting.Change?,
+                              /** Where to ride and which way out of the ride that ends here ("Front of the train · Exit B2"). */
+                              val exit: String? = null) {
     val missed get() = spareSeconds < 0
     val tight get() = spareSeconds < 120
 
@@ -727,7 +731,8 @@ private data class LiveChange(val index: Int, val stop: String, val spareSeconds
             return LiveChange(index, arriving.to.name, (leg.startTime.epochSecond - arriving.endTime.epochSecond).toInt() - walk,
                 arriving.to.track?.takeIf { t -> t.isNotBlank() }, leg.from.track?.takeIf { t -> t.isNotBlank() }, leg.lineName,
                 arriving.cancelled == true || leg.cancelled == true,
-                runCatching { SmartRouting.changes(it).firstOrNull { c -> c.outgoingIndex == index } }.getOrNull())
+                runCatching { SmartRouting.changes(it).firstOrNull { c -> c.outgoingIndex == index } }.getOrNull(),
+                io.github.elija7580.publit.data.ExitAdvice.forRide(p, it.legs)?.short)
         }
     }
 
@@ -744,7 +749,7 @@ private data class LiveChange(val index: Int, val stop: String, val spareSeconds
         val f = fromTrack?.let { t -> L10n.f("Pl. %@", t) }
         val t = toTrack?.let { x -> L10n.f("Pl. %@", x) }
         val platforms = when { f != null && t != null -> "$f → $t"; t != null -> "→ $t"; else -> f }
-        return listOfNotNull(platforms, toLine, verdict()).joinToString(" · ")
+        return listOfNotNull(platforms, toLine, verdict(), exit).joinToString(" · ")
     }
 
     fun spare(): String = when {

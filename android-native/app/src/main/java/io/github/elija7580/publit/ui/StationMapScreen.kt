@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
@@ -352,6 +353,15 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                 SwitchRow(L10n.t("Vehicles"), showVehicles) { showVehicles = it; set("mapVehicles", it) }
                 SwitchRow(L10n.t("Bikes and scooters"), showSharing) { showSharing = it; set("mapSharing", it) }
                 SwitchRow(L10n.t("Data gaps"), showGaps) { showGaps = it; set("mapGaps", it) }
+            }
+        }
+        // Back to the departures around you (iOS #17): one key at the bottom while nothing is open on the map.
+        if (selected == null && focus == null && !layers) Surface(shape = RoundedCornerShape(50), color = ink.surface, shadowElevation = 3.dp,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp)) {
+            Row(Modifier.clickable(onClick = onBack).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.AutoMirrored.Filled.List, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(L10n.t("Departures nearby"), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             }
         }
         if (start != null) Surface(shape = CircleShape, color = ink.surface, shadowElevation = 3.dp,
