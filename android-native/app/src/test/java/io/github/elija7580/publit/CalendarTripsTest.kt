@@ -40,6 +40,7 @@ class CalendarTripsTest {
         val list = CalendarTrips.suggestions(listOf(
             event("meeting", 60, "Betriebsversammlung"),
             event("room", 61, "Raum 3"),
+            event("roomCode", 61, "G1.E.S.20/21/22"),
             event("floor", 62, "2. Stock, Besprechungsraum"),
             event("street", 63, "Herrengasse 14"),
             event("postcode", 64, "Wiener Straße\n1010 Wien"),
