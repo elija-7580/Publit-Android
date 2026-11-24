@@ -116,7 +116,7 @@ dependencies {
     implementation(libs.maplibre)
     implementation("androidx.glance:glance-appwidget:1.1.1")
     // Supporting Publit: monthly support and one-time tips (Google Play Billing).
-    "playImplementation"("com.android.billingclient:billing-ktx:7.1.1")
+    "playImplementation"("com.android.billingclient:billing-ktx:8.0.0")
     // Tickets, read on the device: ML Kit through Play Services (no models in the APK), ZXing draws codes again.
     "playImplementation"("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
     "playImplementation"("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")
