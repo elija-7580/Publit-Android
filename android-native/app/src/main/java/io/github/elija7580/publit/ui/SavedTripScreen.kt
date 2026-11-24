@@ -124,7 +124,7 @@ private fun StatusCard(trip: SavedTrip, error: String?) {
                 if (s.delayMinutes > 0) { Spacer(Modifier.width(8.dp)); Text(L10n.f("+%lld min", s.delayMinutes), color = ink.delay, fontWeight = FontWeight.SemiBold) }
             }
             if (s.detail.isNotEmpty()) Text(s.detail, color = ink.muted, fontSize = 14.sp)
-            trip.refreshedAt?.let { Text(L10n.f("Updated %@", Fmt.time(it)), color = ink.muted, fontSize = 12.sp) }
+            trip.refreshedAt?.let { Text(L10n.f("Updated %@", Fmt.time(it)), color = ink.muted, fontSize = 13.sp) }
             error?.let { Text(it, color = ink.delay, fontSize = 12.sp) }
         }
     }
@@ -199,6 +199,6 @@ fun SavedTripRow(trip: SavedTrip, faded: Boolean = false) {
         TimelineBar(trip.itinerary, trip.itinerary.startTime, trip.itinerary.endTime)
         val t = trip.itinerary.transfers
         Text(L10n.f("from %@", trip.fromName) + " · " + (if (t == 0) L10n.t("Direct") else if (t == 1) L10n.t("1 change") else L10n.f("%lld changes", t)),
-            color = ink.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            color = ink.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

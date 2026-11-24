@@ -305,7 +305,7 @@ fun PassDetailScreen(store: PassStore, id: String, onBack: () -> Unit, onEdit: (
             p.reference?.let { InfoRow(L10n.t("Ticket number"), it) }
             p.notes?.takeIf { it.isNotBlank() }?.let { InfoRow(L10n.t("Notes"), it) }
             Text(L10n.t("A copy of your ticket for quick access. Only the ticket the operator issued is valid. Inspectors may ask for it or for the operator's app."),
-                color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp))
+                color = ink.muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 8.dp))
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -353,7 +353,7 @@ private fun OutlinedSurfaceButton(title: String, onClick: () -> Unit) {
 private fun InfoRow(title: String, value: String) {
     val ink = LocalInk.current
     Surface(shape = RoundedCornerShape(14.dp), color = ink.surface, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) { Text(title, color = ink.muted, fontSize = 12.sp); Text(value, fontSize = 15.sp) }
+        Column(Modifier.padding(16.dp)) { Text(title, color = ink.muted, fontSize = 13.sp); Text(value, fontSize = 15.sp) }
     }
 }
 
@@ -644,9 +644,9 @@ fun PassEditorScreen(store: PassStore, initial: PendingImport, isNew: Boolean, o
                             }
                         }
                     }
-                    newLogo?.second?.let { Text(it, color = ink.muted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 16.dp)) }
+                    newLogo?.second?.let { Text(it, color = ink.muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp)) }
                     if (candidates.any { it.wikimedia }) Text(L10n.t("Suggested from Wikimedia Commons. Choose another if it is not the right one."),
-                        color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                        color = ink.muted, fontSize = 13.sp, modifier = Modifier.padding(16.dp))
                 }
             }
             item {
@@ -662,7 +662,7 @@ fun PassEditorScreen(store: PassStore, initial: PendingImport, isNew: Boolean, o
                     }
                     if (c != null) TextButton({ p = p.copy(barcode = null) }) { Text(L10n.t("Remove code"), color = ink.danger) }
                     Text(L10n.t("Only codes that stay the same work here. Codes that change every few seconds only work in the operator's app."),
-                        color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
+                        color = ink.muted, fontSize = 13.sp, modifier = Modifier.padding(16.dp))
                 }
             }
         }
@@ -727,7 +727,7 @@ fun TripPasses(store: PassStore, tripId: String?, at: Instant, onOpen: (String) 
             }
         }
         Text(L10n.t("Add the ticket from a PDF, a photo or a screenshot. Day, weekly and annual passes show up for every trip while they are valid."),
-            color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp))
+            color = ink.muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp))
     }
 }
 

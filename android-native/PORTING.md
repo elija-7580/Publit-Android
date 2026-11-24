@@ -161,3 +161,6 @@ Quelle: iOS PRs #92–#94 (`DelayHistory.swift`, `TransferWalk.swift`, `SmartRou
 - Offen: Ausgänge der U-Bahn in der Umsteigezeile (iOS `ExitAdvice`) gibt es auf native-android noch nicht.
 - [x] `ui/SettingsScreen.kt`: Startseite mit Suche, Community-Karte und Kategorien (Allgemein, Reisen, Karte, Benachrichtigungen, Daten, Diagnose, Über); jede Kategorie ist eine eigene kurze Seite mit den Gruppen von vorher, Zurück führt zur Startseite. Die Suche findet jede Einstellung ohne Groß-/Kleinschreibung und Akzente (`SettingsCategory.search`).
 - [x] Strings: „Search settings“ und „No settings match your search.“ mit 14 Übersetzungen aus dem iOS-Katalog in `tools/strings-android.json`, bis IOS_COMMIT den Stand von iOS #170 hat. Alle anderen Texte gibt es schon im Katalog.
+
+## Design-Durchgang Tickets, Gespeichert, Station, Einstellungen, Community (2026-11-24, iOS PR #170)
+- [x] Nebenzeilen in Grau (Fußnoten, Untertitel, Hinweise) mindestens 13 sp wie `footnote` auf iOS (docs/design/README.md §9), vorher 11–12 sp.

@@ -255,9 +255,9 @@ fun SettingsScreen(prefs: SharedPreferences, onWishes: () -> Unit = {}, onSuppor
                                 "SL" to ("Stockholm" to "Live departures and disruptions"),
                                 "TfL" to ("London" to "Line status and disruptions (Powered by TfL Open Data)"),
                             ).forEach { (n, d) ->
-                                Column { Text(n + " · " + L10n.t(d.first), fontWeight = FontWeight.SemiBold, fontSize = 14.sp); Text(L10n.t(d.second), color = ink.muted, fontSize = 12.sp) }
+                                Column { Text(n + " · " + L10n.t(d.first), fontWeight = FontWeight.SemiBold, fontSize = 14.sp); Text(L10n.t(d.second), color = ink.muted, fontSize = 13.sp) }
                             }
-                            Text(L10n.t("The extra operators only get the stop, line and time of a ride, never your location or account."), color = ink.muted, fontSize = 12.sp)
+                            Text(L10n.t("The extra operators only get the stop, line and time of a ride, never your location or account."), color = ink.muted, fontSize = 13.sp)
                         }
                     }
                 }
@@ -360,7 +360,7 @@ private fun Group(title: String?, footer: List<String> = emptyList(), content: @
     Column {
         title?.let { Text(it, color = ink.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 28.dp, top = 8.dp, bottom = 6.dp)) }
         Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) { Column { content() } }
-        footer.forEach { Text(it, color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 6.dp)) }
+        footer.forEach { Text(it, color = ink.muted, fontSize = 13.sp, modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 6.dp)) }
     }
 }
 
