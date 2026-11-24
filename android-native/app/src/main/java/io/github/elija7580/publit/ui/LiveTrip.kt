@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -131,18 +133,26 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
     var recenter by remember { mutableStateOf(0) }
     LaunchedEffect(index, overview) { movedByHand = false }
     val heading by io.github.elija7580.publit.location.rememberHeading()
+    // Layout A (iOS #170): the stage card and, under it, the next change, always in view; the stage strip is gone,
+    // the timeline in the sheet shows every stage and change.
+    val nextChange = remember(it, overview, index, live) { LiveChange.target(if (overview) steps[live] else step, it)?.let { t -> LiveChange.of(it, t) } }
     val sheet = rememberBottomSheetScaffoldState()
     var menu by remember { mutableStateOf(false) }
     BottomSheetScaffold(
         scaffoldState = sheet,
-        sheetPeekHeight = 236.dp,
+        sheetPeekHeight = if (nextChange != null) 264.dp else 188.dp,
         sheetContainerColor = ink.ground,
         sheetShadowElevation = 8.dp,
         sheetContent = {
             Column(Modifier.fillMaxHeight(0.88f)) {
-                StageStrip(steps, it, trip.toName, live, shown) { i -> show(i) }
-                Spacer(Modifier.height(8.dp))
                 StagePager(steps, it, trip.toName, live, now, shown) { i -> show(i) }
+                nextChange?.let { c ->
+                    Spacer(Modifier.height(8.dp))
+                    NextChangeCard(c) {
+                        // Open the change itself: the wait for the next vehicle, with its platform.
+                        steps.indexOfFirst { s -> s.kind == GuideStep.Kind.WAIT && s.legIndex == c.index }.takeIf { i -> i >= 0 }?.let { i -> show(i) }
+                    }
+                }
                 Spacer(Modifier.height(10.dp))
                 LazyColumn(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 32.dp)) {
                     if (wrongMessage != null) item("wrong") {
@@ -162,11 +172,6 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
                             }
                         }
                     }
-                    if (overview) item("overview") {
-                        Section(L10n.t("Trip overview")) {
-                            for (i in steps.indices) StageRow(steps[i], it, trip.toName, i + 1, steps.size, i == live, i < live, false) { show(i) }
-                        }
-                    }
                     if (!overview) item("stage") {
                         Section(null) {
                             when (step.kind) {
@@ -183,6 +188,16 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
                             val stops = leg.allStops
                             val p = ride ?: TripProgress.NotStarted
                             stops.forEachIndexed { i, s -> GuideStopRow(s, stopState(i, p, stops.size), i == 0, i == stops.lastIndex, lineStroke(leg, ink.dark)) }
+                        }
+                    }
+                    // The whole trip as a timeline: every stage, each change as its own row; a tap shows that stage.
+                    item("timeline") {
+                        Section(L10n.t("Trip overview")) {
+                            for (i in steps.indices) {
+                                val s = steps[i]
+                                if (s.kind == GuideStep.Kind.WAIT) LiveChange.of(it, s.legIndex)?.let { c -> LiveChangeRow(c, i < live) { show(i) } }
+                                StageRow(s, it, trip.toName, i + 1, steps.size, i == live, i < live, !overview && i == index) { show(i) }
+                            }
                         }
                     }
                     if (onDetails != null) item("details") {
@@ -327,34 +342,6 @@ private fun span(step: GuideStep, leg: Leg) = if (step.kind == GuideStep.Kind.AR
 private fun SignatureDot(size: Int) = Box(Modifier.size(size.dp).background(Color(0xFFFFC21A), CircleShape))
 
 /** The stages as a row of chips: done, now (yellow dot), ahead. */
-@Composable
-private fun StageStrip(steps: List<GuideStep>, it: Itinerary, destination: String, live: Int, shown: Int?, onTap: (Int) -> Unit) {
-    val ink = LocalInk.current
-    val scroll = rememberScrollState()
-    Row(Modifier.fillMaxWidth().horizontalScroll(scroll).padding(horizontal = 12.dp).height(38.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        steps.forEachIndexed { i, step ->
-            if (i > 0) Icon(Icons.Filled.ChevronRight, null, tint = ink.hairline, modifier = Modifier.size(14.dp))
-            val leg = it.legs[step.legIndex]
-            val selected = i == shown
-            Row(Modifier.clip(RoundedCornerShape(50)).background(if (selected) ink.fill else Color.Transparent)
-                .border(1.dp, if (selected) ink.ink.copy(alpha = 0.5f) else ink.hairline, RoundedCornerShape(50))
-                .clickable { onTap(i) }.padding(horizontal = 8.dp, vertical = 6.dp)
-                .then(if (i < live) Modifier.alpha(0.5f) else Modifier),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                when (step.kind) {
-                    GuideStep.Kind.WALK -> { Icon(stageIcon(step), stageLabel(step, it, destination), Modifier.size(16.dp)); Text("${max(1, leg.duration / 60)}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
-                    GuideStep.Kind.WAIT -> { Icon(stageIcon(step), stageLabel(step, it, destination), Modifier.size(16.dp)); Text(Fmt.time(leg.startTime, leg.from.tz), fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
-                    GuideStep.Kind.RIDE -> LineBadge(leg)
-                    GuideStep.Kind.ARRIVE -> Icon(stageIcon(step), stageLabel(step, it, destination), Modifier.size(16.dp))
-                }
-                if (i == live) SignatureDot(7)
-            }
-        }
-    }
-    LaunchedEffect(shown) { shown?.let { s -> scroll.animateScrollTo((scroll.maxValue * s / max(1, steps.lastIndex))) } }
-}
-
 /** Big cards to swipe through: the whole trip first, then one per stage. */
 @Composable
 private fun StagePager(steps: List<GuideStep>, it: Itinerary, destination: String, live: Int, now: Instant, shown: Int?, onShow: (Int?) -> Unit) {
@@ -395,7 +382,8 @@ private fun StagePager(steps: List<GuideStep>, it: Itinerary, destination: Strin
                 val isNow = i == live
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text((if (isNow) L10n.t("now").uppercase() + " · " else "") + "${i + 1}/${steps.size}", color = ink.muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp)
+                        // "Now" only on the stage you are on; no "3/8" counters (docs/design).
+                        if (isNow) Text(L10n.t("now").replaceFirstChar { c -> c.uppercase() }, color = ink.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         if (step.kind == GuideStep.Kind.RIDE || step.kind == GuideStep.Kind.WAIT) LineBadge(leg) else Icon(stageIcon(step), null, tint = ink.muted, modifier = Modifier.size(14.dp))
                         if (isNow) SignatureDot(7)
                     }
@@ -429,8 +417,7 @@ private fun StageRow(step: GuideStep, it: Itinerary, destination: String, number
             Text(stageLabel(step, it, destination), fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 2)
             Text(span(step, leg) + if (step.kind != GuideStep.Kind.ARRIVE) " · " + Fmt.duration(leg.duration) else "", color = ink.muted, fontSize = 12.sp)
         }
-        if (live) { SignatureDot(9); Spacer(Modifier.width(8.dp)) }
-        Text("$number/$count", color = ink.muted, fontSize = 11.sp)
+        if (live) SignatureDot(9)
     }
 }
 
@@ -714,4 +701,106 @@ private fun GuideMap(it: Itinerary, steps: List<GuideStep>, live: Int, shown: In
         }
     }
     PublitMap(content, camera, modifier, L10n.t("Trip overview"), base = base, onUserMove = onUserMove)
+}
+
+
+/** A change on the live trip (NextChangeCard / LiveChanges on iOS): where, minutes to spare, platforms, line, how sure. */
+private data class LiveChange(val index: Int, val stop: String, val spareSeconds: Int, val fromTrack: String?, val toTrack: String?,
+                              val toLine: String, val cancelled: Boolean, val chance: SmartRouting.Change?) {
+    val missed get() = spareSeconds < 0
+    val tight get() = spareSeconds < 120
+
+    companion object {
+        /** The transit leg whose change matters from this stage on: while waiting at a change the change itself, else the next one. */
+        fun target(step: GuideStep, it: Itinerary): Int? {
+            if (step.kind == GuideStep.Kind.ARRIVE) return null
+            if (step.kind == GuideStep.Kind.WAIT && of(it, step.legIndex) != null) return step.legIndex
+            return it.legs.indices.firstOrNull { j -> j > step.legIndex && it.legs[j].isTransit && of(it, j) != null }
+        }
+
+        /** The change into the transit leg at `index`, or null when no vehicle comes before it. */
+        fun of(it: Itinerary, index: Int): LiveChange? {
+            val leg = it.legs.getOrNull(index)?.takeIf { l -> l.isTransit } ?: return null
+            val p = (index - 1 downTo 0).firstOrNull { j -> it.legs[j].isTransit } ?: return null
+            val arriving = it.legs[p]
+            val walk = (p + 1 until index).sumOf { j -> it.legs[j].duration }
+            return LiveChange(index, arriving.to.name, (leg.startTime.epochSecond - arriving.endTime.epochSecond).toInt() - walk,
+                arriving.to.track?.takeIf { t -> t.isNotBlank() }, leg.from.track?.takeIf { t -> t.isNotBlank() }, leg.lineName,
+                arriving.cancelled == true || leg.cancelled == true,
+                runCatching { SmartRouting.changes(it).firstOrNull { c -> c.outgoingIndex == index } }.getOrNull())
+        }
+    }
+
+    fun verdict(): String? = chance?.let { c ->
+        if (c.source == SmartRouting.Change.Source.ThroughRun) L10n.t("Stay on board") else when (c.level) {
+            SmartRouting.Change.Level.SAFE -> L10n.t("Safe change")
+            SmartRouting.Change.Level.LIKELY -> L10n.t("Change should work")
+            SmartRouting.Change.Level.RISKY -> L10n.t("Risky change")
+        }
+    }
+
+    /** "Pl. 2 → Pl. 3 · R 1990 · Safe change". */
+    fun detail(): String {
+        val f = fromTrack?.let { t -> L10n.f("Pl. %@", t) }
+        val t = toTrack?.let { x -> L10n.f("Pl. %@", x) }
+        val platforms = when { f != null && t != null -> "$f → $t"; t != null -> "→ $t"; else -> f }
+        return listOfNotNull(platforms, toLine, verdict()).joinToString(" · ")
+    }
+
+    fun spare(): String = when {
+        cancelled -> L10n.t("Connection cancelled")
+        missed -> L10n.f("Change at %@ no longer works", stop)
+        spareSeconds >= 60 -> L10n.f("%@ to spare", Fmt.duration(spareSeconds))
+        else -> L10n.t("Very tight change")
+    }
+}
+
+/** Green, orange or red only when it means something: sure, tight, broken. */
+@Composable
+private fun changeTint(c: LiveChange): Color {
+    val ink = LocalInk.current
+    return when {
+        c.cancelled || c.missed || c.chance?.level == SmartRouting.Change.Level.RISKY -> ink.danger
+        c.tight || c.chance?.level == SmartRouting.Change.Level.LIKELY -> ink.delay
+        c.chance?.level == SmartRouting.Change.Level.SAFE -> ink.live
+        else -> ink.ink
+    }
+}
+
+/** The next change under the stage card; a tap opens it. */
+@Composable
+private fun NextChangeCard(c: LiveChange, onTap: () -> Unit) {
+    val ink = LocalInk.current
+    val tint = changeTint(c)
+    Row(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(68.dp).clip(RoundedCornerShape(22.dp)).background(ink.surface)
+        .border(1.dp, ink.hairline, RoundedCornerShape(22.dp)).clickable(onClick = onTap).padding(horizontal = 14.dp, vertical = 10.dp)
+        .semantics(mergeDescendants = true) { contentDescription = listOf(L10n.f("Change at %@", c.stop), c.spare(), c.detail()).joinToString(", ") },
+        verticalAlignment = Alignment.CenterVertically) {
+        Icon(if (tint == ink.danger) Icons.Filled.Warning else Icons.Filled.SwapHoriz, null, tint = tint, modifier = Modifier.size(26.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(L10n.f("Change at %@", c.stop), fontWeight = FontWeight.SemiBold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(c.detail(), color = ink.muted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        if (!c.cancelled && !c.missed) Column(horizontalAlignment = Alignment.End) {
+            Text("${max(0, c.spareSeconds / 60)}", fontSize = 24.sp, fontWeight = FontWeight.Black, color = tint)
+            Text("min", color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+/** A change as its own row in the timeline. */
+@Composable
+private fun LiveChangeRow(c: LiveChange, done: Boolean, onClick: () -> Unit) {
+    val ink = LocalInk.current
+    val tint = changeTint(c)
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp).then(if (done) Modifier.alpha(0.5f) else Modifier),
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.widthIn(min = 32.dp)) { Icon(if (tint == ink.danger) Icons.Filled.Warning else Icons.Filled.SwapHoriz, null, tint = tint) }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(L10n.f("Change at %@", c.stop), fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 2)
+            Text(c.spare() + " · " + c.detail(), color = ink.muted, fontSize = 13.sp)
+        }
+    }
 }

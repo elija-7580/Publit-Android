@@ -24,6 +24,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Sensors
@@ -82,167 +91,259 @@ fun SettingsScreen(prefs: SharedPreferences, onWishes: () -> Unit = {}, onSuppor
     val context = LocalContext.current
     fun open(url: String) = runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     var startTab by remember { mutableStateOf(prefs.getString(START_TAB_KEY, "nearby") ?: "nearby") }
+    var page by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<SettingsCategory?>(null) }
+    var query by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    if (page != null) androidx.activity.compose.BackHandler { page = null }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, L10n.t("Back")) }
-            Text(L10n.t("Settings"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+            IconButton(onClick = { if (page != null) page = null else onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, L10n.t("Back")) }
+            Text(page?.title ?: L10n.t("Settings"), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
         }
+        // Layout A (iOS #170): a start page with search, the community card and the categories; each category is a
+        // short page of its own with the groups it always had. The search finds every single setting.
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
-            item {
-                Group(null) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        PublitAppIcon(56.dp)
-                        Spacer(Modifier.width(14.dp))
-                        Column {
-                            Text("Publit", fontWeight = FontWeight.Bold, fontSize = 22.sp)
-                            Text(L10n.t("Public transport, without the noise."), color = ink.muted, fontSize = 14.sp)
+            if (page == null) {
+                item {
+                    androidx.compose.material3.OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                        placeholder = { Text(L10n.t("Search settings")) }, singleLine = true, shape = RoundedCornerShape(14.dp),
+                        leadingIcon = { Icon(Icons.Filled.Search, null) },
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(focusedContainerColor = ink.fill, unfocusedContainerColor = ink.fill,
+                            focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent))
+                }
+                if (query.isBlank()) {
+                item {
+                    Text(L10n.t("Community"), color = ink.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 28.dp, top = 8.dp, bottom = 6.dp))
+                    CommunityCard(onWishes, onSupport, Modifier.padding(horizontal = 12.dp))
+                }
+                    item {
+                        Group(null) {
+                            SettingsCategory.entries.forEachIndexed { i, c ->
+                                if (i > 0) Line()
+                                CategoryRow(c) { page = c }
+                            }
                         }
                     }
-                }
-            }
-            // Publit is a community project: what comes next is voted on, so this comes first.
-            item {
-                Text(L10n.t("Community"), color = ink.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 28.dp, top = 8.dp, bottom = 6.dp))
-                CommunityCard(onWishes, onSupport, Modifier.padding(horizontal = 12.dp))
-            }
-            item {
-                Group(L10n.t("General")) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(L10n.t("Start screen"), fontSize = 16.sp)
-                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                            listOf("nearby" to L10n.t("Nearby"), "plan" to L10n.t("Plan")).forEachIndexed { i, (k, t) ->
-                                SegmentedButton(startTab == k, { startTab = k; prefs.edit().putString(START_TAB_KEY, k).apply() },
-                                    SegmentedButtonDefaults.itemShape(i, 2)) { Text(t) }
+                } else {
+                    val hits = SettingsCategory.search(query)
+                    item {
+                        Group(null) {
+                            if (hits.isEmpty()) Text(L10n.t("No settings match your search."), color = ink.muted, modifier = Modifier.padding(16.dp))
+                            hits.forEachIndexed { i, (title, c) ->
+                                if (i > 0) Line()
+                                Column(Modifier.fillMaxWidth().clickable { page = c }.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                                    Text(title, fontSize = 15.sp)
+                                    Text(c.title, color = ink.muted, fontSize = 13.sp)
+                                }
                             }
                         }
                     }
                 }
             }
-            item { Box(Modifier.padding(horizontal = 12.dp)) { SmartRoutingSettings() } }
-            // When the get-off reminder of a started trip comes (iOS #69); by location unless "By the clock only".
-            item {
-                var getOff by remember { mutableStateOf(io.github.elija7580.publit.data.GetOffAlert.current(prefs)) }
-                val askLocation = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {
-                    io.github.elija7580.publit.notify.GetOffService.sync(context)
-                }
-                Box(Modifier.padding(horizontal = 12.dp)) {
-                    OptionGroup(L10n.t("Started trips"), L10n.t("Uses your location during the ride, also with the screen locked, so the alert comes on time even when the vehicle is early or late. Without a reliable location it comes about two minutes before the arrival. The location stays on your iPhone.").replace("iPhone", "Android")) {
-                        Text(L10n.t("Get-off alert"), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
-                        io.github.elija7580.publit.data.GetOffAlert.entries.forEach { a ->
-                            Row(Modifier.fillMaxWidth().clickable {
-                                getOff = a; prefs.edit().putString(io.github.elija7580.publit.data.GetOffAlert.KEY, a.raw).apply()
-                                if (a.usesLocation && !io.github.elija7580.publit.notify.GetOffService.hasLocation(context)) askLocation.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
-                                else io.github.elija7580.publit.notify.GetOffService.sync(context)
-                            }.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                androidx.compose.material3.RadioButton(selected = getOff == a, onClick = null,
-                                    colors = androidx.compose.material3.RadioButtonDefaults.colors(selectedColor = ink.ink), modifier = Modifier.padding(8.dp))
-                                Text(L10n.t(a.title))
+            if (page == SettingsCategory.GENERAL) {
+                item {
+                    Group(L10n.t("General")) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(L10n.t("Start screen"), fontSize = 16.sp)
+                            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                                listOf("nearby" to L10n.t("Nearby"), "plan" to L10n.t("Plan")).forEachIndexed { i, (k, t) ->
+                                    SegmentedButton(startTab == k, { startTab = k; prefs.edit().putString(START_TAB_KEY, k).apply() },
+                                        SegmentedButtonDefaults.itemShape(i, 2)) { Text(t) }
+                                }
                             }
                         }
                     }
                 }
             }
-            item {
-                var alerts by remember { mutableStateOf(io.github.elija7580.publit.notify.LineAlerts.enabled(context)) }
-                val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok ->
-                    alerts = ok; io.github.elija7580.publit.notify.LineAlerts.setEnabled(context, ok)
+            if (page == SettingsCategory.TRAVEL) {
+                item { Box(Modifier.padding(horizontal = 12.dp)) { SmartRoutingSettings() } }
+                // When the get-off reminder of a started trip comes (iOS #69); by location unless "By the clock only".
+                item {
+                    var getOff by remember { mutableStateOf(io.github.elija7580.publit.data.GetOffAlert.current(prefs)) }
+                    val askLocation = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {
+                        io.github.elija7580.publit.notify.GetOffService.sync(context)
+                    }
+                    Box(Modifier.padding(horizontal = 12.dp)) {
+                        OptionGroup(L10n.t("Started trips"), L10n.t("Uses your location during the ride, also with the screen locked, so the alert comes on time even when the vehicle is early or late. Without a reliable location it comes about two minutes before the arrival. The location stays on your iPhone.").replace("iPhone", "Android")) {
+                            Text(L10n.t("Get-off alert"), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
+                            io.github.elija7580.publit.data.GetOffAlert.entries.forEach { a ->
+                                Row(Modifier.fillMaxWidth().clickable {
+                                    getOff = a; prefs.edit().putString(io.github.elija7580.publit.data.GetOffAlert.KEY, a.raw).apply()
+                                    if (a.usesLocation && !io.github.elija7580.publit.notify.GetOffService.hasLocation(context)) askLocation.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                                    else io.github.elija7580.publit.notify.GetOffService.sync(context)
+                                }.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    androidx.compose.material3.RadioButton(selected = getOff == a, onClick = null,
+                                        colors = androidx.compose.material3.RadioButtonDefaults.colors(selectedColor = ink.ink), modifier = Modifier.padding(8.dp))
+                                    Text(L10n.t(a.title))
+                                }
+                            }
+                        }
+                    }
                 }
-                Box(Modifier.padding(horizontal = 12.dp)) {
-                    OptionGroup(L10n.t("Notifications"), L10n.t("Publit checks your saved lines when you open it and from time to time in the background (iOS decides when), and tells you about alerts and cancelled departures.").replace(" (iOS decides when)", "")) {
-                        SwitchRow(L10n.t("Disruptions on saved lines"), alerts) { on ->
-                            if (on && android.os.Build.VERSION.SDK_INT >= 33 && !io.github.elija7580.publit.notify.TripNotifications.allowed(context)) ask.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                            else { alerts = on; io.github.elija7580.publit.notify.LineAlerts.setEnabled(context, on) }
+                item {
+                    var timelines by remember { mutableStateOf(prefs.getBoolean("showTimelines", false)) }
+                    var guide by remember { mutableStateOf(false) }
+                    Group(L10n.t("Travel preferences")) {
+                        SwitchRow(L10n.t("Show connection timelines"), timelines) { timelines = it; prefs.edit().putBoolean("showTimelines", it).apply() }
+                        Line()
+                        LinkRow(L10n.t("How to read connections")) { guide = true }
+                    }
+                    if (guide) ConnectionGuide { guide = false }
+                }
+            }
+            if (page == SettingsCategory.MAP) {
+                item {
+                    var dirApp by remember { mutableStateOf(io.github.elija7580.publit.DirectionsApp.current(context)) }
+                    var nearbyMap by remember { mutableStateOf(prefs.getBoolean(NEARBY_MAP_KEY, true)) }
+                    Group(L10n.t("Nearby"), footer = listOf(L10n.t("The map fills the screen and the departures sit in a panel you pull up, with “Where to now?” always on top. Off: just the list."))) {
+                        SwitchRow(L10n.t("Map"), nearbyMap) { nearbyMap = it; prefs.edit().putBoolean(NEARBY_MAP_KEY, it).apply() }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Group(L10n.t("Map")) {
+                        Text(L10n.t("Open directions in"), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(16.dp)) {
+                            io.github.elija7580.publit.DirectionsApp.choices.forEachIndexed { i, (k, t) ->
+                                SegmentedButton(dirApp == k, { dirApp = k; prefs.edit().putString("directionsApp", k).apply() }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(t, maxLines = 1, fontSize = 12.sp) }
+                            }
                         }
                     }
                 }
             }
-            item {
-                Group(L10n.t("Data"), footer = listOf(
-                    L10n.t("Times marked live come from the operator's real-time feed; all others are timetable times."),
-                    L10n.t("All information without guarantee. Times, platforms and prices come from the operators' open data and can change at short notice."))) {
-                    LinkRow(L10n.t("Routing and timetables: Transitous and its data sources")) { open("https://transitous.org/sources/") }
-                    Line()
-                    LinkRow(L10n.t("Map data © OpenStreetMap contributors")) { open("https://www.openstreetmap.org/copyright") }
-                    Line()
-                    var extra by remember { mutableStateOf(prefs.getBoolean("extraLiveSources", true)) }
-                    SwitchRow(L10n.t("Live data from more operators"), extra) {
-                        extra = it; prefs.edit().putBoolean("extraLiveSources", it).apply(); io.github.elija7580.publit.live.LiveOverlay.enabled = it
+            if (page == SettingsCategory.NOTIFICATIONS) {
+                item {
+                    var alerts by remember { mutableStateOf(io.github.elija7580.publit.notify.LineAlerts.enabled(context)) }
+                    val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok ->
+                        alerts = ok; io.github.elija7580.publit.notify.LineAlerts.setEnabled(context, ok)
                     }
-                    Line()
-                    var sources by remember { mutableStateOf(false) }
-                    LinkRow(L10n.t("Live data sources")) { sources = !sources }
-                    if (sources) Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("Transitous" to ("Europe and beyond" to "Routes, timetables and live times where operators publish them"),
-                            "Wiener Linien" to ("Vienna" to "Live departures, disruptions, lifts out of service"),
-                            "ÖBB" to ("Austria" to "Trains, and buses and trams where reported: delays, cancellations, construction work"),
-                            "search.ch" to ("Switzerland" to "Delays, cancellations and track changes of trains, trams, buses and boats"),
-                            "VRR" to ("North Rhine-Westphalia" to "Live times of buses, trams and trains where Transitous has none"),
-                            "VBB" to ("Berlin and Brandenburg" to "Live times of buses, trams and trains where Transitous has none"),
-                            "RMV" to ("Hesse" to "Live times of buses, trams and trains where Transitous has none"),
-                            "VBN" to ("Lower Saxony and Bremen" to "Live times of buses, trams and trains where Transitous has none"),
-                            "NAH.SH" to ("Schleswig-Holstein" to "Live times of buses, trams and trains where Transitous has none"),
-                            "VRN" to ("Rhineland-Palatinate" to "Live times of buses, trams and trains where Transitous has none"),
-                            "ACTV" to ("Venice" to "Live times of waterbuses and buses"),
-                            "SL" to ("Stockholm" to "Live departures and disruptions"),
-                            "TfL" to ("London" to "Line status and disruptions (Powered by TfL Open Data)"),
-                        ).forEach { (n, d) ->
-                            Column { Text(n + " · " + L10n.t(d.first), fontWeight = FontWeight.SemiBold, fontSize = 14.sp); Text(L10n.t(d.second), color = ink.muted, fontSize = 12.sp) }
-                        }
-                        Text(L10n.t("The extra operators only get the stop, line and time of a ride, never your location or account."), color = ink.muted, fontSize = 12.sp)
-                    }
-                }
-            }
-            item {
-                var dirApp by remember { mutableStateOf(io.github.elija7580.publit.DirectionsApp.current(context)) }
-                var timelines by remember { mutableStateOf(prefs.getBoolean("showTimelines", false)) }
-                var guide by remember { mutableStateOf(false) }
-                Group(L10n.t("Travel preferences")) {
-                    SwitchRow(L10n.t("Show connection timelines"), timelines) { timelines = it; prefs.edit().putBoolean("showTimelines", it).apply() }
-                    Line()
-                    LinkRow(L10n.t("How to read connections")) { guide = true }
-                }
-                if (guide) ConnectionGuide { guide = false }
-                Spacer(Modifier.height(12.dp))
-                var nearbyMap by remember { mutableStateOf(prefs.getBoolean(NEARBY_MAP_KEY, true)) }
-                Group(L10n.t("Nearby"), footer = listOf(L10n.t("The map fills the screen and the departures sit in a panel you pull up, with “Where to now?” always on top. Off: just the list."))) {
-                    SwitchRow(L10n.t("Map"), nearbyMap) { nearbyMap = it; prefs.edit().putBoolean(NEARBY_MAP_KEY, it).apply() }
-                }
-                Spacer(Modifier.height(12.dp))
-                Group(L10n.t("Map")) {
-                    Text(L10n.t("Open directions in"), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(16.dp)) {
-                        io.github.elija7580.publit.DirectionsApp.choices.forEachIndexed { i, (k, t) ->
-                            SegmentedButton(dirApp == k, { dirApp = k; prefs.edit().putString("directionsApp", k).apply() }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(t, maxLines = 1, fontSize = 12.sp) }
+                    Box(Modifier.padding(horizontal = 12.dp)) {
+                        OptionGroup(L10n.t("Notifications"), L10n.t("Publit checks your saved lines when you open it and from time to time in the background (iOS decides when), and tells you about alerts and cancelled departures.").replace(" (iOS decides when)", "")) {
+                            SwitchRow(L10n.t("Disruptions on saved lines"), alerts) { on ->
+                                if (on && android.os.Build.VERSION.SDK_INT >= 33 && !io.github.elija7580.publit.notify.TripNotifications.allowed(context)) ask.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                else { alerts = on; io.github.elija7580.publit.notify.LineAlerts.setEnabled(context, on) }
+                            }
                         }
                     }
                 }
             }
-            item {
-                Group(L10n.t("Data")) {
-                    LinkRow(L10n.t("Export my data")) { io.github.elija7580.publit.DataExport.share(context) }
+            if (page == SettingsCategory.DATA) {
+                item {
+                    Group(L10n.t("Data"), footer = listOf(
+                        L10n.t("Times marked live come from the operator's real-time feed; all others are timetable times."),
+                        L10n.t("All information without guarantee. Times, platforms and prices come from the operators' open data and can change at short notice."))) {
+                        LinkRow(L10n.t("Routing and timetables: Transitous and its data sources")) { open("https://transitous.org/sources/") }
+                        Line()
+                        LinkRow(L10n.t("Map data © OpenStreetMap contributors")) { open("https://www.openstreetmap.org/copyright") }
+                        Line()
+                        var extra by remember { mutableStateOf(prefs.getBoolean("extraLiveSources", true)) }
+                        SwitchRow(L10n.t("Live data from more operators"), extra) {
+                            extra = it; prefs.edit().putBoolean("extraLiveSources", it).apply(); io.github.elija7580.publit.live.LiveOverlay.enabled = it
+                        }
+                        Line()
+                        var sources by remember { mutableStateOf(false) }
+                        LinkRow(L10n.t("Live data sources")) { sources = !sources }
+                        if (sources) Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("Transitous" to ("Europe and beyond" to "Routes, timetables and live times where operators publish them"),
+                                "Wiener Linien" to ("Vienna" to "Live departures, disruptions, lifts out of service"),
+                                "ÖBB" to ("Austria" to "Trains, and buses and trams where reported: delays, cancellations, construction work"),
+                                "search.ch" to ("Switzerland" to "Delays, cancellations and track changes of trains, trams, buses and boats"),
+                                "VRR" to ("North Rhine-Westphalia" to "Live times of buses, trams and trains where Transitous has none"),
+                                "VBB" to ("Berlin and Brandenburg" to "Live times of buses, trams and trains where Transitous has none"),
+                                "RMV" to ("Hesse" to "Live times of buses, trams and trains where Transitous has none"),
+                                "VBN" to ("Lower Saxony and Bremen" to "Live times of buses, trams and trains where Transitous has none"),
+                                "NAH.SH" to ("Schleswig-Holstein" to "Live times of buses, trams and trains where Transitous has none"),
+                                "VRN" to ("Rhineland-Palatinate" to "Live times of buses, trams and trains where Transitous has none"),
+                                "ACTV" to ("Venice" to "Live times of waterbuses and buses"),
+                                "SL" to ("Stockholm" to "Live departures and disruptions"),
+                                "TfL" to ("London" to "Line status and disruptions (Powered by TfL Open Data)"),
+                            ).forEach { (n, d) ->
+                                Column { Text(n + " · " + L10n.t(d.first), fontWeight = FontWeight.SemiBold, fontSize = 14.sp); Text(L10n.t(d.second), color = ink.muted, fontSize = 12.sp) }
+                            }
+                            Text(L10n.t("The extra operators only get the stop, line and time of a ride, never your location or account."), color = ink.muted, fontSize = 12.sp)
+                        }
+                    }
+                }
+                item {
+                    Group(L10n.t("Data")) {
+                        LinkRow(L10n.t("Export my data")) { io.github.elija7580.publit.DataExport.share(context) }
+                    }
                 }
             }
-            item {
-                var crashes by remember { mutableStateOf(if (io.github.elija7580.publit.CrashLog(context).peek() != null) 1 else 0) }
-                Group(L10n.t("Diagnostics"), footer = listOf(L10n.t("Diagnostics stay on this device until you share them. They contain no places, stops or tickets."))) {
-                    Text(L10n.f("Crashes: %lld", crashes), modifier = Modifier.padding(16.dp))
-                    Line()
-                    LinkRow(L10n.t("Share diagnostics")) { io.github.elija7580.publit.DataExport.shareDiagnostics(context) }
-                    Line()
-                    LinkRow(L10n.t("Report a problem")) { open("$REPOSITORY/issues/new") }
-                    Line()
-                    LinkRow(L10n.t("Delete diagnostics")) { io.github.elija7580.publit.CrashLog(context).clear(); crashes = 0 }
+            if (page == SettingsCategory.DIAGNOSTICS) {
+                item {
+                    var crashes by remember { mutableStateOf(if (io.github.elija7580.publit.CrashLog(context).peek() != null) 1 else 0) }
+                    Group(L10n.t("Diagnostics"), footer = listOf(L10n.t("Diagnostics stay on this device until you share them. They contain no places, stops or tickets."))) {
+                        Text(L10n.f("Crashes: %lld", crashes), modifier = Modifier.padding(16.dp))
+                        Line()
+                        LinkRow(L10n.t("Share diagnostics")) { io.github.elija7580.publit.DataExport.shareDiagnostics(context) }
+                        Line()
+                        LinkRow(L10n.t("Report a problem")) { open("$REPOSITORY/issues/new") }
+                        Line()
+                        LinkRow(L10n.t("Delete diagnostics")) { io.github.elija7580.publit.CrashLog(context).clear(); crashes = 0 }
+                    }
                 }
             }
-            item {
-                Group(L10n.t("About"), footer = listOf(
-                    L10n.t("Publit is open source (MIT). No account, no ads, no tracking. Saved places and trips stay on this device."),
-                    "Publit ${BuildConfigInfo.version}")) {
-                    LinkRow(L10n.t("Source code and feedback")) { open(REPOSITORY) }
-                    Line()
-                    LinkRow(L10n.t("Privacy policy")) { open("https://elija-7580.github.io/publit-site/privacy/") }
+            if (page == SettingsCategory.ABOUT) {
+                item {
+                    Group(null) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            PublitAppIcon(56.dp)
+                            Spacer(Modifier.width(14.dp))
+                            Column {
+                                Text("Publit", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                                Text(L10n.t("Public transport, without the noise."), color = ink.muted, fontSize = 14.sp)
+                            }
+                        }
+                    }
+                }
+                // Publit is a community project: what comes next is voted on, so this comes first.
+                item {
+                    Group(L10n.t("About"), footer = listOf(
+                        L10n.t("Publit is open source (MIT). No account, no ads, no tracking. Saved places and trips stay on this device."),
+                        "Publit ${BuildConfigInfo.version}")) {
+                        LinkRow(L10n.t("Source code and feedback")) { open(REPOSITORY) }
+                        Line()
+                        LinkRow(L10n.t("Privacy policy")) { open("https://elija-7580.github.io/publit-site/privacy/") }
+                    }
                 }
             }
+        }
+    }
+}
+
+/** One category on the start page: a symbol in a soft tile, the name, and a chevron (opens a page). */
+@Composable
+private fun CategoryRow(c: SettingsCategory, onClick: () -> Unit) {
+    val ink = LocalInk.current
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(ink.fill), contentAlignment = Alignment.Center) {
+            Icon(c.icon, null, Modifier.size(16.dp), tint = ink.ink)
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(c.title, fontSize = 16.sp, modifier = Modifier.weight(1f))
+        Icon(Icons.Filled.ChevronRight, null, tint = ink.muted)
+    }
+}
+
+/** The pages of Settings (SettingsCategory on iOS) and the settings on each, by their words on screen, for the search. */
+enum class SettingsCategory(private val key: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, private val settings: List<String>) {
+    GENERAL("General", Icons.Filled.Settings, listOf("Start screen")),
+    TRAVEL("Travel preferences", Icons.AutoMirrored.Filled.DirectionsWalk, listOf("Smart routing", "Started trips", "Get-off alert", "Show connection timelines", "How to read connections")),
+    MAP("Map", Icons.Filled.Map, listOf("Nearby", "Open directions in")),
+    NOTIFICATIONS("Notifications", Icons.Filled.Notifications, listOf("Disruptions on saved lines")),
+    DATA("Data", Icons.Filled.Storage, listOf("Live data from more operators", "Live data sources", "Export my data")),
+    DIAGNOSTICS("Diagnostics", Icons.Filled.BugReport, listOf("Share diagnostics", "Report a problem", "Delete diagnostics")),
+    ABOUT("About", Icons.Filled.Info, listOf("Source code and feedback", "Privacy policy"));
+
+    val title: String get() = L10n.t(key)
+
+    companion object {
+        /** Settings whose name (or page name) contains every word typed, ignoring case and accents. */
+        fun search(query: String): List<Pair<String, SettingsCategory>> {
+            fun norm(x: String) = java.text.Normalizer.normalize(x, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").lowercase()
+            val words = query.split(Regex("\\s+")).filter { it.isNotBlank() }.map(::norm)
+            if (words.isEmpty()) return emptyList()
+            val seen = HashSet<String>()
+            return entries.flatMap { c -> c.settings.map { k -> L10n.t(k) to c } }
+                .filter { (t, c) -> words.all { w -> norm(t).contains(w) || norm(c.title).contains(w) } && seen.add(t) }
         }
     }
 }
