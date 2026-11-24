@@ -58,6 +58,8 @@ data class Place(
     val alertsList get() = alerts.orEmpty()
     /** Groups platforms of one station. */
     val stationId get() = parentId ?: stopId ?: "$name@$lat,$lon"
+    /** The stop whose departure board this place opens (iOS TripView "Departures", Publit#130): the station, else the stop; none for a bare point. */
+    val boardId get() = listOf(parentId, stopId).firstOrNull { !it.isNullOrBlank() }
 }
 
 @Serializable

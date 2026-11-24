@@ -74,6 +74,35 @@ class OwnTicketsTest {
         assertFalse(o.isDefault)
     }
 
+    /** "Without long-distance trains" (iOS Publit#119, same cases as testRegionalOnlyLeavesOutLongDistanceTrains). */
+    @Test fun regionalOnlyLeavesOutLongDistanceTrains() {
+        assertFalse(RouteOptions().filtersRides)
+        val o = RouteOptions(regionalOnly = true)
+        assertTrue(o.filtersRides)
+        assertFalse(o.isDefault)
+        val modes = o.transitModesValue!!.split(",").toSet()
+        assertTrue(modes.containsAll(listOf("REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "BUS", "COACH", "SUBWAY")))
+        assertTrue(modes.none { it in setOf("RAIL", "HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL") })
+        // Ride by ride: by mode, and by name for feeds that file an IC as a plain train.
+        assertTrue(o.allows(trip(leg("REGIONAL_RAIL", "RE 5"), leg("BUS", "100"))))
+        assertTrue(o.allows(trip(leg("WALK"))))
+        assertFalse(o.allows(trip(leg("REGIONAL_RAIL", "RE 5"), leg("HIGHSPEED_RAIL", "ICE 512"))))
+        assertFalse(o.allows(trip(leg("RAIL", "IC 2012"))))
+        assertFalse(o.allows(trip(leg("NIGHT_RAIL", "NJ 40"))))
+        // Switched off, and together with other choices.
+        assertTrue(RouteOptions().allows(trip(leg("HIGHSPEED_RAIL", "ICE 512"))))
+        assertFalse(o.copy(modes = listOf("train")).transitModesValue!!.contains("BUS"))
+        // The switch wins over a ticket that covers long-distance trains.
+        assertFalse(o.copy(tickets = listOf("klimaticket")).transitModesValue!!.contains("HIGHSPEED_RAIL"))
+    }
+
+    @Test fun regionalOnlyIsStoredAndOldOptionsLoadWithoutIt() {
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        assertFalse(json.decodeFromString(RouteOptions.serializer(), """{"wheelchair":true}""").regionalOnly)
+        val o = RouteOptions(regionalOnly = true)
+        assertEquals(o, json.decodeFromString(RouteOptions.serializer(), json.encodeToString(RouteOptions.serializer(), o)))
+    }
+
     @Test fun recognise() {
         assertEquals(OwnTicket.DEUTSCHLANDTICKET, OwnTicket.recognise("Deutschland-Ticket Job"))
         assertEquals(OwnTicket.KLIMATICKET, OwnTicket.recognise("KlimaTicket Ö Classic"))

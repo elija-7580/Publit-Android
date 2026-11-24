@@ -183,6 +183,8 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
         }
         var tripTarget by remember { mutableStateOf<TripTarget?>(null) }
         val openTrip = { t: TripTarget -> tripTarget = t; nav.navigate("trip") }
+        // Each open trip screen keeps its own trip: a stop's departures opened from a trip can open another trip, and back returns to the first.
+        val tripTargets = remember { mutableMapOf<String, TripTarget>() }
         val tabs = listOf(
             Triple("nearby", L10n.t("Nearby"), androidx.compose.material.icons.Icons.Filled.NearMe),
             Triple("plan", L10n.t("Plan"), androidx.compose.material.icons.Icons.Filled.Route),
@@ -236,10 +238,11 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                         nav.navigate("stop?id=${Uri.encode(id)}&name=${Uri.encode(name)}&exact=$exact")
                     }
                 }
-                composable("trip") {
-                    val t = tripTarget
+                composable("trip") { e ->
+                    val t = tripTargets[e.id] ?: tripTarget?.also { tripTargets[e.id] = it }
                     if (t == null) LaunchedEffect(Unit) { nav.popBackStack() } else
-                    TripScreen(client, favorites, t, onBack = { nav.popBackStack() }, onTrack = { nav.navigate("trackvehicle") }) { from, to ->
+                    TripScreen(client, favorites, t, onBack = { nav.popBackStack() }, onTrack = { tripTarget = t; nav.navigate("trackvehicle") },
+                        onDepartures = { p -> p.boardId?.let { id -> nav.navigate("stop?id=${Uri.encode(id)}&name=${Uri.encode(p.name)}&exact=false") } }) { from, to ->
                         fun ep(p: io.github.elija7580.publit.data.Place) = Endpoint.At(p.name, p.coordinate)
                         plan.route(from?.let(::ep) ?: Endpoint.Here, to?.let(::ep))
                         openPlan()

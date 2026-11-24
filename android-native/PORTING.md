@@ -38,6 +38,9 @@ Two product flavors: `play` (default; Google Play and the GitHub APKs: fused loc
 | 10 | Tickets, widget, Wear OS | Tickets/*, DroidWidget.kt, Android/wear | done: tickets as passes (on-device recognition with ML Kit + the full TicketTextParser, ZXing redraw, wallet, detail at full brightness, editor with field assignment, archive, trip tickets), widget (Glance), Wear OS (module `wear/`; the trip under way from the phone via the Data Layer item `/live-trip` (`watch/WatchLink`, play flavor only): live screen `LiveTripActivity` with labelled countdown, vehicle, progress and stages, map `LiveMapActivity` (MapLibre, OpenFreeMap dark, legs in line colours, walks dotted, stops, own position; opens on the leg under way), an ongoing activity on the watch face, opens by itself when a trip starts and once each time the app comes to the front), operator logos (Wikidata/Wikimedia Commons, website icon fallback), Google Wallet export via services/google-wallet-signer (hidden until the repo variable WALLET_SIGNER_URL is set) |
 | 11 | Switch app ID to `io.github.elija7580.publit`, release signing, remove Skip port | – | app ID switched, Skip Gradle project and its workflow removed; open: Play upload key as CI secret (owner), then remove `Sources/` |
 
+## Abfahrten einer Haltestelle der Fahrt (2026-11-24, iOS #130)
+- [x] Fahrtansicht: Das Menü einer Haltestelle hat „Departures“ und öffnet deren Abfahrtstafel (Station, sonst der Halt: `Place.boardId`); Zurück führt zur Fahrt. Jede offene Fahrtansicht behält ihre eigene Fahrt (`tripTargets` in `PublitApp`), auch wenn von der Tafel aus eine andere Fahrt geöffnet wurde. Tests: `TripStopDeparturesTest`. Kein neuer Text (Schlüssel „Departures“ aus dem iOS-Katalog). Nicht am Gerät getestet.
+
 ## Verbindung selbst zusammenstellen, Ausgänge, Stationskarte (2026-11-24, iOS #142, #143, #170, Android 0.12.0)
 - [x] „Go on another way“ (#142) und „Change somewhere else“ (#143) unter jeder Fahrt der Routendetails in Planen (`data/RouteBuilder.kt`, `ui/RouteChange.kt`): Wege weiter ab dem Einstieg; oder Umstieg an einen anderen Halt der Fahrt (aus der ganzen Fahrt, auch nach dem geplanten Ausstieg) bzw. an einen gesuchten Ort / Kartenpunkt. Tests: `RouteBuilderTest`. Anders als iOS: gebaute Routen tragen keine Teile (`builtFrom`), Live-Zeiten einer gebauten Route werden nicht teilweise aktualisiert; kein Abschnittsplaner.
 - [x] Live-Fahrt: Umstiegszeile und Karte „nächster Umstieg“ nennen Zugteil und Ausgang („Front of the train · Exit B2“, `data/ExitAdvice.kt`, Port von `ExitAdvice.swift` ohne eigenen Ausgang wählen).
@@ -63,6 +66,9 @@ Two product flavors: `play` (default; Google Play and the GitHub APKs: fused loc
 - [x] „Buy ticket: …“ je Betreiber unter den Fahrt-Aktionen (`data/TicketLinks.kt`, `TicketLinksCard`): Feed-Link → Tarifseite → Website → bekannter Shop; Partnerprogramme eingebaut, aber leer (wie iOS).
 - [x] Vorausgefüllte Suche: DB öffnet bahn.de mit Start, Ziel und Abfahrt; FlixBus sucht beim Tippen die Städte-IDs (nur Haltestellennamen an FlixBus) und öffnet die Shop-Suche. Ein Verbund-Shop (MVV) schlägt die DB-Suche.
 - Offen: eigene Ticket-Apps verknüpfen, Partnerliste vom Ticket-Link-Dienst laden, Ticket-Shop im App-Kauf.
+
+## Ohne Fernzüge (2026-11-24, iOS #119)
+- [x] Routenoptionen → „Without long-distance trains“ unter den Verkehrsmitteln (`RouteOptions.regionalOnly`, Port von `TransitFilter.swift`): Die Suche fragt keine Hochgeschwindigkeits-, Fern- und Nachtzüge an (wie bei den Tickets auch kein „RAIL“), und Routen mit einem Fernzug nach Name oder Betreiber fallen aus der Antwort (`RouteOptions.allows`, `filtersRides`). Gespeichert mit den übrigen Optionen; alte Optionen laden ohne den Schalter. Tests: `OwnTicketsTest`. Zwei Texte in `tools/strings-android.json` (Übersetzungen aus dem iOS-Katalog), bis IOS_COMMIT sie enthält. Nicht am Gerät getestet.
 
 ## Feedback 2026-11-16 (iOS PR #87)
 - [x] Live-Fahrt: unter der Etappe keine Liste aller Etappen mehr; Tasten „Back to now“ und „Trip overview“; Etappenliste nur in der Übersicht
@@ -185,3 +191,8 @@ Quelle: iOS PRs #92–#94 (`DelayHistory.swift`, `TransferWalk.swift`, `SmartRou
 
 ## Design-Durchgang Tickets, Gespeichert, Station, Einstellungen, Community (2026-11-24, iOS PR #170)
 - [x] Nebenzeilen in Grau (Fußnoten, Untertitel, Hinweise) mindestens 13 sp wie `footnote` auf iOS (docs/design/README.md §9), vorher 11–12 sp.
+
+## Stationskarte flüssiger aus „In der Nähe“ (2026-11-24, iOS Build 102, Publit#173)
+- [x] `ui/NearbyMap.kt`: das Sheet mit der Liste lässt sich jetzt ganz nach unten ziehen (`skipHiddenState = false`). Erst wenn es nach dem Loslassen unten liegt, öffnet sich die Stationskarte, nie mitten im Ziehen; ein kurzes Vibrieren, sobald Loslassen sie öffnen würde. Zurück auf „In der Nähe“ steht die Liste wieder auf halber Höhe und öffnet die Karte nicht erneut. Die Liste im Kartenmodus hat kein Ziehen-zum-Aktualisieren, also kein Konflikt wie auf iOS.
+- [x] What's new Release 7, versionName 0.12.1. Strings: Titel aus dem iOS-Katalog (#173), Satz Android-eigen, beide mit 14 Übersetzungen in `tools/strings-android.json`.
+- Offen: am Gerät prüfen.
