@@ -185,3 +185,8 @@ Quelle: iOS PRs #92–#94 (`DelayHistory.swift`, `TransferWalk.swift`, `SmartRou
 
 ## Design-Durchgang Tickets, Gespeichert, Station, Einstellungen, Community (2026-11-24, iOS PR #170)
 - [x] Nebenzeilen in Grau (Fußnoten, Untertitel, Hinweise) mindestens 13 sp wie `footnote` auf iOS (docs/design/README.md §9), vorher 11–12 sp.
+
+## Stationskarte flüssiger aus „In der Nähe“ (2026-11-24, iOS Build 102, Publit#173)
+- [x] `ui/NearbyMap.kt`: das Sheet mit der Liste lässt sich jetzt ganz nach unten ziehen (`skipHiddenState = false`). Erst wenn es nach dem Loslassen unten liegt, öffnet sich die Stationskarte, nie mitten im Ziehen; ein kurzes Vibrieren, sobald Loslassen sie öffnen würde. Zurück auf „In der Nähe“ steht die Liste wieder auf halber Höhe und öffnet die Karte nicht erneut. Die Liste im Kartenmodus hat kein Ziehen-zum-Aktualisieren, also kein Konflikt wie auf iOS.
+- [x] What's new Release 7, versionName 0.12.1. Strings: Titel aus dem iOS-Katalog (#173), Satz Android-eigen, beide mit 14 Übersetzungen in `tools/strings-android.json`.
+- Offen: am Gerät prüfen.
