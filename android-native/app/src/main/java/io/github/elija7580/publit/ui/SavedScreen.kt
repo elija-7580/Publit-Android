@@ -100,7 +100,33 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
                         }
                     }
                 }
+                // Own shortcuts next to Home and Work (iOS Publit#22).
+                s.shortcuts.forEachIndexed { i, p ->
+                    Divider()
+                    var menu by remember { mutableStateOf(false) }
+                    var symbols by remember { mutableStateOf(false) }
+                    Box {
+                        KeyRow(ShortcutSymbol.icon(p.symbol), p.name, p.subtitle, onClick = { onRoute(p) }, onLong = { menu = true })
+                        DropdownMenu(menu, { menu = false }) {
+                            DropdownMenuItem({ Text(L10n.t("Symbol")) }, { menu = false; symbols = true })
+                            moveActions(i, s.shortcuts.size) { up -> store.moveShortcut(i, up) }.forEach { (t, a) -> DropdownMenuItem({ Text(t) }, { menu = false; a() }) }
+                            DropdownMenuItem({ Text(L10n.t("Remove shortcut")) }, { menu = false; store.removeShortcut(p.id) })
+                            DropdownMenuItem({ Text(L10n.t("Remove"), color = LocalInk.current.danger) }, { menu = false; store.remove(p.id) })
+                        }
+                        DropdownMenu(symbols, { symbols = false }) {
+                            ShortcutSymbol.all.forEach { (name, icon) ->
+                                DropdownMenuItem({ Icon(icon, name, tint = if (name == (p.symbol ?: ShortcutSymbol.DEFAULT)) LocalInk.current.ink else LocalInk.current.muted) },
+                                    { symbols = false; store.setSymbol(p.id, name) })
+                            }
+                        }
+                    }
+                }
+                Divider()
+                KeyRow(Icons.Filled.Add, L10n.t("Add shortcut"), null,
+                    onClick = { onSearch(L10n.t("Add shortcut")) { picked -> store.addShortcut(picked, ShortcutSymbol.DEFAULT) } })
             }
+            Text(L10n.t("Shortcuts are also on the Nearby screen, in Plan and in the widget."), color = ink.muted, fontSize = 12.sp,
+                modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 6.dp))
         }
         item("trips") {
             val ts by trips.state.collectAsStateWithLifecycle()
@@ -144,7 +170,10 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
                         extra = moveActions(i, s.lines.size) { up -> store.moveLine(i, up) }) {
                         LineBadge(line)
                         Spacer(Modifier.width(10.dp))
-                        Text(L10n.f("At %@", line.stopName), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Column {
+                            Text(L10n.f("At %@", line.stopName), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            line.headsign?.let { Text("→ $it", color = ink.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        }
                     }
                 }
             }
@@ -170,7 +199,8 @@ fun SavedScreen(store: FavoritesStore, trips: io.github.elija7580.publit.data.Tr
                 s.places.forEachIndexed { i, p ->
                     if (i > 0) Divider()
                     RemovableRow(onClick = { onRoute(p) }, onRemove = { store.remove(p.id) },
-                        extra = listOf(L10n.t("Home") to { store.set(p, PlaceRole.HOME) }, L10n.t("Work") to { store.set(p, PlaceRole.WORK) }) +
+                        extra = listOf(L10n.t("Home") to { store.set(p, PlaceRole.HOME) }, L10n.t("Work") to { store.set(p, PlaceRole.WORK) },
+                            L10n.t("Make a shortcut") to { store.addShortcut(p, ShortcutSymbol.DEFAULT) }) +
                             moveActions(i, s.places.size) { up -> store.movePlace(i, up) }) {
                         PlaceText(Icons.Filled.Place, p)
                     }

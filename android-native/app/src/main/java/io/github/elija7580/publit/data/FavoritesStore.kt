@@ -29,8 +29,14 @@ data class SavedPlace(
     val role: PlaceRole? = null,
     /** One street stop only (one side of the road), not the whole station. */
     val exact: Boolean? = null,
+    /** A shortcut next to Home and Work (iOS Publit#22), with its own symbol (`ShortcutSymbol` name). */
+    val shortcut: Boolean? = null,
+    val symbol: String? = null,
 ) {
     val isStop: Boolean get() = stopId != null
+    val isShortcut: Boolean get() = shortcut == true && role == null
+    /** What a pinned place is called: Home, Work, or its own name. */
+    val keyTitle: String get() = role?.title ?: name
     val coordinate: LatLon get() = LatLon(lat, lon)
 
     /** Same saved thing: same ID, or the same station reached via a different stop ID. */
@@ -129,16 +135,26 @@ data class SavedLine(
     val stopName: String,
     val lat: Double,
     val lon: Double,
+    /** One direction only (iOS Publit#21): its identity (`direction`) and what it shows, e.g. "Ottakring". */
+    val directionId: String? = null,
+    val headsign: String? = null,
 ) : RouteStyled {
     /** The route identity doubles as route ID, so saved ÖBB lines show their line ("REX 4"), not one train. */
     override val routeId: String? get() = routeKey
-    val id: String get() = "$routeKey@$stopId"
+    val id: String get() = "$routeKey@$stopId" + (directionId?.let { ">$it" } ?: "")
     val coordinate: LatLon get() = LatLon(lat, lon)
-    fun matches(st: StopTime) = key(st) == routeKey
+    /** The line in both directions, as saved before directions existed. */
+    val anyDirection: SavedLine get() = copy(directionId = null, headsign = null)
+    fun matches(st: StopTime) = key(st) == routeKey && (directionId == null || direction(st) == directionId)
+
+    /** The same line at the same stop in `st`'s direction. */
+    fun towards(st: StopTime) = copy(directionId = direction(st), headsign = st.shownDirection ?: st.headsign)
 
     companion object {
         /** Route identity: the feed's route ID when present, else agency and line name. */
         fun key(st: StopTime) = TransitLabels.lineKey(st.routeId) ?: "${st.agencyName ?: ""}|${st.lineName}"
+        /** Direction identity, as the direction chips on a line. */
+        fun direction(st: StopTime) = st.directionName?.let(TransitLabels::identity) ?: st.headsign
         fun of(st: StopTime, stopId: String, stopName: String, at: LatLon) = SavedLine(key(st), st.mode, st.routeShortName,
             st.displayName, st.routeColor, st.routeTextColor, stopId, stopName, at.lat, at.lon)
     }
@@ -179,8 +195,12 @@ class FavoritesStore(private val prefs: SharedPreferences) {
     data class State(val items: List<SavedPlace> = emptyList(), val lines: List<SavedLine> = emptyList(),
                      val connections: List<SavedConnection> = emptyList()) {
         fun containsConnection(c: SavedConnection) = connections.any { it.id == c.id }
-        val stops get() = items.filter { it.isStop && it.role == null }
-        val places get() = items.filter { !it.isStop && it.role == null }
+        val stops get() = items.filter { it.isStop && it.role == null && !it.isShortcut }
+        val places get() = items.filter { !it.isStop && it.role == null && !it.isShortcut }
+        /** Own shortcuts, in their own order (iOS Publit#22). */
+        val shortcuts get() = items.filter { it.isShortcut }
+        /** Home, Work, then own shortcuts: the one-tap destinations. */
+        val pinned get() = PlaceRole.entries.mapNotNull { place(it) } + shortcuts
         fun place(role: PlaceRole) = items.firstOrNull { it.role == role }
         fun containsLine(id: String) = lines.any { it.id == id }
         fun contains(p: SavedPlace) = items.any { p.isSaved(it) }
@@ -208,11 +228,24 @@ class FavoritesStore(private val prefs: SharedPreferences) {
     fun clear(role: PlaceRole) = savePlaces(_state.value.items.filter { it.role != role })
 
     fun toggle(place: SavedPlace) = savePlaces(SavedPlaces.toggle(_state.value.items, place))
+
+    // Own shortcuts (iOS Publit#22).
+    /** Adds `place` as a shortcut, or makes the saved place one. */
+    fun addShortcut(place: SavedPlace, symbol: String) {
+        val items = _state.value.items
+        val i = items.indexOfFirst { place.isSaved(it) && it.role == null }
+        savePlaces(if (i >= 0) items.mapIndexed { j, it -> if (j == i) it.copy(shortcut = true, symbol = symbol) else it }
+            else SavedPlaces.toggle(items, place.copy(shortcut = true, symbol = symbol)))
+    }
+    /** Back to an ordinary saved place. */
+    fun removeShortcut(id: String) = savePlaces(_state.value.items.map { if (it.id == id) it.copy(shortcut = null, symbol = null) else it })
+    fun setSymbol(id: String, symbol: String) = savePlaces(_state.value.items.map { if (it.id == id) it.copy(symbol = symbol) else it })
+    fun moveShortcut(index: Int, up: Boolean) = savePlaces(SavedOrder.stepped(_state.value.items, index, up) { it.isShortcut })
     fun remove(id: String) = savePlaces(_state.value.items.filter { it.id != id })
 
     // Own order (iOS Publit#124). `index` counts within `stops`, `places` or `lines`.
-    fun moveStop(index: Int, up: Boolean) = savePlaces(SavedOrder.stepped(_state.value.items, index, up) { it.isStop && it.role == null })
-    fun movePlace(index: Int, up: Boolean) = savePlaces(SavedOrder.stepped(_state.value.items, index, up) { !it.isStop && it.role == null })
+    fun moveStop(index: Int, up: Boolean) = savePlaces(SavedOrder.stepped(_state.value.items, index, up) { it.isStop && it.role == null && !it.isShortcut })
+    fun movePlace(index: Int, up: Boolean) = savePlaces(SavedOrder.stepped(_state.value.items, index, up) { !it.isStop && it.role == null && !it.isShortcut })
     fun moveLine(index: Int, up: Boolean) = saveLines(SavedOrder.stepped(_state.value.lines, index, up) { true })
 
     // Saved connections (iOS Publit#28).

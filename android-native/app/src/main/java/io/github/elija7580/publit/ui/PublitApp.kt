@@ -190,7 +190,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
             androidx.navigation.compose.NavHost(nav, startDestination = tab, modifier = Modifier.padding(padding)) {
                 composable("nearby") {
                     NearbyScreen(vm, onOpenMap = { nav.navigate("stationmap") }, onSettings = { nav.navigate("settings") },
-                        pinned = favorites.state.collectAsStateWithLifecycle().value.let { st -> io.github.elija7580.publit.data.PlaceRole.entries.mapNotNull { st.place(it) } },
+                        pinned = favorites.state.collectAsStateWithLifecycle().value.pinned,
                         onWhereTo = { goNow.route(Endpoint.Here, null); nav.navigate("gonow") { launchSingleTop = true } },
                         nextTrip = trips.state.collectAsStateWithLifecycle().value.let { st -> st.trips.filter { t -> t.id != st.activeId && t.startTime > java.time.Instant.now() }.minByOrNull { it.startTime } },
                         onOpenSaved = { id -> nav.navigate("savedtrip?id=$id") },
@@ -439,12 +439,11 @@ private fun nearbyBoard(scope: androidx.compose.foundation.lazy.LazyListScope, s
                     if (!first) HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
                     first = false
                     Row(Modifier.fillMaxWidth().clickable { onRoute(p.name, p.coordinate) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Icon(if (p.role == io.github.elija7580.publit.data.PlaceRole.HOME) androidx.compose.material.icons.Icons.Filled.Home
-                            else androidx.compose.material.icons.Icons.Filled.Work, null, Modifier.width(20.dp))
+                        androidx.compose.material3.Icon(ShortcutSymbol.of(p), null, Modifier.width(20.dp))
                         Spacer(Modifier.width(12.dp))
-                        Text(p.role?.title ?: p.name, fontWeight = FontWeight.SemiBold)
+                        Text(p.keyTitle, fontWeight = FontWeight.SemiBold, maxLines = 1)
                         Spacer(Modifier.weight(1f))
-                        Text(p.name, color = ink.muted, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
+                        if (p.role != null) Text(p.name, color = ink.muted, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
                     }
                 }
             }

@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Star
 import kotlin.math.roundToInt
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Close
@@ -104,7 +105,7 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.gi
     var handled by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(searchRequest) }
     LaunchedEffect(searchRequest) { if (searchRequest != handled) { handled = searchRequest; searching = Field.TO } }
     val opened = state.opened
-    val pinned = io.github.elija7580.publit.data.PlaceRole.entries.mapNotNull { r -> saved.firstOrNull { it.role == r } }
+    val pinned = io.github.elija7580.publit.data.PlaceRole.entries.mapNotNull { r -> saved.firstOrNull { it.role == r } } + saved.filter { it.isShortcut }
     when {
         options -> { BackHandler { options = false }; RouteOptionsScreen(state.options, onDone = { vm.setOptions(it); options = false }) }
         searching != null -> PlaceSearch(vm, allowHere = searching == Field.FROM, onBack = { searching = null }, saved = saved, onSetRole = onSetRole, chooseOnMap = true) { e ->
@@ -179,11 +180,10 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
             }
         }
         if (pinned.isNotEmpty()) item("pinned") {
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 pinned.forEach { p ->
-                    val icon = if (p.role == io.github.elija7580.publit.data.PlaceRole.WORK) Icons.Filled.Work else Icons.Filled.Home
-                    AssistChip(onClick = { vm.setTo(Endpoint.At(p.role?.title ?: p.name, p.coordinate)) },
-                        label = { Text(p.role?.title ?: p.name) }, leadingIcon = { Icon(icon, null, Modifier.size(18.dp)) })
+                    AssistChip(onClick = { vm.setTo(Endpoint.At(p.keyTitle, p.coordinate)) },
+                        label = { Text(p.keyTitle, maxLines = 1) }, leadingIcon = { Icon(ShortcutSymbol.of(p), null, Modifier.size(18.dp)) })
                 }
             }
         }

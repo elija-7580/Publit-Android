@@ -66,8 +66,9 @@ class ShortcutsWidget : GlanceAppWidget() {
                     Tile(if (r == PlaceRole.HOME) "⌂" else "▣", r.title, p.name, "publit://go/" + if (r == PlaceRole.HOME) "home" else "work")
                 }
             }
-            val places = items.filter { it.role == null && !it.isStop }.map { p ->
-                Tile("●", p.name, null, "publit://place?name=" + java.net.URLEncoder.encode(p.name, "UTF-8").replace("+", "%20") + "&lat=" + p.lat + "&lon=" + p.lon)
+            // Own shortcuts (iOS Publit#22) before other saved places.
+            val places = items.filter { it.role == null && !it.isStop }.sortedBy { if (it.isShortcut) 0 else 1 }.map { p ->
+                Tile(if (p.isShortcut) "★" else "●", p.name, null, "publit://place?name=" + java.net.URLEncoder.encode(p.name, "UTF-8").replace("+", "%20") + "&lat=" + p.lat + "&lon=" + p.lon)
             }
             return (roles + places).take(4)
         }
