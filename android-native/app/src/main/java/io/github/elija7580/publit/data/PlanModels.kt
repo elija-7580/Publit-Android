@@ -12,6 +12,9 @@ data class EncodedPolyline(val points: String = "", val precision: Int = 6, val 
 }
 
 @Serializable
+data class TicketUrls(val ios: String? = null, val android: String? = null, val web: String? = null)
+
+@Serializable
 data class Leg(
     override val mode: String,
     val from: Place,
@@ -29,6 +32,10 @@ data class Leg(
     override val routeShortName: String? = null,
     override val displayName: String? = null,
     val agencyName: String? = null,
+    val agencyUrl: String? = null,
+    val agencyFareUrl: String? = null,
+    /** The feed's booking links (GTFS-Fares / route ticketing), if any. */
+    val ticketUrls: TicketUrls? = null,
     override val routeId: String? = null,
     val tripId: String? = null,
     val cancelled: Boolean? = null,

@@ -38,6 +38,11 @@ Two product flavors: `play` (default; Google Play and the GitHub APKs: fused loc
 | 10 | Tickets, widget, Wear OS | Tickets/*, DroidWidget.kt, Android/wear | done: tickets as passes (on-device recognition with ML Kit + the full TicketTextParser, ZXing redraw, wallet, detail at full brightness, editor with field assignment, archive, trip tickets), widget (Glance), Wear OS (module `wear/`; the trip under way from the phone via the Data Layer item `/live-trip` (`watch/WatchLink`, play flavor only): live screen `LiveTripActivity` with labelled countdown, vehicle, progress and stages, map `LiveMapActivity` (MapLibre, OpenFreeMap dark, legs in line colours, walks dotted, stops, own position; opens on the leg under way), an ongoing activity on the watch face, opens by itself when a trip starts and once each time the app comes to the front), operator logos (Wikidata/Wikimedia Commons, website icon fallback), Google Wallet export via services/google-wallet-signer (hidden until the repo variable WALLET_SIGNER_URL is set) |
 | 11 | Switch app ID to `io.github.elija7580.publit`, release signing, remove Skip port | – | app ID switched, Skip Gradle project and its workflow removed; open: Play upload key as CI secret (owner), then remove `Sources/` |
 
+## Ticket-Links (2026-11-24, iOS #148, #151, #168)
+- [x] „Buy ticket: …“ je Betreiber unter den Fahrt-Aktionen (`data/TicketLinks.kt`, `TicketLinksCard`): Feed-Link → Tarifseite → Website → bekannter Shop; Partnerprogramme eingebaut, aber leer (wie iOS).
+- [x] Vorausgefüllte Suche: DB öffnet bahn.de mit Start, Ziel und Abfahrt; FlixBus sucht beim Tippen die Städte-IDs (nur Haltestellennamen an FlixBus) und öffnet die Shop-Suche. Ein Verbund-Shop (MVV) schlägt die DB-Suche.
+- Offen: eigene Ticket-Apps verknüpfen, Partnerliste vom Ticket-Link-Dienst laden, Ticket-Shop im App-Kauf.
+
 ## Feedback 2026-11-16 (iOS PR #87)
 - [x] Live-Fahrt: unter der Etappe keine Liste aller Etappen mehr; Tasten „Back to now“ und „Trip overview“; Etappenliste nur in der Übersicht
 - [x] Karte je Etappe an ihrem Ort (Warten/Umstieg: Einstiegshalt); nur auf dem aktuellen Fußweg nahe dem Weg folgt sie dir (`walkWith`)
