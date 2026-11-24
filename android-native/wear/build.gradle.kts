@@ -13,7 +13,7 @@ android {
         applicationId = "io.github.elija7580.publit"
         minSdk = 30
         targetSdk = 36
-        versionCode = 2_000_000 + (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+        versionCode = 2_000_000 + (System.getenv("PUBLIT_VERSION_CODE") ?: System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "0.8.0"
         // Watches are ARM: no x86 copies of the map library in the APK.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
@@ -23,13 +23,22 @@ android {
             storeFile = file("../app/publit-test.jks")
             storePassword = "publit-test"; keyAlias = "publit-test"; keyPassword = "publit-test"
         }
+        // Google Play upload key, see app/build.gradle.kts.
+        System.getenv("PUBLIT_UPLOAD_KEYSTORE")?.takeIf { it.isNotBlank() }?.let { path ->
+            create("upload") {
+                storeFile = file(path)
+                storePassword = System.getenv("PUBLIT_UPLOAD_PASSWORD")
+                keyAlias = System.getenv("PUBLIT_UPLOAD_ALIAS") ?: "publit-upload"
+                keyPassword = System.getenv("PUBLIT_UPLOAD_PASSWORD")
+            }
+        }
     }
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            signingConfig = signingConfigs.getByName("test")
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("test")
         }
     }
     compileOptions {
