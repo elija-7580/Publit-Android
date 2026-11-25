@@ -147,3 +147,53 @@ object TripGuide {
         }
     }
 }
+
+/** A new connection from where you are (TripAlternative on iOS): here the look for a clearly faster one. */
+object TripAlternative {
+    /** A better stop is only worth a word when it gets you there at least this much earlier (seconds). */
+    const val FASTER_MUST_SAVE = 180L
+    /** In the last minutes before the vehicle leaves nobody turns round for another stop (seconds). */
+    const val FASTER_NEEDS_SLACK = 180L
+
+    /** Those you can still catch, the earliest arrival first, each route once. */
+    fun choices(options: List<Itinerary>, now: Instant, limit: Int = 5): List<Itinerary> =
+        options.distinctBy { it.routeKey }
+            .filter { !it.isCancelled && (it.firstDeparture ?: it.startTime) > now.plusSeconds(30) }
+            .sortedBy { it.endTime }
+            .take(limit)
+
+    /**
+     * Nothing is wrong and you are walking to a ride: worth one look whether another stop, or an
+     * earlier vehicle, gets you there sooner from where you are (Publit#110). Not on the walk at the end,
+     * and not before the walk is due: a trip planned for later is not slow because one could leave now.
+     */
+    fun worthLooking(step: GuideStep, it: Itinerary, now: Instant): Boolean {
+        if (step.kind != GuideStep.Kind.WALK) return false
+        val walk = it.legs.getOrNull(step.legIndex) ?: return false
+        if (now < walk.startTime.minusSeconds(60)) return false
+        val next = it.legs.getOrNull(step.legIndex + 1) ?: return false
+        if (!next.isTransit || next.cancelled == true) return false
+        return java.time.Duration.between(now, next.startTime).seconds >= FASTER_NEEDS_SLACK
+    }
+
+    /**
+     * Routes from where you are that you can still catch and that arrive clearly earlier than the
+     * trip as it stands, the earliest first. The same vehicles as the trip ahead are not another way,
+     * even when a fresher live time makes them look a few minutes earlier.
+     */
+    fun faster(options: List<Itinerary>, trip: Itinerary, now: Instant, limit: Int = 3): List<Itinerary> {
+        val ahead = rides(trip.legs.filter { it.endTime > now })
+        return choices(options, now, Int.MAX_VALUE)
+            .filter { java.time.Duration.between(it.endTime, trip.endTime).seconds >= FASTER_MUST_SAVE && rides(it.legs) != ahead }
+            .take(limit)
+    }
+
+    /** The vehicles of these legs, in order (the run, or line, direction and scheduled departure). */
+    private fun rides(legs: List<Leg>): List<String> = legs.filter { it.isTransit }.map { leg ->
+        leg.tripId ?: "${leg.routeShortName ?: ""}>${leg.headsign ?: ""}~${(leg.scheduledStartTime ?: leg.startTime).epochSecond}"
+    }
+
+    /** Minutes a new route arrives after (+) or before (−) the trip as it stands. */
+    fun minutesLater(option: Itinerary, trip: Itinerary): Int =
+        Math.round(java.time.Duration.between(trip.endTime, option.endTime).seconds / 60.0).toInt()
+}

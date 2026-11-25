@@ -99,6 +99,29 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
             (SmartRouting.backup(risk.outgoing)?.let { b -> " " + L10n.f("Backup: %@ at %@", b.leg.lineName, Fmt.time(b.leg.startTime, b.leg.from.tz)) } ?: "")
         else -> null
     }
+    // Nothing wrong and walking to a ride: one quiet look from here whether another stop or an earlier
+    // vehicle arrives clearly sooner (iOS FasterWay, Publit#110). Asked once per walk, not as you move;
+    // what is shown is decided on every redraw, so a route that has left or no longer beats the trip drops out.
+    val fasterKey = if (index == live && wrongMessage == null && here != null && TripAlternative.worthLooking(step, it, now)) "${trip.id}|${step.id}" else ""
+    var fasterLook by remember { mutableStateOf("" to emptyList<Itinerary>()) }
+    LaunchedEffect(fasterKey) {
+        if (fasterKey.isEmpty() || fasterKey == fasterLook.first) return@LaunchedEffect
+        val from = here ?: return@LaunchedEffect
+        val dest = it.legs.lastOrNull()?.to ?: return@LaunchedEffect
+        fasterLook = fasterKey to emptyList()
+        val found = try {
+            val o = RouteOptions.load(prefs)
+            client.plan(from, dest.coordinate, null, false, o.maxWalkMinutes * 60, options = o).itineraries
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // The walk ended meanwhile: the next walk, or this one again, may ask anew.
+            fasterLook = "" to emptyList()
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+        fasterLook = if (found == null) "" to emptyList() else fasterKey to found
+    }
+    val fasterWays = if (fasterKey.isNotEmpty() && fasterLook.first == fasterKey) TripAlternative.faster(fasterLook.second, it, now) else emptyList()
     // Each cue once: a short vibration, and the words when spoken directions are on.
     val announced = remember { HashSet<String>() }
     val cue = if (index == live) TripGuide.cue(step, it, now, ride) else null
@@ -159,6 +182,8 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
                 LazyColumn(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 32.dp)) {
                     if (wrongMessage != null) item("wrong") {
                         AlternativesCard(client, store, trip, wrongMessage, risk?.incoming?.to?.coordinate ?: here)
+                    } else if (fasterWays.isNotEmpty()) item("faster") {
+                        AlternativesCard(client, store, trip, L10n.t("Faster"), here, offered = fasterWays)
                     }
                     // Back to the stage you are on, and the whole trip: the overview is its own place
                     // (the first card), not a list under every stage (iOS LiveTripView).
