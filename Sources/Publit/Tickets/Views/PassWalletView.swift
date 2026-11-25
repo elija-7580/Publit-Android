@@ -74,7 +74,7 @@ struct PassWalletView: View {
 
     private var empty: some View {
         EmptyState(title: L10n.t("No tickets yet"), systemImage: "ticket",
-                   message: L10n.t("Add a ticket from a PDF, a photo or a screenshot. Publit reads the details on your iPhone and keeps the code ready for the gate.")) {
+                   message: L10n.t("Add a ticket from a PDF, a photo or a screenshot. Publit reads the details on your iPhone and keeps the code ready for ticket inspections.")) {
             Button { importing = true } label: { Text("Add ticket") }
                 .buttonStyle(.ink)
         }
