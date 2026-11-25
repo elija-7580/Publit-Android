@@ -27,6 +27,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -218,6 +219,12 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                 composable("nearby") {
                     NearbyScreen(vm, onOpenMap = { nav.navigate("stationmap") }, onSettings = { nav.navigate("settings") },
                         pinned = favorites.state.collectAsStateWithLifecycle().value.pinned,
+                        saved = favorites.state.collectAsStateWithLifecycle().value.items,
+                        // The next calendar event: Plan opens with the route that arrives a little early (CalendarRouting.open on iOS).
+                        onAppointment = { a ->
+                            openPlan()
+                            planScope.launch { if (!plan.routeTo(a)) plan.showError(L10n.f("No place found for “%@”.", a.placeName)) }
+                        },
                         onWhereTo = { goNow.route(Endpoint.Here, null); nav.navigate("gonow") { launchSingleTop = true } },
                         nextTrip = trips.state.collectAsStateWithLifecycle().value.let { st -> st.trips.filter { t -> t.id != st.activeId && t.startTime > java.time.Instant.now() }.minByOrNull { it.startTime } },
                         onOpenSaved = { id -> nav.navigate("savedtrip?id=$id") },
@@ -374,6 +381,7 @@ private fun CrashDialog(report: String?) {
 @Composable
 fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onSettings: () -> Unit = {}, onWhereTo: () -> Unit = {},
                  onRoute: (String, io.github.elija7580.publit.core.LatLon) -> Unit = { _, _ -> },
+                 saved: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), onAppointment: (io.github.elija7580.publit.data.CalendarAppointment) -> Unit = {},
                  pinned: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), nextTrip: io.github.elija7580.publit.data.SavedTrip? = null, onOpenSaved: (String) -> Unit = {}, onOpenTrip: (io.github.elija7580.publit.data.StopTime, io.github.elija7580.publit.data.StopGroup) -> Unit = { _, _ -> }, onOpenStop: (io.github.elija7580.publit.data.StopGroup) -> Unit) {
     val ink = LocalInk.current
     val state by vm.state.collectAsStateWithLifecycle()
@@ -388,12 +396,23 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onSettings: ()
         onPauseOrDispose { vm.setActive(false) }
     }
 
+    // The next calendar event with a place, when it starts within a few hours (turned on in Plan or Settings;
+    // NearbyView on iOS). Read again each time the screen comes to the front, at most once a minute.
+    val appointments by io.github.elija7580.publit.location.CalendarSuggestions.appointments.collectAsStateWithLifecycle()
+    val calendarOn by io.github.elija7580.publit.location.CalendarSuggestions.enabled.collectAsStateWithLifecycle()
+    val calendarScope = androidx.compose.runtime.rememberCoroutineScope()
+    LifecycleResumeEffect(saved) {
+        calendarScope.launch { io.github.elija7580.publit.location.CalendarSuggestions.refresh(context, vm.state.value.fix?.coordinate, saved) }
+        onPauseOrDispose { }
+    }
+    val appointment = if (calendarOn) io.github.elija7580.publit.data.CalendarTrips.next(appointments, now) else null
+
     // The map as the screen and the board as a sheet over it, like the live trip (Settings → Nearby → Map).
     val mapOn = remember { context.getSharedPreferences("publit", android.content.Context.MODE_PRIVATE).getBoolean(NEARBY_MAP_KEY, true) }
     val located = state.access != LocationAccess.NOT_ASKED && state.servicesOn
     if (mapOn && located) {
         NearbyMapLayout(state, onOpenMap, onSettings, onOpenStop, header = { WhereToRow(onWhereTo) }) {
-            nearbyBoard(this, state, vm, now, pinned, nextTrip, onWhereTo = null, onOpenSaved, onRoute, onOpenTrip, onOpenStop, onSettingsApp = {
+            nearbyBoard(this, state, vm, now, pinned, nextTrip, appointment, onAppointment, onWhereTo = null, onOpenSaved, onRoute, onOpenTrip, onOpenStop, onSettingsApp = {
                 context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             })
@@ -426,7 +445,7 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onSettings: ()
             else -> PullToRefreshBox(isRefreshing = false, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
                 LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
-                    nearbyBoard(this, state, vm, now, pinned, nextTrip, onWhereTo, onOpenSaved, onRoute, onOpenTrip, onOpenStop, onSettingsApp = {
+                    nearbyBoard(this, state, vm, now, pinned, nextTrip, appointment, onAppointment, onWhereTo, onOpenSaved, onRoute, onOpenTrip, onOpenStop, onSettingsApp = {
                         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     })
@@ -440,12 +459,13 @@ fun NearbyScreen(vm: NearbyViewModel, onOpenMap: () -> Unit = {}, onSettings: ()
  *  With the map the "Where to now?" row heads the sheet instead (`onWhereTo` null). */
 private fun nearbyBoard(scope: androidx.compose.foundation.lazy.LazyListScope, state: NearbyState, vm: NearbyViewModel, now: Instant,
                         pinned: List<io.github.elija7580.publit.data.SavedPlace>, nextTrip: io.github.elija7580.publit.data.SavedTrip?,
+                        appointment: io.github.elija7580.publit.data.CalendarAppointment?, onAppointment: (io.github.elija7580.publit.data.CalendarAppointment) -> Unit,
                         onWhereTo: (() -> Unit)?, onOpenSaved: (String) -> Unit,
                         onRoute: (String, io.github.elija7580.publit.core.LatLon) -> Unit,
                         onOpenTrip: (io.github.elija7580.publit.data.StopTime, io.github.elija7580.publit.data.StopGroup) -> Unit,
                         onOpenStop: (io.github.elija7580.publit.data.StopGroup) -> Unit, onSettingsApp: () -> Unit) = with(scope) {
     io.github.elija7580.publit.data.CoverageGuide.notice(state.fix?.coordinate)?.let { n -> item("coverage") { CoverageBanner(listOf(n)) } }
-    if (onWhereTo != null || nextTrip != null || pinned.isNotEmpty()) item("go") {
+    if (onWhereTo != null || nextTrip != null || appointment != null || pinned.isNotEmpty()) item("go") {
         val ink = LocalInk.current
         // "Where to now?", Home and Work: a route from here in one tap (goSection on iOS).
         Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
@@ -461,6 +481,19 @@ private fun nearbyBoard(scope: androidx.compose.foundation.lazy.LazyListScope, s
                         Column(Modifier.weight(1f)) {
                             Text(L10n.f("Next trip: %@", t.toName), fontWeight = FontWeight.SemiBold, maxLines = 1)
                             Text(io.github.elija7580.publit.data.TripStatus.at(java.time.Instant.now(), t.itinerary).headline, color = ink.muted, fontSize = 14.sp)
+                        }
+                    }
+                }
+                appointment?.let { a ->
+                    if (!first) HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                    first = false
+                    Row(Modifier.fillMaxWidth().clickable { onAppointment(a) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.CalendarMonth, null, Modifier.width(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(L10n.f("Next appointment: %@", a.displayTitle), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Text(io.github.elija7580.publit.data.CalendarTrips.nearbyDetail(io.github.elija7580.publit.core.Fmt.time(a.start), a.placeName),
+                                color = ink.muted, fontSize = 14.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
                     }
                 }

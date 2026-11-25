@@ -68,6 +68,10 @@ object CalendarTrips {
     fun next(suggestions: List<CalendarAppointment>, now: Instant): CalendarAppointment? =
         suggestions.firstOrNull { it.start.epochSecond - now.epochSecond <= NEARBY_WINDOW_SECONDS }
 
+    /** The line under "Next appointment: …" in Nearby: when it starts and where ("14:30 · Herrengasse 14"). */
+    fun nearbyDetail(time: String, place: String): String =
+        listOf(time.trim(), place.trim()).filter { it.isNotEmpty() }.joinToString(" · ")
+
     /**
      * The event with a place clear enough to route to, or null (feedback 2026-11-24: a "staff meeting"
      * without a real place must not be offered). Clear is: a map pin, a saved place it names ("Work",
