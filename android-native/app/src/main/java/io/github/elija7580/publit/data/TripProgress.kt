@@ -41,14 +41,28 @@ sealed class TripProgress {
             return NotStarted
         }
 
-        /** Estimated position, interpolated in a straight line between stops. */
-        fun position(p: TripProgress, stops: List<Place>): LatLon? = when (p) {
-            is AtStop -> stops[p.index].coordinate
-            is Between -> {
+        /**
+         * Estimated position between stops: along the ride's shape when there is one, else in a straight line
+         * (TripProgress.position(path:) on iOS, build 99). A long-distance bus with few stops (Vienna to Venice)
+         * went straight across the country, far away from its road. The shape counts only when both stops lie
+         * on it (within 2 km) and in their order.
+         */
+        fun position(p: TripProgress, stops: List<Place>, path: List<LatLon> = emptyList()): LatLon? = when (p) {
+            is AtStop -> stops.getOrNull(p.index)?.coordinate
+            is Between -> if (p.index < 0 || p.index + 1 >= stops.size) null else {
                 val a = stops[p.index]; val b = stops[p.index + 1]
-                LatLon(a.lat + (b.lat - a.lat) * p.fraction, a.lon + (b.lon - a.lon) * p.fraction)
+                onShape(a.coordinate, b.coordinate, p.fraction, path)
+                    ?: LatLon(a.lat + (b.lat - a.lat) * p.fraction, a.lon + (b.lon - a.lon) * p.fraction)
             }
             else -> null
+        }
+
+        private fun onShape(a: LatLon, b: LatLon, fraction: Double, path: List<LatLon>): LatLon? {
+            if (path.size < 2) return null
+            val from = PathGeometry.locate(a, path) ?: return null
+            val to = PathGeometry.locate(b, path) ?: return null
+            if (from.offset >= 2_000 || to.offset >= 2_000 || to.along <= from.along) return null
+            return PathGeometry.point(from.along + (to.along - from.along) * fraction, path)
         }
 
         /**

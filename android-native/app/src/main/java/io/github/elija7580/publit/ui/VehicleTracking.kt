@@ -86,9 +86,9 @@ fun VehicleTrackingScreen(client: TransitousClient, target: TripTarget, onBack: 
     val l = leg
     val stops = l?.allStops.orEmpty()
     val progress = TripProgress.at(now, stops)
-    val vehicle = TripProgress.position(progress, stops)
-    val source = VehiclePositionSource.of(progress, l?.realTime ?: false)
     val shape = remember(l?.legGeometry?.points) { l?.legGeometry?.mapPoints.orEmpty() }
+    val vehicle = TripProgress.position(progress, stops, shape)
+    val source = VehiclePositionSource.of(progress, l?.realTime ?: false)
     // First the whole route; while following, the vehicle in the middle.
     val overview = remember(l == null) { l?.let { MapCamera.Fit(shape + stops.map { it.coordinate }) } }
     val shown = if (follow && vehicle != null) MapCamera.Around(vehicle, 1500.0) else camera ?: overview

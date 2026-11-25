@@ -145,7 +145,7 @@ fun TripScreen(client: TransitousClient, favorites: io.github.elija7580.publit.d
                         val textColor = hexColor(leg.lineColors.text)
                         val shape = remember(stops.map { it.coordinate }, leg.legGeometry?.points) { leg.legGeometry?.mapPoints.orEmpty() }
                         val stopPoints = stops.map { it.coordinate }
-                        val vehicle = TripProgress.position(progress, stops)
+                        val vehicle = TripProgress.position(progress, stops, shape)
                         PublitMap(
                             MapContent(listOf(MapContent.Line(shape, stroke, 5f)),
                                 stopPoints.map { MapContent.Dot(it, Color.White, stroke, 8f, 2f) } +
