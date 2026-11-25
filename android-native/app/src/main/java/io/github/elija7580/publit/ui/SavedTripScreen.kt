@@ -131,26 +131,32 @@ private fun StatusCard(trip: SavedTrip, error: String?) {
 }
 
 /** A started trip, step by step (LiveTripView on iOS): stage, cues (vibration, spoken directions), current ride, alternatives. */
-/** Missed, off the path or cancelled: the next connections from where you are, to switch in one tap. */
+/**
+ * Missed, off the path or cancelled: the next connections from where you are, to switch in one tap.
+ * With `offered` (faster ways found while nothing is wrong, a better stop on the walk, Publit#110) the card
+ * shows those as they are, without a search of its own, in the calm colour of a tip instead of a warning.
+ */
 @Composable
-internal fun AlternativesCard(client: TransitousClient, store: TripStore, trip: SavedTrip, message: String, here: io.github.elija7580.publit.core.LatLon?) {
+internal fun AlternativesCard(client: TransitousClient, store: TripStore, trip: SavedTrip, message: String, here: io.github.elija7580.publit.core.LatLon?,
+                              offered: List<io.github.elija7580.publit.data.Itinerary>? = null) {
     val ink = LocalInk.current
     val ctx = LocalContext.current
     var options by remember { mutableStateOf<List<io.github.elija7580.publit.data.Itinerary>?>(null) }
     var showAll by remember { mutableStateOf(false) }
     val dest = trip.itinerary.legs.lastOrNull()?.to
-    LaunchedEffect(here == null, trip.id) {
+    LaunchedEffect(here == null, trip.id, offered == null) {
+        if (offered != null) return@LaunchedEffect
         val from = here ?: return@LaunchedEffect
         if (dest == null) return@LaunchedEffect
         options = runCatching { client.plan(from, dest.coordinate, null, false).itineraries.filter { o -> !o.isCancelled } }.getOrDefault(emptyList())
     }
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp), color = ink.surface) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(message, fontWeight = FontWeight.SemiBold, color = ink.delay)
+            Text(message, fontWeight = FontWeight.SemiBold, color = if (offered == null) ink.delay else ink.live)
             Text(L10n.f("Your trip: arrive %@", Fmt.time(trip.itinerary.endTime, dest?.tz)), color = ink.muted, fontSize = 13.sp)
-            val list = options
+            val list = offered ?: options
             when {
-                here == null -> {}
+                offered == null && here == null -> {}
                 list == null -> Text(L10n.t("Looking for the next connection…"), color = ink.muted, fontSize = 13.sp)
                 list.isEmpty() -> Text(L10n.t("No other connection found right now."), color = ink.muted, fontSize = 13.sp)
                 else -> {
@@ -160,6 +166,10 @@ internal fun AlternativesCard(client: TransitousClient, store: TripStore, trip: 
                             Column(Modifier.weight(1f)) {
                                 Text(first?.let { f -> f.lineName + " · " + Fmt.time(f.startTime, f.from.tz) } ?: L10n.t("Walk"), fontWeight = FontWeight.SemiBold)
                                 Text(listOfNotNull(first?.from?.name, L10n.f("Arrive %@", Fmt.time(o.endTime, o.legs.lastOrNull()?.to?.tz))).joinToString(" · "), color = ink.muted, fontSize = 13.sp)
+                                // A faster way says by how much ("4 min earlier than your trip", as iOS does).
+                                if (offered != null) io.github.elija7580.publit.data.TripAlternative.minutesLater(o, trip.itinerary).takeIf { m -> m < 0 }?.let { m ->
+                                    Text(L10n.f("%lld min earlier than your trip", -m), color = ink.live, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                }
                             }
                             androidx.compose.material3.TextButton({
                                 TripNotifications_cancel(ctx, trip)
