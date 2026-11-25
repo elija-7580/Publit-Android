@@ -16,34 +16,34 @@ import java.time.Instant
 
 /** A better stop while walking to a ride (iOS `FasterWayTests`, Publit#110): when to look, and what counts as clearly faster. */
 class FasterWayTest {
-    private val t0 = Instant.parse("2026-11-25T06:00:00Z")
+    private val t0: Instant = Instant.parse("2026-11-25T06:00:00Z")
     private fun at(min: Int, sec: Int = 0): Instant = t0.plusSeconds(min * 60L + sec)
-    private val p = Place(name = "P", lat = 48.14, lon = 11.56)
+    private val p: Place = Place(name = "P", lat = 48.14, lon = 11.56)
 
-    private fun walk(from: Int, to: Int) =
+    private fun walk(from: Int, to: Int): Leg =
         Leg(mode = "WALK", from = p, to = p, duration = (to - from) * 60, startTime = at(from), endTime = at(to))
-    private fun ride(mode: String, trip: String?, from: Int, to: Int, line: String = "S1") =
+    private fun ride(mode: String, trip: String?, from: Int, to: Int, line: String = "S1"): Leg =
         Leg(mode = mode, from = p, to = p, duration = (to - from) * 60, startTime = at(from), endTime = at(to),
             scheduledStartTime = at(from), routeShortName = line, headsign = "East", tripId = trip)
-    private fun route(id: String, vararg legs: Leg) =
-        Itinerary(id = id, duration = (legs.last().endTime.epochSecond - legs.first().startTime.epochSecond).toInt(),
-            startTime = legs.first().startTime, endTime = legs.last().endTime, legs = legs.toList())
+    private fun route(id: String, vararg legs: Leg): Itinerary =
+        Itinerary(id = id, duration = (legs[legs.size - 1].endTime.epochSecond - legs[0].startTime.epochSecond).toInt(),
+            startTime = legs[0].startTime, endTime = legs[legs.size - 1].endTime, legs = legs.toList())
 
     // As the iOS fixture plan_muc: S-Bahn 06:17 (arrives 06:57), S-Bahn 06:18 (arrives 07:08),
     // U-Bahn 06:21 and bus (arrives 06:58).
-    private val first = route("first", walk(12, 17), ride("SUBURBAN", "s-0617", 17, 55), walk(55, 57))
-    private val slow = route("slow", walk(12, 18), ride("SUBURBAN", "s-0618", 18, 66), walk(66, 68))
-    private val viaBus = route("viaBus", walk(15, 21), ride("SUBWAY", "u-0621", 21, 40), ride("BUS", "b-0643", 43, 56), walk(56, 58))
-    private val all = listOf(first, slow, viaBus)
+    private val direct: Itinerary = route("first", walk(12, 17), ride("SUBURBAN", "s-0617", 17, 55), walk(55, 57))
+    private val slow: Itinerary = route("slow", walk(12, 18), ride("SUBURBAN", "s-0618", 18, 66), walk(66, 68))
+    private val viaBus: Itinerary = route("viaBus", walk(15, 21), ride("SUBWAY", "u-0621", 21, 40), ride("BUS", "b-0643", 43, 56), walk(56, 58))
+    private val all: List<Itinerary> = listOf(direct, slow, viaBus)
 
     @Test fun onlyClearlyEarlierArrivalsEarliestFirst() {
         val now = slow.startTime.minusSeconds(360)
         // On the slow S-Bahn: both others arrive ten minutes earlier; the trip itself is no other way.
         assertEquals(listOf("first", "viaBus"), TripAlternative.faster(all, slow, now).map { it.id })
         // One minute earlier is not worth turning round for.
-        assertEquals(60, viaBus.endTime.epochSecond - first.endTime.epochSecond)
+        assertEquals(60, viaBus.endTime.epochSecond - direct.endTime.epochSecond)
         assertTrue(TripAlternative.faster(all, viaBus, now).isEmpty())
-        assertTrue(TripAlternative.faster(all, first, now).isEmpty())
+        assertTrue(TripAlternative.faster(all, direct, now).isEmpty())
         assertTrue(TripAlternative.faster(emptyList(), slow, now).isEmpty())
         // Exactly three minutes earlier counts, one second less does not.
         val threeEarlier = route("three", walk(12, 16), ride("SUBURBAN", "s-0616", 16, 65))
@@ -57,10 +57,10 @@ class FasterWayTest {
         val now = at(17).minusSeconds(10)
         assertEquals(listOf("viaBus"), TripAlternative.faster(all, slow, now).map { it.id })
         // A cancelled ride is no way, and the same route found twice is offered once.
-        val cancelled = first.copy(id = "cancelled", legs = first.legs.map { if (it.isTransit) it.copy(cancelled = true) else it })
+        val cancelled = direct.copy(id = "cancelled", legs = direct.legs.map { if (it.isTransit) it.copy(cancelled = true) else it })
         val early = slow.startTime.minusSeconds(360)
         assertEquals(listOf("viaBus"), TripAlternative.faster(listOf(cancelled, viaBus), slow, early).map { it.id })
-        assertEquals(listOf("first"), TripAlternative.faster(listOf(first, first.copy(id = "again")), slow, early).map { it.id })
+        assertEquals(listOf("first"), TripAlternative.faster(listOf(direct, direct.copy(id = "again")), slow, early).map { it.id })
         assertEquals(1, TripAlternative.faster(all, slow, early, limit = 1).size)
     }
 
@@ -104,8 +104,8 @@ class FasterWayTest {
     }
 
     @Test fun saysByHowManyMinutes() {
-        assertEquals(-11, TripAlternative.minutesLater(first, slow))
-        assertEquals(11, TripAlternative.minutesLater(slow, first))
+        assertEquals(-11, TripAlternative.minutesLater(direct, slow))
+        assertEquals(11, TripAlternative.minutesLater(slow, direct))
         assertEquals(0, TripAlternative.minutesLater(slow, slow))
     }
 }
