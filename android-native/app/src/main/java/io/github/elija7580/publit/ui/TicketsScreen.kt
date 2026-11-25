@@ -128,7 +128,7 @@ fun PassWalletScreen(store: PassStore, onOpen: (String) -> Unit, onAdd: () -> Un
             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Icon(Icons.Filled.ConfirmationNumber, null, Modifier.size(40.dp), tint = ink.muted)
                 Text(L10n.t("No tickets yet"), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-                Text(L10n.t("Add a ticket from a PDF, a photo or a screenshot. Publit reads the details on your iPhone and keeps the code ready for the gate.").replace("iPhone", "Android"),
+                Text(L10n.t("Add a ticket from a PDF, a photo or a screenshot. Publit reads the details on your iPhone and keeps the code ready for ticket inspections.").replace("iPhone", "Android"),
                     color = ink.muted, textAlign = TextAlign.Center)
                 Button(onClick = onAdd, colors = ButtonDefaults.buttonColors(containerColor = ink.ink, contentColor = ink.onInk)) { Text(L10n.t("Add ticket")) }
             }
