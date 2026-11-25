@@ -142,7 +142,7 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
 
     // On board (your fix lies on the line) your own dot is the vehicle: a second, estimated marker
     // beside it (straight between stops, or from the timetable) only looks like another bus (iOS 7104c05).
-    val vehicle = if (step.kind == GuideStep.Kind.RIDE && rideFix != null && !rideFix.fromGps) TripProgress.position(rideFix.progress, leg.allStops) else null
+    val vehicle = if (step.kind == GuideStep.Kind.RIDE && rideFix != null && !rideFix.fromGps) TripProgress.position(rideFix.progress, leg.allStops, leg.legGeometry?.mapPoints.orEmpty()) else null
     val shown: Int? = if (overview) null else index
     fun show(i: Int?) { if (i == null) overview = true else { overview = false; picked = if (i == live) null else i } }
 
