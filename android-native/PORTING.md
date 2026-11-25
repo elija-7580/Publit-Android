@@ -71,6 +71,9 @@ Two product flavors: `play` (default; Google Play and the GitHub APKs: fused loc
 - [x] Vorausgefüllte Suche: DB öffnet bahn.de mit Start, Ziel und Abfahrt; FlixBus sucht beim Tippen die Städte-IDs (nur Haltestellennamen an FlixBus) und öffnet die Shop-Suche. Ein Verbund-Shop (MVV) schlägt die DB-Suche.
 - Offen: eigene Ticket-Apps verknüpfen, Partnerliste vom Ticket-Link-Dienst laden, Ticket-Shop im App-Kauf.
 
+## Umstiegs-Chance: Schätzungen mit „≈“ und Prozent (2026-11-25, iOS Build 99 `SmartChangesSection`, Publit#186)
+- [x] `data/SmartRouting.kt` `Change.percentLabel`, Umstiegs-Karte im Routendetail (`ui/PlanScreen.kt` `ChangesCard`): Ein geschätzter Umstieg zeigt „≈ NN %“ in der Farbe seiner Einschätzung (vorher keine Zahl), ein gemessener „NN %“ wie bisher. Fährt dasselbe Fahrzeug weiter, steht keine Zahl mehr da („Stay on board“ sagt es, wie iOS). Die Karte erscheint auf Android schon unabhängig vom Smart Routing. Tests: `ChangePercentLabelTest`. Kein neuer Text, kein „What's new“-Eintrag, `versionName` unverändert. Nicht am Gerät getestet.
+
 ## Ohne Fernzüge (2026-11-24, iOS #119)
 - [x] Routenoptionen → „Without long-distance trains“ unter den Verkehrsmitteln (`RouteOptions.regionalOnly`, Port von `TransitFilter.swift`): Die Suche fragt keine Hochgeschwindigkeits-, Fern- und Nachtzüge an (wie bei den Tickets auch kein „RAIL“), und Routen mit einem Fernzug nach Name oder Betreiber fallen aus der Antwort (`RouteOptions.allows`, `filtersRides`). Gespeichert mit den übrigen Optionen; alte Optionen laden ohne den Schalter. Tests: `OwnTicketsTest`. Zwei Texte in `tools/strings-android.json` (Übersetzungen aus dem iOS-Katalog), bis IOS_COMMIT sie enthält. Nicht am Gerät getestet.
 

@@ -269,8 +269,13 @@ object SmartRouting {
         val level get() = if (chance >= 0.9) Level.SAFE else if (chance >= 0.7) Level.LIKELY else Level.RISKY
         /** Whole percent, never 100 (nothing is certain) and at least 1. */
         val percent get() = minOf(99, maxOf(1, (chance * 100).roundToInt()))
-        /** Only measured chances are shown as a percentage. */
+        /** The old rule of thumb, not measured: shown with "≈" before its percentage. */
         val isEstimate get() = source == Source.Estimate
+        /**
+         * The chance as the route details show it (SmartChangesSection on iOS, build 99): estimates too, marked "≈"
+         * (their source line below says "Estimate"); none when the same vehicle goes on ("Stay on board" says it).
+         */
+        val percentLabel: String? get() = if (source == Source.ThroughRun) null else (if (isEstimate) "≈ " else "") + "$percent %"
     }
 
     private val extraSeconds: Double get() = (prefs?.getInt(EXTRA_TRANSFER, 0) ?: 0) * 60.0

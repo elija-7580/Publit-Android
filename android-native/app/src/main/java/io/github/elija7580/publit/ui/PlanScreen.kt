@@ -408,7 +408,7 @@ private fun ChangesCard(changes: List<io.github.elija7580.publit.data.SmartRouti
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(L10n.f("Change at %@", c.stopName), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (!c.isEstimate) Text("${c.percent} %", color = color, fontWeight = FontWeight.Bold)
+                        c.percentLabel?.let { Text(it, color = color, fontWeight = FontWeight.Bold) }
                     }
                     val v = if (c.source == io.github.elija7580.publit.data.SmartRouting.Change.Source.ThroughRun) L10n.t("Stay on board") else verdict
                     Text("$v · $spare", color = ink.muted, fontSize = 12.sp)
