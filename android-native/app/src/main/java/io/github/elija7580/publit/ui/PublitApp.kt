@@ -611,8 +611,10 @@ fun LiveTripBar(store: io.github.elija7580.publit.data.TripStore, client: io.git
     val now by androidx.compose.runtime.produceState(java.time.Instant.now()) { while (true) { kotlinx.coroutines.delay(15_000); value = java.time.Instant.now() } }
     val active = state.activeId?.let { id -> state.trips.firstOrNull { it.id == id } }
         ?.takeIf { it.endTime.plusSeconds(300) >= now && it.startTime.minusSeconds(3 * 3600) <= now }
-    val trip = (active ?: state.trips.filter { t -> t.startTime.minusSeconds(1800) <= now && t.endTime.plusSeconds(300) >= now }.minByOrNull { it.startTime })
-        ?.takeIf { it.id != hiddenId } ?: return
+    // A started trip always shows, also when its bar was hidden before it was started (iOS build 99).
+    val trip = io.github.elija7580.publit.data.LiveBar.shown(
+        active ?: state.trips.filter { t -> t.startTime.minusSeconds(1800) <= now && t.endTime.plusSeconds(300) >= now }.minByOrNull { it.startTime },
+        state.activeId, hiddenId) ?: return
     // Live times every 90 s while the app is open.
     if (client != null) LaunchedEffect(trip.id) {
         while (true) {
@@ -686,6 +688,13 @@ fun LiveTripBar(store: io.github.elija7580.publit.data.TripStore, client: io.git
                         }
                     }
                     androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.KeyboardArrowUp, L10n.t("Open trip"), tint = ink.onInk.copy(alpha = 0.5f))
+                    // Ends the trip, not only the bar: reminders and the live notification stop with it (iOS build 99).
+                    androidx.compose.material3.IconButton(onClick = {
+                        hiddenId = trip.id; prefs.edit().putString("liveBarHiddenTrip", trip.id).apply()
+                        TripSession.stop(ctx, store, trip)
+                    }, modifier = Modifier.size(32.dp)) {
+                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Clear, L10n.t("End trip"), tint = ink.onInk.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                    }
                 } else {
                     if (leg != null) LineBadge(leg) else androidx.compose.material3.Icon(
                         if (arrived) androidx.compose.material.icons.Icons.Filled.Flag else androidx.compose.material.icons.Icons.AutoMirrored.Filled.DirectionsWalk, null, Modifier.width(28.dp))

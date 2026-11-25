@@ -26,6 +26,16 @@ data class SavedTrip(
     val title: String get() = "$fromName → $toName"
 }
 
+/**
+ * Which trip the bar above the tabs shows (LiveTripBar on iOS, build 99): the bar's trip, unless it was hidden
+ * by hand. A started trip always shows: hidden before it was started, it kept running out of sight (live
+ * notification on, reminders set), with no way to end it from the bar.
+ */
+object LiveBar {
+    fun shown(current: SavedTrip?, activeId: String?, hiddenId: String): SavedTrip? =
+        current?.takeIf { it.id != hiddenId || it.id == activeId }
+}
+
 /** Saved trips and the one started by hand (TripStore on iOS). */
 class TripStore(dir: File) {
     data class State(val trips: List<SavedTrip> = emptyList(), val activeId: String? = null)
