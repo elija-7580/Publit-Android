@@ -71,7 +71,7 @@ private fun day(i: Instant): String {
 
 /** One event as a destination: a small calendar leaf with the time, then title and place (CalendarAppointmentRow on iOS). */
 @Composable
-private fun AppointmentRow(a: CalendarAppointment, resolving: Boolean, onClick: () -> Unit) {
+internal fun AppointmentRow(a: CalendarAppointment, resolving: Boolean, onClick: () -> Unit) {
     val ink = LocalInk.current
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 58.dp).padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically) {

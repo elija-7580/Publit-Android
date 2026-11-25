@@ -107,9 +107,17 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.gi
     LaunchedEffect(searchRequest) { if (searchRequest != handled) { handled = searchRequest; searching = Field.TO } }
     val opened = state.opened
     val pinned = io.github.elija7580.publit.data.PlaceRole.entries.mapNotNull { r -> saved.firstOrNull { it.role == r } } + saved.filter { it.isShortcut }
+    val calendarScope = androidx.compose.runtime.rememberCoroutineScope()
+    /** A calendar event picked in the destination search: its route, arriving a little early. */
+    fun routeToAppointment(a: io.github.elija7580.publit.data.CalendarAppointment) {
+        searching = null
+        calendarScope.launch { if (!vm.routeTo(a)) vm.showError(L10n.f("No place found for “%@”.", a.placeName)) }
+    }
     when {
         options -> { BackHandler { options = false }; RouteOptionsScreen(state.options, onDone = { vm.setOptions(it); options = false }) }
-        searching != null -> PlaceSearch(vm, allowHere = searching == Field.FROM, onBack = { searching = null }, saved = saved, onSetRole = onSetRole, chooseOnMap = true) { e ->
+        searching != null -> PlaceSearch(vm, allowHere = searching == Field.FROM, onBack = { searching = null }, saved = saved, onSetRole = onSetRole, chooseOnMap = true,
+            // Upcoming calendar events as destinations (PlaceSearchView on iOS): only where a destination is picked.
+            onAppointment = if (searching == Field.TO) ::routeToAppointment else null) { e ->
             if (searching == Field.FROM) vm.setFrom(e) else vm.setTo(e)
             searching = null
         }
@@ -726,8 +734,13 @@ private fun StopLine(time: Instant, tz: String?, name: String, track: String?, d
 @Composable
 fun PlaceSearch(vm: PlanViewModel, allowHere: Boolean, onBack: () -> Unit, onMatch: ((io.github.elija7580.publit.data.GeocodeMatch) -> Unit)? = null,
                 saved: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(), onSetRole: ((io.github.elija7580.publit.data.PlaceRole, io.github.elija7580.publit.data.SavedPlace) -> Unit)? = null,
-                chooseOnMap: Boolean = false, onPick: (Endpoint) -> Unit) {
+                chooseOnMap: Boolean = false, onAppointment: ((io.github.elija7580.publit.data.CalendarAppointment) -> Unit)? = null,
+                onPick: (Endpoint) -> Unit) {
     val ink = LocalInk.current
+    // Upcoming calendar events with a clear place, when suggestions are on (read in Plan and Nearby; nothing is read here).
+    val appointments by io.github.elija7580.publit.location.CalendarSuggestions.appointments.collectAsStateWithLifecycle()
+    val calendarOn by io.github.elija7580.publit.location.CalendarSuggestions.enabled.collectAsStateWithLifecycle()
+    val resolving by vm.resolving.collectAsStateWithLifecycle()
     // "Choose on map" (From and To of the planner, as iOS #67): the pinned point is picked like a search result.
     var onMap by remember { mutableStateOf(false) }
     if (onMap) { ChooseOnMapScreen(vm::mapStart, vm::addressAt, onBack = { onMap = false }) { onPick(it) }; return }
@@ -786,6 +799,10 @@ fun PlaceSearch(vm: PlanViewModel, allowHere: Boolean, onBack: () -> Unit, onMat
                     Spacer(Modifier.width(12.dp))
                     Text(L10n.t("Choose on map"), fontWeight = FontWeight.SemiBold)
                 }
+            }
+            if (text.isBlank() && onMatch == null && onAppointment != null && calendarOn && appointments.isNotEmpty()) {
+                item("calendarHead") { Text(L10n.t("From your calendar").uppercase(), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)) }
+                items(appointments, key = { "cal" + it.id }) { a -> AppointmentRow(a, resolving == a.id) { onAppointment(a) } }
             }
             val others = saved.filter { it.role == null }
             if (text.isBlank() && onMatch == null && others.isNotEmpty()) {

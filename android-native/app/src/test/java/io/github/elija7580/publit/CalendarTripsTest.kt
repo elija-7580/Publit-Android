@@ -30,6 +30,18 @@ class CalendarTripsTest {
         assertEquals(listOf("soon", "later"), list.map { it.id })
     }
 
+    @Test fun nearbyShowsOnlyAnEventThatStartsWithinAFewHours() {
+        // Nearby names the next event when one could set off for it from here (iOS CalendarTrips.next): within four hours.
+        val list = CalendarTrips.suggestions(listOf(event("later", 300), event("soon", 30)), now)
+        assertEquals("soon", CalendarTrips.next(list, now)?.id)
+        assertEquals("later", CalendarTrips.next(list.drop(1), now.plusSeconds(60 * 60))?.id)
+        assertEquals(null, CalendarTrips.next(list.drop(1), now))
+        assertEquals(null, CalendarTrips.next(emptyList(), now))
+        // Under its title: the time and the place, without a stray dot when one is missing.
+        assertEquals("09:30 · Herrengasse 14", CalendarTrips.nearbyDetail("09:30", "Herrengasse 14"))
+        assertEquals("09:30", CalendarTrips.nearbyDetail("09:30", " "))
+    }
+
     @Test fun alreadyThereIsLeftOut() {
         val list = CalendarTrips.suggestions(listOf(event("here", 60, location = "Café Central", lat = 48.21, lon = 16.37)),
             now, here = LatLon(48.2101, 16.3701))
