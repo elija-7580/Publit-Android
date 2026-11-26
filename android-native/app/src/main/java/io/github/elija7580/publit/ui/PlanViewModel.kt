@@ -254,6 +254,12 @@ class PlanViewModel(
                 // Last connection: only rides that have not left yet.
                 val fetched = found
                 if (s.lastConnection) found = io.github.elija7580.publit.data.LastConnection.upcoming(found)
+                // Walking joins the routes when it is a real choice (iOS PlanModel.merge, Publit#110): about as fast as
+                // the fastest ride, short, or there before any ride door to door. Not for "Last": a walk is no connection.
+                // With no ride at all the walk stays the quiet row below, as before.
+                val listedWalk = if (s.lastConnection || found.isEmpty()) null
+                    else io.github.elija7580.publit.data.StreetComparison.merge(found, res?.direct.orEmpty()).firstOrNull()?.takeIf { it.isDirect }
+                if (listedWalk != null) found = listOf(listedWalk) + found
                 // Found with a longer walk: say so, the walk is part of the decision (Reach.longWalkNote on iOS).
                 val walkNote = if (longWalk) io.github.elija7580.publit.data.Reach.longWalkNote(found) else null
                 if (walkNote != null) note = walkNote
@@ -262,12 +268,13 @@ class PlanViewModel(
                 io.github.elija7580.publit.data.SmartRouting.offeredArriveBy = qa
                 val best = found.filter { !it.isDirect }.minOfOrNull { it.duration }
                 val comparisons = io.github.elija7580.publit.data.StreetComparison.from(res?.direct.orEmpty() + street.flatMap { it.await() })
-                    .filter { it.isRealistic(best) }
+                    // Walking appears once: in the list when it is a choice, otherwise in the comparison.
+                    .filter { it.isRealistic(best) && !(it.mode == "WALK" && listedWalk != null) }
                 log.note("plan: ${found.size} routes")
                 _state.update {
                     it.copy(loading = false, routes = found, note = note, noteIsWalk = walkNote != null, nextCursor = res?.nextPageCursor, previousCursor = res?.previousPageCursor, street = comparisons,
                         badges = withLast(if (io.github.elija7580.publit.data.SmartRouting.isEnabled) io.github.elija7580.publit.data.SmartRouting.badges(found, qa) else emptyMap(), found, s.lastConnection),
-                        walkOnly = if (s.lastConnection) null else res?.direct?.firstOrNull(),
+                        walkOnly = if (s.lastConnection || listedWalk != null) null else res?.direct?.firstOrNull(),
                         error = if (s.lastConnection && found.isEmpty() && fetched.isNotEmpty()) L10n.t("The last connection there has already left. Choose another day.")
                         else if (found.isEmpty() && (s.lastConnection || res?.direct.isNullOrEmpty())) (if (o.ownTickets.isNotEmpty()) L10n.t("No connection is fully covered by your tickets. Change them in Route options to see all.") else L10n.t("No connections found.")) else null)
                 }

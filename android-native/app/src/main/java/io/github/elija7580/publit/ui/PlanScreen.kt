@@ -281,7 +281,9 @@ private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.dat
             }
             val first = it.transitLegs.firstOrNull()
             Text(listOfNotNull(
-                if (it.transfers == 0) L10n.t("Direct") else if (it.transfers == 1) L10n.t("1 change") else L10n.f("%lld changes", it.transfers),
+                // Walking the whole way: "Walk · 1.2 km", not "Direct" (that is a ride without a change).
+                if (it.isDirect) L10n.t("Walk") else if (it.transfers == 0) L10n.t("Direct") else if (it.transfers == 1) L10n.t("1 change") else L10n.f("%lld changes", it.transfers),
+                if (it.isDirect) it.legs.mapNotNull { l -> l.distance }.sum().takeIf { d -> d > 0 }?.let { d -> Fmt.distance(d) } else null,
                 first?.let { f -> L10n.f("%@ from %@", f.lineName, f.from.name) },
                 if (it.isCancelled) L10n.t("Connection cancelled") else null,
                 io.github.elija7580.publit.data.Fares.estimate(it)?.formattedAmount,
