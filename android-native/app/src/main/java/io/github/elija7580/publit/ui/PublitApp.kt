@@ -183,6 +183,8 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
             } else nav.navigate("savedtrip?id=$link") { launchSingleTop = true }
         }
         var tripTarget by remember { mutableStateOf<TripTarget?>(null) }
+        /** The ride you are on and its line, for "Plan from this vehicle". */
+        var onBoard by remember { mutableStateOf<Pair<io.github.elija7580.publit.data.Leg, String>?>(null) }
         val openTrip = { t: TripTarget -> tripTarget = t; nav.navigate("trip") }
         // Each open trip screen keeps its own trip: a stop's departures opened from a trip can open another trip, and back returns to the first.
         val tripTargets = remember { mutableMapOf<String, TripTarget>() }
@@ -249,6 +251,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                     val t = tripTargets[e.id] ?: tripTarget?.also { tripTargets[e.id] = it }
                     if (t == null) LaunchedEffect(Unit) { nav.popBackStack() } else
                     TripScreen(client, favorites, t, onBack = { nav.popBackStack() }, onTrack = { tripTarget = t; nav.navigate("trackvehicle") },
+                        onPlanFromVehicle = { leg -> onBoard = leg to t.stopTime.lineName; nav.navigate("onboard") },
                         onDepartures = { p -> p.boardId?.let { id -> nav.navigate("stop?id=${Uri.encode(id)}&name=${Uri.encode(p.name)}&exact=false") } }) { from, to ->
                         fun ep(p: io.github.elija7580.publit.data.Place) = Endpoint.At(p.name, p.coordinate)
                         plan.route(from?.let(::ep) ?: Endpoint.Here, to?.let(::ep))
@@ -291,6 +294,11 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                             if (isNew) nav.navigate("pass?id=${saved.id}")
                         }
                     }
+                }
+                composable("onboard") {
+                    val o = onBoard
+                    if (o == null) LaunchedEffect(Unit) { nav.popBackStack() } else
+                    OnBoardPlanScreen(client, plan, trips, o.first, o.second, onBack = { nav.popBackStack() }) { t -> nav.navigate("savedtrip?id=${t.id}") }
                 }
                 composable("trackvehicle") {
                     val t = tripTarget

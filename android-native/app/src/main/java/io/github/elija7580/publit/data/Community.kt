@@ -134,6 +134,10 @@ object WhatsNew {
 
     /** Newest first. `release` counts Android releases with a note; raise it for each new entry. */
     val entries = listOf(
+        // 0.13.0: plan from the vehicle you are on (iOS build 108, Publit#192; idea: BudapestGO by BKK Budapest).
+        Entry(8, listOf(
+            Item("swap", "Plan from your vehicle", "Already on a tram, bus or train? Open it and tap “Plan from this vehicle”: stay on or change at a stop ahead, with live times (idea: BudapestGO)."),
+        )),
         // 0.12.1: the station map opens smoothly from Nearby (iOS build 102, Publit#173).
         Entry(7, listOf(
             Item("map", "Smoother station map", "Pull the list in Nearby all the way down and let go: the station map opens."),

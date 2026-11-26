@@ -69,4 +69,22 @@ object Polyline {
         }
         return points.filterIndexed { i, _ -> keep[i] }
     }
+
+    /** Google polyline encoding, the reverse of `decode`. */
+    fun encode(points: List<LatLon>, precision: Int): String {
+        val factor = 10.0.pow(precision)
+        val out = StringBuilder()
+        var lastLat = 0L; var lastLon = 0L
+        fun put(value: Long) {
+            var v = if (value < 0) (value shl 1).inv() else value shl 1
+            while (v >= 0x20) { out.append(((0x20L or (v and 0x1f)) + 63).toInt().toChar()); v = v ushr 5 }
+            out.append((v + 63).toInt().toChar())
+        }
+        for (p in points) {
+            val lat = Math.round(p.lat * factor); val lon = Math.round(p.lon * factor)
+            put(lat - lastLat); put(lon - lastLon)
+            lastLat = lat; lastLon = lon
+        }
+        return out.toString()
+    }
 }

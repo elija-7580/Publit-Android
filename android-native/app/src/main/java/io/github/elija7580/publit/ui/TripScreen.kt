@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Star
@@ -75,7 +76,8 @@ data class TripTarget(val stopTime: StopTime, val stationName: String, val stati
  */
 @Composable
 fun TripScreen(client: TransitousClient, favorites: io.github.elija7580.publit.data.FavoritesStore, target: TripTarget, onBack: () -> Unit,
-               onTrack: (() -> Unit)? = null, onDepartures: ((Place) -> Unit)? = null, onRoute: (from: Place?, to: Place?) -> Unit) {
+               onTrack: (() -> Unit)? = null, onDepartures: ((Place) -> Unit)? = null,
+               onPlanFromVehicle: ((io.github.elija7580.publit.data.Leg) -> Unit)? = null, onRoute: (from: Place?, to: Place?) -> Unit) {
     val ink = LocalInk.current
     val stopTime = target.stopTime
     var trip by remember { mutableStateOf<Itinerary?>(null) }
@@ -168,6 +170,15 @@ fun TripScreen(client: TransitousClient, favorites: io.github.elija7580.publit.d
                                 Icon(Icons.Filled.GpsFixed, null, Modifier.size(20.dp))
                                 Spacer(Modifier.size(10.dp))
                                 Text(L10n.t("Track vehicle"), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                            }
+                        }
+                        // On board: plan from this vehicle, the ride so far counts (idea: BudapestGO, BKK; iOS Publit#192).
+                        if (onPlanFromVehicle != null && progress != TripProgress.Finished) {
+                            HorizontalDivider(color = ink.hairline, modifier = Modifier.padding(horizontal = 16.dp))
+                            Row(Modifier.fillMaxWidth().clickable { onPlanFromVehicle(leg) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.AutoMirrored.Filled.CallSplit, null, Modifier.size(20.dp))
+                                Spacer(Modifier.size(10.dp))
+                                Text(L10n.t("Plan from this vehicle"), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                             }
                         }
                     }
