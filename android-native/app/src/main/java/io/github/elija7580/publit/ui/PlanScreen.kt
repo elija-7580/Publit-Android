@@ -1119,7 +1119,7 @@ fun GoNowScreen(vm: PlanViewModel, onBack: () -> Unit, saved: List<io.github.eli
                 item("from") {
                     Text(L10n.t("From your location").uppercase(), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 28.dp))
                 }
-                routeResults(state, vm, ink, timelines) { options = true }
+                routeResults(state, vm, ink, timelines, onOptions = { options = true })
             }
         }
     }
