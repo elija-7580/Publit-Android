@@ -236,7 +236,7 @@ private fun EndpointRow(label: String, value: String, placeholder: Boolean = fal
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.data.SmartRouting.Badge>, reason: String?, axis: Pair<java.time.Instant, java.time.Instant>? = null, leave: Boolean = false, day: String? = null, onClick: () -> Unit) {
+internal fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.data.SmartRouting.Badge>, reason: String?, axis: Pair<java.time.Instant, java.time.Instant>? = null, leave: Boolean = false, day: String? = null, onClick: () -> Unit) {
     val ink = LocalInk.current
     val tz = it.legs.firstOrNull()?.from?.tz
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable(onClick = onClick), shape = RoundedCornerShape(14.dp), color = ink.surface) {

@@ -65,9 +65,10 @@ class TransitousClient(
 
     /** Routes; `maxWalk` (s) to the first and from the last stop. `time` null = now. */
     suspend fun plan(from: LatLon, to: LatLon, time: java.time.Instant?, arriveBy: Boolean, maxWalk: Int = 1800,
-                     pageCursor: String? = null, options: RouteOptions = RouteOptions()): PlanResponse {
+                     pageCursor: String? = null, options: RouteOptions = RouteOptions(), fromStop: String? = null): PlanResponse {
         val q = mutableListOf(
-            "fromPlace" to from.apiValue, "toPlace" to to.apiValue, "arriveBy" to arriveBy.toString(),
+            // A stop ID starts at the stop itself (planning from a vehicle: the router can board it there again).
+            "fromPlace" to (fromStop ?: from.apiValue), "toPlace" to to.apiValue, "arriveBy" to arriveBy.toString(),
             "useRoutedTransfers" to "true", "maxPreTransitTime" to maxWalk.toString(), "withFares" to "true",
             "maxPostTransitTime" to maxWalk.toString(), "maxDirectTime" to "3600", "directModes" to "WALK",
         )
@@ -112,7 +113,16 @@ class TransitousClient(
         "min" to min.apiValue, "max" to max.apiValue, "withProviders" to "false", "withStations" to "true", "withVehicles" to "true", "withZones" to "false"), 60))
 
     /** New live times for a planned route (refresh-itinerary). */
-    suspend fun refresh(itineraryId: String): Itinerary =
+    suspend fun refresh(itineraryId: String): Itinerary {
+        // A route planned from a vehicle (OnBoardPlan): the ride from the vehicle's trip, the rest from its planned route.
+        OnBoardPlan.decodeId(itineraryId)?.let { ref ->
+            val rest = ref.rest?.let { refreshPlanned(it) }
+            return OnBoardPlan.refreshed(ref, trip(ref.tripId), rest) ?: throw IllegalStateException("ride no longer found")
+        }
+        return refreshPlanned(itineraryId)
+    }
+
+    private suspend fun refreshPlanned(itineraryId: String): Itinerary =
         io.github.elija7580.publit.live.LiveOverlay.apply(json.decodeFromString(Itinerary.serializer(), get("/api/v6/refresh-itinerary",
             listOf("itineraryId" to itineraryId, "withFares" to "false"), 0)), budget = 3000)
 
