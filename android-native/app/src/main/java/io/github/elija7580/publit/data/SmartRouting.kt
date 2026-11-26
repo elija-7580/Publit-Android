@@ -145,6 +145,37 @@ data class StreetComparison(val mode: String, val itinerary: Itinerary) {
             }
             return order.mapNotNull { m -> best[m]?.let { StreetComparison(m, it) } }
         }
+
+        /** The single street mode of a direct route, null for anything mixed or transit (iOS `StreetComparison.streetMode`). */
+        fun streetMode(it: Itinerary): String? = it.legs.map { l -> l.mode }.toSet().singleOrNull()?.takeIf { m -> m in order }
+
+        /** The fastest walk among the direct routes (no cycling, no driving). */
+        fun walk(direct: List<Itinerary>): Itinerary? =
+            direct.filter { r -> val m = streetMode(r); m != "BIKE" && m != "CAR" }.minByOrNull { r -> r.duration }
+
+        /**
+         * Walking is a route of its own, not a footnote (iOS `StreetComparison.walkIsAChoice`, Publit#110): when it is
+         * about as fast as the fastest ride (at most 25 % longer), takes at most 10 minutes, or when no ride gets there
+         * sooner door to door. A ride "gets there sooner" when it leaves no earlier than the walk and arrives before it,
+         * or arrives no later and leaves after it; waiting for the vehicle counts. So a 17 min walk is listed next to a
+         * 6 min bus that only leaves in 15 minutes, and for "arrive by" a walk that lets you leave later than every ride.
+         * Cancelled rides do not count.
+         */
+        fun walkIsAChoice(walk: Itinerary, transit: List<Itinerary>): Boolean {
+            val rides = transit.filter { r -> !r.isCancelled }
+            val best = rides.minOfOrNull { r -> r.duration } ?: return true
+            if (walk.duration <= best * 1.25 || walk.duration <= 10 * 60) return true
+            return rides.none { r ->
+                r.startTime >= walk.startTime && r.endTime <= walk.endTime && (r.startTime > walk.startTime || r.endTime < walk.endTime)
+            }
+        }
+
+        /** The routes to list: walking first when it is a real choice, or the only way (iOS `PlanModel.merge`). */
+        fun merge(transit: List<Itinerary>, direct: List<Itinerary>): List<Itinerary> {
+            val w = walk(direct) ?: return transit
+            if (transit.isEmpty()) return listOf(w)
+            return if (walkIsAChoice(w, transit)) listOf(w) + transit else transit
+        }
     }
 }
 
