@@ -55,6 +55,11 @@ Two product flavors: `play` (default; Google Play and the GitHub APKs: fused loc
 - Tests: `WalkChoiceTest` (dieselben Fälle wie iOS `FilterTests`, „Walking as a real choice“). Kein neuer Text (Schlüssel „Walk“ aus dem iOS-Katalog), kein „What's new“-Eintrag, `versionName` unverändert. Nicht am Gerät getestet.
 - Anders als iOS: Findet die Suche gar keine Fahrt, bleibt der Fußweg die graue Zeile „x min walk“ unter der Liste (iOS listet ihn dann als einzige Route).
 
+## Alle Routen auf einer Karte (2026-11-26, iOS Build 99 `CompareRoutesMapView`, `CompareMapView`, Publit#194)
+- [x] `ui/RoutesMapScreen.kt`, `data/RoutesOnMap.kt`, Kartenknopf in `ui/PlanScreen.kt` (`routeResults`, neben „Route options“ und der Sortierung, nur wenn Routen gelistet sind): Planen zeigt alle gefundenen Routen auf einer Karte. Die gewählte Route liegt oben in ihren Linienfarben mit Start, Ziel und Umsteigepunkten, die anderen grau darunter. Die Zeile unter der Karte (Zeiten, Dauer, Umstiege) wählt die Route, „Show route“ öffnet sie; Zurück führt zur Liste. Zuerst gewählt ist die empfohlene Route, sonst die erste. Der Ausschnitt fasst alle Routen und bleibt beim Wechsel stehen.
+- Tests: `RoutesOnMapTest` (Auswahl, Zeichenreihenfolge, Ausschnitt). Kein neuer Text (Schlüssel „Map“, „Routes“, „Show route“ aus dem iOS-Katalog), kein „What's new“-Eintrag, `versionName` unverändert. Nicht am Gerät getestet.
+- Anders als iOS: nur in Planen, nicht in „Where to now?“ (dort steht weiter die Karte der ersten Route über der Liste).
+
 ## Abfahrten einer Haltestelle der Fahrt (2026-11-24, iOS #130)
 - [x] Fahrtansicht: Das Menü einer Haltestelle hat „Departures“ und öffnet deren Abfahrtstafel (Station, sonst der Halt: `Place.boardId`); Zurück führt zur Fahrt. Jede offene Fahrtansicht behält ihre eigene Fahrt (`tripTargets` in `PublitApp`), auch wenn von der Tafel aus eine andere Fahrt geöffnet wurde. Tests: `TripStopDeparturesTest`. Kein neuer Text (Schlüssel „Departures“ aus dem iOS-Katalog). Nicht am Gerät getestet.
 

@@ -50,6 +50,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.PinDrop
@@ -102,6 +103,9 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.gi
     var searching by remember { mutableStateOf<Field?>(null) }
     var options by remember { mutableStateOf(false) }
     var change by remember { mutableStateOf<LegChange?>(null) }
+    // All routes on one map (CompareRoutesMapView on iOS); closed when the routes go away (a new search).
+    var comparing by remember { mutableStateOf(false) }
+    LaunchedEffect(state.routes.isEmpty()) { if (state.routes.isEmpty()) comparing = false }
     val searchRequest by vm.searchRequest.collectAsStateWithLifecycle()
     var handled by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(searchRequest) }
     LaunchedEffect(searchRequest) { if (searchRequest != handled) { handled = searchRequest; searching = Field.TO } }
@@ -124,14 +128,19 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.gi
         opened != null && change != null -> RouteChangeScreen(vm, opened, change!!, onBack = { change = null }) { built -> change = null; vm.open(built) }
         opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }, tickets = { TicketLinksCard(opened) }, bar = { actions(opened, state.from.title, state.to?.title ?: "") },
             onChange = { change = it }) }
-        else -> PlanForm(state, vm, onPick = { searching = it }, onOptions = { options = true }, onSettings = onSettings, pinned = pinned, favorites = favorites, saved = saved)
+        comparing && state.routes.isNotEmpty() -> RoutesMapScreen(state.sorted,
+            recommended = state.badges.entries.firstOrNull { io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED in it.value }?.key,
+            title = state.to?.title ?: L10n.t("Routes"), onBack = { comparing = false }) { r -> comparing = false; vm.open(r) }
+        else -> PlanForm(state, vm, onPick = { searching = it }, onOptions = { options = true }, onSettings = onSettings, pinned = pinned, favorites = favorites, saved = saved,
+            onMap = { comparing = true })
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Unit, onOptions: () -> Unit, onSettings: () -> Unit, pinned: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(),
-                     favorites: io.github.elija7580.publit.data.FavoritesStore? = null, saved: List<io.github.elija7580.publit.data.SavedPlace> = emptyList()) {
+                     favorites: io.github.elija7580.publit.data.FavoritesStore? = null, saved: List<io.github.elija7580.publit.data.SavedPlace> = emptyList(),
+                     onMap: (() -> Unit)? = null) {
     val ink = LocalInk.current
     var picking by remember { mutableStateOf<Boolean?>(null) } // arriveBy?
     val timelines = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("publit", android.content.Context.MODE_PRIVATE).getBoolean("showTimelines", false)
@@ -207,7 +216,7 @@ private fun PlanForm(state: PlanState, vm: PlanViewModel, onPick: (Field) -> Uni
             val notices = io.github.elija7580.publit.data.CoverageGuide.notices(pt(state.from), pt(state.to))
             CoverageBanner(notices)
         }
-        routeResults(state, vm, ink, timelines, onOptions)
+        routeResults(state, vm, ink, timelines, onOptions, onMap)
     }
     picking?.let { arrive ->
         val now = java.time.LocalTime.now()
@@ -956,7 +965,8 @@ fun ConnectionGuide(onDismiss: () -> Unit) {
 }
 
 /** Options, sort, the routes, other ways, earlier/later: shared by Plan and Go Now. */
-private fun androidx.compose.foundation.lazy.LazyListScope.routeResults(state: PlanState, vm: PlanViewModel, ink: Ink, timelines: Boolean, onOptions: () -> Unit) {
+private fun androidx.compose.foundation.lazy.LazyListScope.routeResults(state: PlanState, vm: PlanViewModel, ink: Ink, timelines: Boolean, onOptions: () -> Unit,
+                                                                        onMap: (() -> Unit)? = null) {
         item("options") {
             Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Surface(onClick = onOptions, shape = RoundedCornerShape(50), color = ink.fill, modifier = Modifier.weight(1f)) {
@@ -982,6 +992,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.routeResults(state: P
                             DropdownMenuItem({ Text(o.title) }, { sortMenu = false; vm.setOptions(state.options.copy(sort = o)) })
                         }
                     }
+                }
+                // All routes on one map (the map key in Plan's bar on iOS): only with routes to show.
+                if (onMap != null && !state.loading && state.routes.isNotEmpty()) Surface(onClick = onMap, shape = RoundedCornerShape(50), color = ink.fill) {
+                    Icon(Icons.Filled.Map, L10n.t("Map"), Modifier.padding(horizontal = 12.dp, vertical = 10.dp).size(18.dp))
                 }
             }
         }
@@ -1105,7 +1119,7 @@ fun GoNowScreen(vm: PlanViewModel, onBack: () -> Unit, saved: List<io.github.eli
                 item("from") {
                     Text(L10n.t("From your location").uppercase(), color = ink.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 28.dp))
                 }
-                routeResults(state, vm, ink, timelines) { options = true }
+                routeResults(state, vm, ink, timelines, onOptions = { options = true })
             }
         }
     }
