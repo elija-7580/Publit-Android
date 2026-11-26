@@ -102,6 +102,20 @@ data class Itinerary(
             }
             return false
         }
+
+    /**
+     * A route the server planned the wrong way round: it starts at the destination and ends at the start
+     * (iOS `Itinerary.runsBackwards`, Publit#188). Transitous answers "Arrive by" searches that also ask for
+     * slower direct rides (`slowDirect`, smart routing) that way: Saarbrücken, 2026-11-26, 4 of 9 routes rode
+     * from the university back into town, their last leg ending at "END" on the start's coordinates.
+     * Start and destination next to each other: nothing to judge.
+     */
+    fun runsBackwards(from: io.github.elija7580.publit.core.LatLon, to: io.github.elija7580.publit.core.LatLon): Boolean {
+        if (from.distanceTo(to) < 200 || legs.isEmpty()) return false
+        val start = legs.first().from.coordinate
+        val end = legs.last().to.coordinate
+        return start.distanceTo(to) < start.distanceTo(from) && end.distanceTo(from) < end.distanceTo(to)
+    }
 }
 
 @Serializable
@@ -110,7 +124,13 @@ data class PlanResponse(
     val itineraries: List<Itinerary> = emptyList(),
     val previousPageCursor: String? = null,
     val nextPageCursor: String? = null,
-)
+) {
+    /** The same answer without routes that run from the destination to the start (`Itinerary.runsBackwards`); paging cursors stay. */
+    fun facing(from: io.github.elija7580.publit.core.LatLon, to: io.github.elija7580.publit.core.LatLon): PlanResponse {
+        val kept = itineraries.filter { !it.runsBackwards(from, to) }
+        return if (kept.size == itineraries.size) this else copy(itineraries = kept)
+    }
+}
 
 @Serializable
 data class GeocodeArea(val name: String, val adminLevel: Double? = null, val default: Boolean? = null)

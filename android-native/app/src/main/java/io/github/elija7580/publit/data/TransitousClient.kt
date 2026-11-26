@@ -79,7 +79,9 @@ class TransitousClient(
         time?.let { q += "time" to it.toString() }
         pageCursor?.let { q += "pageCursor" to it }
         q += SmartRouting.queryItems()
+        // "Arrive by" with slower direct rides: the server adds routes from the destination to the start (Publit#188).
         val res = json.decodeFromString(PlanResponse.serializer(), get("/api/v6/plan", q, if (time == null) 20 else 60, if (options.isSlowSearch) 45_000 else 20_000))
+            .facing(from, to)
         // Own tickets: rides they do not cover (an IC filed as plain RAIL, a train abroad) come out here;
         // so do long-distance trains by name with "Without long-distance trains".
         val covered = if (!options.filtersRides) res.itineraries else res.itineraries.filter(options::allows)
