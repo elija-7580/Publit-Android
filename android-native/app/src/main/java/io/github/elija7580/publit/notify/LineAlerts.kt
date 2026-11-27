@@ -112,8 +112,11 @@ object LineAlerts {
 class LineAlertReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val done = goAsync()
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            try { LineAlerts.check(context) } finally { done.finish() }
-        }
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        // A failure in the check must not take the app down.
+        val check = scope.launch { try { LineAlerts.check(context) } catch (_: Exception) {} }
+        // A broadcast must be finished within seconds, but on a slow network the check (several stops, one after the
+        // other) can take far longer: the broadcast is handed back in time, the check itself runs on to its end.
+        scope.launch { try { kotlinx.coroutines.withTimeoutOrNull(8_000) { check.join() } } finally { done.finish() } }
     }
 }
