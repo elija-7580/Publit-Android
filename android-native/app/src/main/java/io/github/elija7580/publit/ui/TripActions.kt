@@ -242,7 +242,9 @@ object TripSession {
     /** New live times for a saved trip, also for its reminders and live notification. False on failure. */
     suspend fun refresh(ctx: Context, client: io.github.elija7580.publit.data.TransitousClient, store: TripStore, t: SavedTrip): Boolean = try {
         val fresh = client.refresh(t.itinerary.id)
-        store.update(t.id, fresh)
+        // Only while the trip still holds the route that was asked for: switched to another connection (or refreshed
+        // by someone else) meanwhile, this answer is about an old route and must not replace the new one.
+        store.updateIfCurrent(t.id, t.itinerary.id, fresh)
         store.trip(t.id)?.let { u ->
             TripNotifications.followLeave(ctx, t, u)
             TripNotifications.followGetOff(ctx, t.itinerary, u.itinerary, u.id)

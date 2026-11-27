@@ -81,7 +81,8 @@ fun LiveTripScreen(client: TransitousClient, store: TripStore, trip: SavedTrip, 
     var picked by remember { mutableStateOf<Int?>(null) }
     var overview by remember { mutableStateOf(false) }
     LaunchedEffect(live) { picked?.let { p -> if (p <= live) picked = null } }
-    val index = picked ?: live
+    // A stage picked by hand may no longer exist after a new route ("Switch") or a live refresh with fewer legs.
+    val index = (picked ?: live).coerceIn(0, steps.lastIndex)
     val step = steps[index]
     val leg = it.legs[step.legIndex]
     // On board your own fix (laid onto the line) says where you are; else the clock does.
