@@ -229,6 +229,13 @@ class PlanViewModel(
                 val street = (if (s.lastConnection) emptyList() else o.comparisonModes).map { m -> async { runCatching { client.streetRoutes(a, b, qt, qa, m) }.getOrDefault(emptyList()) } }
                 val firstWalk = o.maxWalkMinutes * 60
                 pageWalk = firstWalk; pageOptions = o; pageNearest = null
+                // Late trains whose timetable time has passed (the router leaves them out): searched from 30 min
+                // earlier alongside, with live times, and listed while they have not left (LateTrains, iOS build 110).
+                val lateBase = qt ?: java.time.Instant.now()
+                val lateSearch = if (qa) null else async {
+                    val lw = if (o.firstMile == io.github.elija7580.publit.data.FirstMile.CAR) o.copy(firstMile = io.github.elija7580.publit.data.FirstMile.WALK) else o
+                    runCatching { client.plan(a, b, lateBase.minusSeconds(io.github.elija7580.publit.data.LateTrains.LOOKBACK_SECONDS), false, firstWalk, options = lw) }.getOrNull()
+                }
                 var note: String? = null
                 // The routes were searched with a longer walk than the usual 30 min.
                 var longWalk = false
@@ -262,6 +269,10 @@ class PlanViewModel(
                         }
                     }
                 }
+                val late = lateSearch?.await()?.itineraries?.filter { !it.isDetour }?.let {
+                    io.github.elija7580.publit.data.LateTrains.stillReachable(it, lateBase, java.time.Instant.now(), found.map { r -> r.routeKey }.toSet())
+                }.orEmpty()
+                if (late.isNotEmpty()) found = (found + late).sortedBy { it.startTime }
                 // Last connection: only rides that have not left yet.
                 val fetched = found
                 if (s.lastConnection) found = io.github.elija7580.publit.data.LastConnection.upcoming(found)

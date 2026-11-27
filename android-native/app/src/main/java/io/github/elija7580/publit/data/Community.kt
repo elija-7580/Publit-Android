@@ -134,6 +134,10 @@ object WhatsNew {
 
     /** Newest first. `release` counts Android releases with a note; raise it for each new entry. */
     val entries = listOf(
+        // 0.15.0: late trains you can still catch stay in the list (iOS build 110, Publit#197).
+        Entry(10, listOf(
+            Item("history", "Late trains stay in the list", "A late train you can still catch now shows up with its delay, and a refresh no longer shows it on time for a moment."),
+        )),
         // 0.14.0: leave earlier and still catch the connection (iOS build 109, Publit#196).
         Entry(9, listOf(
             Item("history", "Leave earlier, still catch it", "If a delay breaks a change before you leave, Publit shows an earlier way that still catches the same train."),
