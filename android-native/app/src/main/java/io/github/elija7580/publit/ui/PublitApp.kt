@@ -243,7 +243,7 @@ fun PublitApp(vm: NearbyViewModel, plan: PlanViewModel, client: io.github.elija7
                         val e = Endpoint.At(name, at)
                         if (to) plan.route(Endpoint.Here, e) else plan.route(e, null)
                         openPlan()
-                    }) { id, name, exact ->
+                    }, onPlanFromVehicle = { ride, lineName -> onBoard = ride to lineName; nav.navigate("onboard") }) { id, name, exact ->
                         nav.navigate("stop?id=${Uri.encode(id)}&name=${Uri.encode(name)}&exact=$exact")
                     }
                 }
