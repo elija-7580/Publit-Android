@@ -35,6 +35,13 @@ object OnBoardPlan {
         return Position(from, next, maxOf(now, arrival))
     }
 
+    /**
+     * The ride of a vehicle picked on the map (the answer of `/trip`), to plan on from it: its ride while it has
+     * not arrived at its last stop, else null (VehicleTripView on iOS shows the entry on the same condition).
+     */
+    fun vehicleRide(trip: Itinerary, now: Instant): Leg? =
+        trip.legs.firstOrNull { it.isTransit }?.takeIf { position(it.allStops, now) != null }
+
     /** The ride of `trip` from stop `from` to stop `to` as a leg of its own; null when `to` is not after `from`. */
     fun ride(trip: Leg, from: Int, to: Int): Leg? {
         val stops = trip.allStops

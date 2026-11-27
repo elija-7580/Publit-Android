@@ -52,6 +52,18 @@ class OnBoardPlanTest {
         assertNull(OnBoardPlan.position(tram().allStops, time(11)))
     }
 
+    /** A vehicle picked on the station map: its ride counts while it has not arrived (VehicleTripView on iOS). */
+    @Test fun vehicleRideFromTheMap() {
+        val trip = route("T1", listOf(tram()))
+        assertEquals("T1", OnBoardPlan.vehicleRide(trip, time(3))?.tripId)
+        // Not left yet: the plan starts at its first stop.
+        assertEquals("T1", OnBoardPlan.vehicleRide(trip, time(-5))?.tripId)
+        // Arrived at the last stop: nothing to plan from.
+        assertNull(OnBoardPlan.vehicleRide(trip, time(11)))
+        // An answer without a ride.
+        assertNull(OnBoardPlan.vehicleRide(route("W", listOf(leg("WALK", 0, 1, 0, 5))), time(1)))
+    }
+
     @Test fun rideIsCutOut() {
         val r = OnBoardPlan.ride(tram(), 1, 4)!!
         assertEquals("S1", r.from.name); assertEquals("S4", r.to.name)

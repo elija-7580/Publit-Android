@@ -49,11 +49,13 @@ import androidx.compose.ui.unit.sp
 import io.github.elija7580.publit.core.L10n
 import io.github.elija7580.publit.core.LatLon
 import io.github.elija7580.publit.data.GeocodeMatch
+import io.github.elija7580.publit.data.Leg
 import io.github.elija7580.publit.data.MapStation
 import io.github.elija7580.publit.data.MapStop
 import io.github.elija7580.publit.data.ModeFilter
 import io.github.elija7580.publit.data.ModeGroup
 import io.github.elija7580.publit.data.ModeStyle
+import io.github.elija7580.publit.data.OnBoardPlan
 import io.github.elija7580.publit.data.TransitousClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -73,6 +75,7 @@ private const val MAX_STATION_SPAN = 0.08
  */
 @Composable
 fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Unit, onRoute: ((String, LatLon, Boolean) -> Unit)? = null,
+                     onPlanFromVehicle: ((ride: Leg, lineName: String) -> Unit)? = null,
                      onOpenStation: (id: String, name: String, exact: Boolean) -> Unit) {
     val ink = LocalInk.current
     var region by remember { mutableStateOf<MapRegion?>(null) }
@@ -118,6 +121,18 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
     var rentals by remember { mutableStateOf(io.github.elija7580.publit.data.RentalsResponse()) }
     var tick by remember { mutableStateOf(java.time.Instant.now()) }
     var selected by remember { mutableStateOf<String?>(null) }
+    // The ride of the vehicle picked on the map, for "Plan from this vehicle" (VehicleTripView on iOS, Publit#192;
+    // idea: BudapestGO, BKK). Loaded once per picked vehicle; without it the card stays as it is.
+    var vehicleRide by remember { mutableStateOf<Pair<String, Leg>?>(null) }
+    LaunchedEffect(selected) {
+        val id = selected?.takeIf { it.startsWith("v|") }?.removePrefix("v|")
+        if (id == null || onPlanFromVehicle == null) { vehicleRide = null; return@LaunchedEffect }
+        if (vehicleRide?.first == id) return@LaunchedEffect
+        vehicleRide = null
+        try {
+            OnBoardPlan.vehicleRide(client.trip(id), java.time.Instant.now())?.let { vehicleRide = id to it }
+        } catch (e: CancellationException) { throw e } catch (e: Exception) { /* the card stays without the entry */ }
+    }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     // Vehicles glide every 2 s and are fetched again every 30 s, only while the map is in front.
     LaunchedEffect(region, showLines, showVehicles, filter) {
@@ -312,6 +327,12 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                             Text(L10n.f("Next: %@", v.nextStop), color = ink.muted)
                             Text(if (!v.realTime) L10n.t("Position estimated from the timetable.") else if (v.delayMinutes > 0) L10n.f("+%lld min", v.delayMinutes) else L10n.t("On time"),
                                 color = if (v.delayMinutes > 0) ink.delay else ink.muted, fontSize = 13.sp)
+                            // You sit in this vehicle: plan on from it. Only while it has not arrived.
+                            val ride = vehicleRide?.takeIf { it.first == v.id }?.second
+                            if (ride != null) androidx.compose.material3.TextButton({ onPlanFromVehicle?.invoke(ride, v.name) }) {
+                                Text(L10n.t("Plan from this vehicle"), color = ink.ink)
+                            }
+                            Unit
                         } ?: Text(L10n.t("Trip"), color = ink.muted)
                         sel.startsWith("c|") -> categoryHits.getOrNull(sel.removePrefix("c|").toIntOrNull() ?: -1)?.let { c ->
                             Text(c.name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
