@@ -28,7 +28,7 @@ class LateTrainsTest {
         val base = time(0)
         val found = listOf(train(-20, 0), train(-10, 15), train(-5, 2), train(-8, 12, cancelled = true), train(5, 0))
         val late = LateTrains.stillReachable(found, base, now = base, known = emptySet())
-        assertEquals(listOf("R-10"), late.map { it.legs[0].tripId })
+        assertEquals(listOf("R-10"), late.map { it.id })
         assertTrue(LateTrains.isLate(train(-10, 15)))
         assertFalse(LateTrains.isLate(train(5, 0)))
         // Already listed: not twice.
