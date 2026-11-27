@@ -77,20 +77,20 @@ class TripStore(dir: File) {
         return trips.firstOrNull { t -> t.itinerary.id == it.id || matchKey(t.itinerary) == key }
     }
 
-    fun save(it: Itinerary, from: String, to: String): SavedTrip {
+    @Synchronized fun save(it: Itinerary, from: String, to: String): SavedTrip {
         saved(it)?.let { t -> return t }
         val t = SavedTrip(UUID.randomUUID().toString(), it, from, to, Instant.now())
         set(trips + t)
         return t
     }
 
-    fun remove(id: String) {
+    @Synchronized fun remove(id: String) {
         if (_state.value.activeId == id) stop(id)
         set(trips.filter { it.id != id })
     }
 
     /** Only one manually started trip at a time. */
-    fun start(id: String) {
+    @Synchronized fun start(id: String) {
         if (trip(id) == null) return
         _state.value.activeId?.takeIf { it != id }?.let { setFollowLive(it, false) }
         _state.value = _state.value.copy(activeId = id)
@@ -98,23 +98,36 @@ class TripStore(dir: File) {
         runCatching { activeFile.writeText(id) }
     }
 
-    fun stop(id: String) {
+    @Synchronized fun stop(id: String) {
         if (_state.value.activeId != id) return
         _state.value = _state.value.copy(activeId = null)
         setFollowLive(id, false)
         runCatching { activeFile.writeText("") }
     }
 
-    fun setFollowLive(id: String, on: Boolean) = set(trips.map { if (it.id == id) it.copy(followLive = on) else it })
+    @Synchronized fun setFollowLive(id: String, on: Boolean) = set(trips.map { if (it.id == id) it.copy(followLive = on) else it })
 
     /** Replace the stored route with a fresh real-time version. */
-    fun update(id: String, with: Itinerary) = set(trips.map { if (it.id == id) it.copy(itinerary = with, refreshedAt = Instant.now()) else it })
+    @Synchronized fun update(id: String, with: Itinerary) = set(trips.map { if (it.id == id) it.copy(itinerary = with, refreshedAt = Instant.now()) else it })
+
+    /**
+     * The same, but only while the trip still holds the route with the ID `expected` (the one a live refresh was asked
+     * for). False when the trip is gone or holds another route by now (rerouted, or refreshed meanwhile).
+     */
+    @Synchronized fun updateIfCurrent(id: String, expected: String, with: Itinerary): Boolean {
+        if (trip(id)?.itinerary?.id != expected) return false
+        update(id, with)
+        return true
+    }
 
     /** A new connection for a trip under way (missed, cancelled, off the path): same trip, new route from where you are. */
-    fun reroute(id: String, with: Itinerary, from: String) =
+    @Synchronized fun reroute(id: String, with: Itinerary, from: String) =
         set(trips.map { if (it.id == id) it.copy(itinerary = with, fromName = from, refreshedAt = Instant.now()) else it })
 
-    private fun set(list: List<SavedTrip>) {
+    // Changes come from the main thread and from the live refresh of a started trip (a background thread, see
+    // TripLearningSession): every change is one step under the store's lock, so none is lost and the file is
+    // never written by two threads at once.
+    @Synchronized private fun set(list: List<SavedTrip>) {
         _state.value = _state.value.copy(trips = list)
         runCatching {
             val tmp = File(file.parentFile, "trips.json.tmp")

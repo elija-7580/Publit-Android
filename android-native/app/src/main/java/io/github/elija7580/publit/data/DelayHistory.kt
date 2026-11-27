@@ -108,11 +108,12 @@ object DelayHistory {
             val hs = horizons[mode] ?: return null
             val first = hs.firstOrNull() ?: return null
             val m = maxOf(0.0, minutesAhead)
-            if (m <= first.minutes) { val f = m / first.minutes; return Dist(first.error.q.map { it * f }) to first.n }
+            // A first horizon at 0 min would divide by zero (NaN, which later fails when rounded to a percent).
+            if (m <= first.minutes) { val f = if (first.minutes > 0) m / first.minutes else 1.0; return Dist(first.error.q.map { it * f }) to first.n }
             for (i in 0 until hs.size - 1) {
                 val a = hs[i]; val b = hs[i + 1]
                 if (m <= b.minutes) {
-                    val t = (m - a.minutes) / (b.minutes - a.minutes)
+                    val t = if (b.minutes > a.minutes) (m - a.minutes) / (b.minutes - a.minutes) else 1.0
                     return Dist(a.error.q.zip(b.error.q) { x, y -> x + t * (y - x) }) to minOf(a.n, b.n)
                 }
             }

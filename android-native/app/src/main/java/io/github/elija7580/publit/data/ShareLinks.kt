@@ -42,7 +42,9 @@ data class SharedRoute(val itineraryId: String?, val fromName: String, val from:
             val from = latLon(v["fl"]) ?: return null
             val to = latLon(v["tl"]) ?: return null
             val d = v["d"]?.toDoubleOrNull()?.takeIf { it.isFinite() } ?: return null
-            return SharedRoute(v["i"]?.let(ShareLinks::unpack), v["f"].orEmpty(), from, v["t"].orEmpty(), to, Instant.ofEpochSecond(d.toLong()))
+            // A time outside what Instant can hold (a mangled or made-up link) is no route, not a crash.
+            val when_ = runCatching { Instant.ofEpochSecond(d.toLong()) }.getOrNull() ?: return null
+            return SharedRoute(v["i"]?.let(ShareLinks::unpack), v["f"].orEmpty(), from, v["t"].orEmpty(), to, when_)
         }
     }
 }

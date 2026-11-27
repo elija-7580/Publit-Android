@@ -213,6 +213,7 @@ class PlanViewModel(
         val qt = if (s.lastConnection) io.github.elija7580.publit.data.LastConnection.deadline() else s.time
         val qa = s.lastConnection || s.arriveBy
         pageTime = qt
+        searchNo++
         search = viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null, routes = emptyList(), note = null, noteIsWalk = false, walkOnly = null, searched = true, street = emptyList(), badges = emptyMap()) }
             try {
@@ -312,6 +313,8 @@ class PlanViewModel(
     private var pageOptions: io.github.elija7580.publit.data.RouteOptions? = null
     private var pageNearest: Int? = null
     private var pageTime: Instant? = null
+    /** Counts the searches: an earlier/later page still under way when a new search starts belongs to the old one. */
+    private var searchNo = 0
 
     /** The route that leaves last carries "Last connection", first on its line. */
     private fun withLast(badges: Map<String, List<io.github.elija7580.publit.data.SmartRouting.Badge>>, routes: List<Itinerary>, on: Boolean):
@@ -329,12 +332,15 @@ class PlanViewModel(
         val s = _state.value
         val cursor = (if (next) s.nextCursor else s.previousCursor) ?: return
         val to = s.to ?: return
+        val no = searchNo
         viewModelScope.launch {
             try {
                 val a = point(s.from) ?: return@launch
                 val b = point(to) ?: return@launch
                 val o = pageOptions ?: s.options
                 val res = client.plan(a, b, if (s.lastConnection) pageTime else s.time, s.lastConnection || s.arriveBy, pageWalk ?: (s.options.maxWalkMinutes * 60), cursor, o)
+                // A new search was started meanwhile: these routes are for the old one and must not join its list.
+                if (no != searchNo) return@launch
                 _state.update { st ->
                     var more = res.itineraries.filter { !it.isDetour }
                     if (o.firstMile == io.github.elija7580.publit.data.FirstMile.CAR)
