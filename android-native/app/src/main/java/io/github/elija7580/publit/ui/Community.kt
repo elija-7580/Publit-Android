@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Groups
@@ -157,6 +158,7 @@ private fun icon(name: String): ImageVector = when (name) {
     "car" -> Icons.Filled.DirectionsCar
     "widget" -> Icons.Filled.Widgets
     "star" -> Icons.Filled.Star
+    "history" -> Icons.Filled.History
     else -> Icons.Filled.Lightbulb
 }
 

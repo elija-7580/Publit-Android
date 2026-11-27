@@ -136,6 +136,17 @@ class PlanViewModel(
         return client.plan(from, to, time, false, o.maxWalkMinutes * 60, cursor, o)
     }
 
+    /** A change no longer works: an earlier way that still catches the same connection (CatchEarlier). */
+    suspend fun catchEarlier(route: Itinerary): io.github.elija7580.publit.data.CatchEarlier.Rescue? {
+        val o = _state.value.options
+        // Off the main thread: the chances of every change, decoding and live times would hold up taps.
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            io.github.elija7580.publit.data.CatchEarlier.search(route, { from, to, at ->
+                client.plan(from.coordinate, to.coordinate, at, true, o.maxWalkMinutes * 60, options = o, fromStop = from.stopId).itineraries
+            })
+        }
+    }
+
     /** The whole trip of one vehicle, all its stops. */
     suspend fun trip(id: String): Itinerary = client.trip(id)
 

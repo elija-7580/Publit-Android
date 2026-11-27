@@ -45,6 +45,18 @@ object RouteBuilder {
         return make(kept + rest.legs)
     }
 
+    /**
+     * Leave earlier (CatchEarlier): `way` to where leg `index` starts, then the route from that leg on as it is
+     * (RouteBuilder.lead on iOS). Null when `way` arrives after the leg leaves or ends somewhere else.
+     */
+    fun lead(way: Itinerary, route: Itinerary, index: Int): Itinerary? {
+        if (index <= 0 || index !in route.legs.indices) return null
+        val end = way.legs.lastOrNull() ?: return null
+        val rest = route.legs.subList(index, route.legs.size)
+        if (rest[0].startTime.isBefore(end.endTime) || end.to.coordinate.distanceTo(rest[0].from.coordinate) > JOIN_RADIUS) return null
+        return make(way.legs + rest)
+    }
+
     private fun sorted(list: List<Itinerary>): List<Itinerary> {
         val seen = HashSet<String>()
         return list.filter { seen.add(it.routeKey) }.sortedWith(compareBy<Itinerary>({ it.endTime }, { it.startTime }))

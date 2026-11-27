@@ -134,6 +134,10 @@ object WhatsNew {
 
     /** Newest first. `release` counts Android releases with a note; raise it for each new entry. */
     val entries = listOf(
+        // 0.14.0: leave earlier and still catch the connection (iOS build 109, Publit#196).
+        Entry(9, listOf(
+            Item("history", "Leave earlier, still catch it", "If a delay breaks a change before you leave, Publit shows an earlier way that still catches the same train."),
+        )),
         // 0.13.0: plan from the vehicle you are on (iOS build 108, Publit#192; idea: BudapestGO by BKK Budapest).
         Entry(8, listOf(
             Item("swap", "Plan from your vehicle", "Already on a tram, bus or train? Open it and tap “Plan from this vehicle”: stay on or change at a stop ahead, with live times (idea: BudapestGO)."),

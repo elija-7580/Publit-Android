@@ -127,7 +127,7 @@ fun PlanScreen(vm: PlanViewModel, onSettings: () -> Unit = {}, saved: List<io.gi
         }
         opened != null && change != null -> RouteChangeScreen(vm, opened, change!!, onBack = { change = null }) { built -> change = null; vm.open(built) }
         opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }, tickets = { TicketLinksCard(opened) }, bar = { actions(opened, state.from.title, state.to?.title ?: "") },
-            onChange = { change = it }) }
+            onChange = { change = it }, findEarlier = { r -> vm.catchEarlier(r) }, onOpen = { vm.open(it) }) }
         comparing && state.routes.isNotEmpty() -> RoutesMapScreen(state.sorted,
             recommended = state.badges.entries.firstOrNull { io.github.elija7580.publit.data.SmartRouting.Badge.RECOMMENDED in it.value }?.key,
             title = state.to?.title ?: L10n.t("Routes"), onBack = { comparing = false }) { r -> comparing = false; vm.open(r) }
@@ -315,8 +315,14 @@ private fun LegBadge(leg: Leg) {
 @Composable
 fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, top: @Composable () -> Unit = {},
                     tickets: @Composable () -> Unit = {}, bar: @Composable () -> Unit = {},
-                    onChange: ((LegChange) -> Unit)? = null) {
+                    onChange: ((LegChange) -> Unit)? = null,
+                    findEarlier: (suspend (Itinerary) -> io.github.elija7580.publit.data.CatchEarlier.Rescue?)? = null,
+                    onOpen: ((Itinerary) -> Unit)? = null) {
     val ink = LocalInk.current
+    // A broken or unlikely change before the trip has started: an earlier way to the same connection (iOS build 109).
+    var earlier by remember(it.routeKey) { mutableStateOf<io.github.elija7580.publit.data.CatchEarlier.Rescue?>(null) }
+    val liveTimes = it.legs.joinToString("|") { l -> "${l.startTime.epochSecond}-${l.endTime.epochSecond}" }
+    if (findEarlier != null && onOpen != null) LaunchedEffect(it.routeKey, liveTimes) { earlier = findEarlier(it) }
     // Overview at the top, then the steps, then tickets and fares; the actions are the bar pinned to the bottom
     // (iOS route screen, layout A), so they never sit between the overview and the steps.
     androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
@@ -354,6 +360,7 @@ fun ItineraryDetail(it: Itinerary, onBack: () -> Unit, title: String? = null, to
             Text(L10n.f("Feels like %@", Fmt.duration(felt * 60)) + if (changes.isEmpty()) " · " + L10n.t("No change: nothing to miss") else "",
                 color = ink.muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 28.dp))
         }
+        earlier?.let { r -> if (onOpen != null) item("earlier") { CatchEarlierCard(r) { onOpen(r.route) } } }
         if (changes.isNotEmpty()) item("changes") { ChangesCard(changes) }
         if (it.transitLegs.any { l -> l.endTime > java.time.Instant.now() }) item("getoff") { GetOffCard(it) }
         items(it.legs.size) { i ->
@@ -397,6 +404,26 @@ private fun FareCard(it: Itinerary, products: List<io.github.elija7580.publit.da
         }
         Text(L10n.t("Experimental operator fare data, not a binding quote. Product options are not necessarily the total trip price. Check eligibility and the operator's price before buying."),
             color = ink.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp))
+    }
+}
+
+/** "Still catch REX 2814 · Leave 6 min earlier, at 7:35 · U1 at 7:39": opens that route (CatchEarlierRow on iOS). */
+@Composable
+private fun CatchEarlierCard(r: io.github.elija7580.publit.data.CatchEarlier.Rescue, onOpen: () -> Unit) {
+    val ink = LocalInk.current
+    val leave = Fmt.time(r.route.startTime, r.route.legs.firstOrNull()?.from?.tz)
+    val parts = mutableListOf(if (r.minutesEarlier > 0) L10n.f("Leave %@ earlier, at %@", Fmt.duration(r.minutesEarlier * 60), leave) else L10n.f("Leave at %@", leave))
+    r.route.transitLegs.firstOrNull()?.let { l -> parts += L10n.f("%@ at %@", l.lineName, Fmt.time(l.startTime, l.from.tz)) }
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable(onClick = onOpen), shape = RoundedCornerShape(14.dp), color = ink.surface) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.History, null, tint = ink.live)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(L10n.f("Still catch %@", r.connection.lineName), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(parts.joinToString(" · "), color = ink.muted, fontSize = 12.sp)
+            }
+            Text("›", color = ink.muted, fontSize = 20.sp)
+        }
     }
 }
 
@@ -1095,7 +1122,7 @@ fun GoNowScreen(vm: PlanViewModel, onBack: () -> Unit, saved: List<io.github.eli
         }
         opened != null && change != null -> RouteChangeScreen(vm, opened, change!!, onBack = { change = null }) { built -> change = null; vm.open(built) }
         opened != null -> { BackHandler { vm.open(null) }; ItineraryDetail(opened, { vm.open(null) }, tickets = { TicketLinksCard(opened) }, bar = { actions(opened, L10n.t("Current location"), state.to?.title ?: "") },
-            onChange = { change = it }) }
+            onChange = { change = it }, findEarlier = { r -> vm.catchEarlier(r) }, onOpen = { vm.open(it) }) }
         else -> {
             BackHandler(onBack = onBack)
             LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
