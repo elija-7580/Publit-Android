@@ -86,7 +86,8 @@ class TransitousClient(
         // Own tickets: rides they do not cover (an IC filed as plain RAIL, a train abroad) come out here;
         // so do long-distance trains by name with "Without long-distance trains".
         val covered = if (!options.filtersRides) res.itineraries else res.itineraries.filter(options::allows)
-        return res.copy(itineraries = io.github.elija7580.publit.live.LiveOverlay.apply(covered))
+        // The line of each ride without the server's detours over other tracks (LegShape, Publit#114).
+        return res.copy(itineraries = io.github.elija7580.publit.live.LiveOverlay.apply(covered.map { LegShape.tidy(it) }))
     }
 
     /** Cycling or driving the whole way, for the comparison under the routes (reused for 15 min). */
@@ -123,12 +124,12 @@ class TransitousClient(
     }
 
     private suspend fun refreshPlanned(itineraryId: String): Itinerary =
-        io.github.elija7580.publit.live.LiveOverlay.apply(json.decodeFromString(Itinerary.serializer(), get("/api/v6/refresh-itinerary",
-            listOf("itineraryId" to itineraryId, "withFares" to "false"), 0)), budget = 3000)
+        io.github.elija7580.publit.live.LiveOverlay.apply(LegShape.tidy(json.decodeFromString(Itinerary.serializer(), get("/api/v6/refresh-itinerary",
+            listOf("itineraryId" to itineraryId, "withFares" to "false"), 0))), budget = 3000)
 
     /** One vehicle's whole trip, with live stop times. */
     suspend fun trip(id: String): Itinerary =
-        json.decodeFromString(Itinerary.serializer(), get("/api/v6/trip", listOf("tripId" to id), 15))
+        LegShape.tidy(json.decodeFromString(Itinerary.serializer(), get("/api/v6/trip", listOf("tripId" to id), 15)))
 
     @Serializable
     private data class LastNearby(val lat: Double, val lon: Double, val modes: String? = null, val at: Long, val body: String)
