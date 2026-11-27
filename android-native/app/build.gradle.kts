@@ -16,7 +16,7 @@ android {
         targetSdk = 36
         // PUBLIT_VERSION_CODE (Play upload) wins over the CI run number.
         versionCode = (System.getenv("PUBLIT_VERSION_CODE") ?: System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-        versionName = "0.14.0"
+        versionName = "0.15.0"
         // Device tests (src/androidTest): ticket recognition on an emulator, see android-device-test.yml.
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Optional Google Wallet export: the signing service's HTTPS URL (services/google-wallet-signer).
