@@ -110,8 +110,9 @@ class NearbyWidget : GlanceAppWidget() {
                 for ((g, fav) in ordered(groups, app.favorites.state.value.items).take(3)) {
                     val rows = JSONArray()
                     for (st in g.departures.take(4)) {
-                        val m = Math.ceil((st.departureTime.epochSecond - now.epochSecond) / 60.0).toInt()
-                        val text = when { m <= 0 -> L10n.t("now"); m < 60 -> L10n.f("%lld min", m); else -> Fmt.time(st.departureTime, st.place.tz) }
+                        // The clock time, not "in 4 min": a widget is drawn again only every half hour or so, and a countdown
+                        // written at load time was wrong a minute later.
+                        val text = Fmt.time(st.departureTime, st.place.tz)
                         val c = st.lineColors
                         rows.put(JSONObject().put("line", st.lineName).put("background", c.background).put("foreground", c.text)
                             .put("headsign", (if (st.isCircular) "↻ " else "") + (st.shownDirection ?: "")).put("cancelled", st.isCancelled)

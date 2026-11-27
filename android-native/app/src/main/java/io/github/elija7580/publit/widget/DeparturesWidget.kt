@@ -124,11 +124,11 @@ object DroidWidgets {
     suspend fun departures(context: Context, stopId: String): JSONObject? = try {
         val client = app(context).client
         val list = io.github.elija7580.publit.data.StopTime.upcoming(client.departures(stopId, 20, 150).stopTimes)
-        val now = java.time.Instant.now()
         val rows = JSONArray()
         for (st in list.take(12)) {
-            val m = Math.ceil((st.departureTime.epochSecond - now.epochSecond) / 60.0).toInt()
-            val text = when { m <= 0 -> L10n.t("now"); m < 60 -> L10n.f("%lld min", m); else -> Fmt.time(st.departureTime, st.place.tz) }
+            // The clock time, not "in 4 min": a widget is drawn again only every half hour or so, and a countdown
+            // written at load time was wrong a minute later.
+            val text = Fmt.time(st.departureTime, st.place.tz)
             val c = st.lineColors
             rows.put(JSONObject().put("line", st.lineName).put("background", c.background).put("foreground", c.text)
                 .put("headsign", st.shownDirection ?: "").put("circular", st.isCircular).put("cancelled", st.isCancelled)

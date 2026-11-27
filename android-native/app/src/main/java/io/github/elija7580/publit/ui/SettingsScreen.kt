@@ -226,6 +226,24 @@ fun SettingsScreen(prefs: SharedPreferences, onWishes: () -> Unit = {}, onSuppor
                     }
                 }
             }
+            if (page == SettingsCategory.NOTIFICATIONS && android.os.Build.VERSION.SDK_INT >= 31) {
+                item {
+                    // Android 14+ does not grant exact alarms by itself: without them reminders can be minutes late.
+                    val alarms = context.getSystemService(android.app.AlarmManager::class.java)
+                    if (alarms != null && !alarms.canScheduleExactAlarms()) {
+                        Box(Modifier.padding(horizontal = 12.dp)) {
+                            OptionGroup(null, L10n.t("Android may move leave and get-off reminders by a few minutes to save battery. Allow “Alarms & reminders” for Publit and they arrive on the minute.")) {
+                                LinkRow(L10n.t("Reminders on the minute")) {
+                                    runCatching {
+                                        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                            android.net.Uri.parse("package:" + context.packageName)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             if (page == SettingsCategory.DATA) {
                 item {
                     Group(L10n.t("Data"), footer = listOf(
