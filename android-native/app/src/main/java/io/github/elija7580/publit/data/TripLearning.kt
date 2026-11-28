@@ -88,7 +88,7 @@ object TripLearning {
 
     @Synchronized fun observations(): List<Observation> {
         cache?.let { return it }
-        val list = runCatching { json.decodeFromString(ListSerializer(Observation.serializer()), file!!.readText()) }.getOrDefault(emptyList())
+        val list = file?.let { SavedLists.load(json, Observation.serializer(), it) }.orEmpty()
         cache = list
         return list
     }

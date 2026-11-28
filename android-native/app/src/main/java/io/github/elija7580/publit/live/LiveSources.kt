@@ -32,6 +32,8 @@ import kotlin.math.abs
 data class LiveRide(
     val point: LatLon, val stopId: String?, val stopName: String, val lines: List<String>, val headsign: String?,
     val scheduled: Instant, val mode: String, val tz: String? = null, val live: Boolean = false,
+    /** Transitous' trip ID, for sources that look a ride up by its trip. */
+    val tripId: String? = null,
 )
 
 /** A departure as an extra source reports it. */
@@ -100,8 +102,14 @@ object LiveMatch {
         return na.isNotEmpty() && na.any { it in nb }
     }
 
+    /**
+     * The departure that is this ride: same line, timetable time within `tolerance`. Without a timetable time
+     * (some boards only count down), the nearest live time not long before it. A station board lists both
+     * directions of a line, often due in the same minute: where the ride's direction is known, only departures
+     * that way count (`towards`).
+     */
     fun best(ride: LiveRide, list: List<LiveDeparture>, tolerance: Long = 90): LiveDeparture? {
-        val same = list.filter { sameLine(ride.lines, it.lines) }
+        val same = towards(ride.headsign, list.filter { sameLine(ride.lines, it.lines) })
         same.mapNotNull { d -> d.scheduled?.let { s -> abs(s.epochSecond - ride.scheduled.epochSecond).takeIf { it <= tolerance }?.let { d to it } } }
             .minByOrNull { it.second }?.let { return it.first }
         return same.mapNotNull { d ->
@@ -111,6 +119,50 @@ object LiveMatch {
             if (late >= -tolerance && late <= 20 * 60) d to abs(late) else null
         }.minByOrNull { it.second }?.first
     }
+
+    /**
+     * The departures going the ride's way (port of iOS `LiveMatch.towards`, Publit#206). The U4 to Hütteldorf and
+     * the one to Heiligenstadt leave the same station in the same minute; without this the other direction's delay
+     * (or cancellation) landed on the ride. Operators spell destinations differently ("Wien Hütteldorf",
+     * "HÜTTELDORF"), so the best agreement wins; when no departure's destination resembles the headsign at all
+     * (or one of them is unknown), all stay.
+     */
+    fun towards(headsign: String?, list: List<LiveDeparture>): List<LiveDeparture> {
+        if (headsign == null || list.size <= 1) return list
+        val scores = list.map { direction(headsign, it.destination) }
+        val top = scores.maxOrNull() ?: return list
+        if (top <= 0) return list
+        return list.filterIndexed { i, _ -> scores[i] == top }
+    }
+
+    /** Place words that say nothing about the direction. */
+    private val commonWords = setOf("bahnhof", "hauptbahnhof", "station", "platz", "strasse", "wien", "zentrum",
+        "centre", "central", "stazione", "gare", "nord", "west")
+
+    private fun words(s: String): List<String> =
+        Normalizer.normalize(s.lowercase().replace("ß", "ss"), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+            .split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotEmpty() }
+
+    /**
+     * How well a destination fits a headsign: 3 the same name, 2 one contains the other, 1 they share a telling
+     * word, 0 nothing in common or unknown.
+     */
+    fun direction(headsign: String, destination: String?): Int {
+        if (destination == null) return 0
+        val a = words(headsign); val b = words(destination)
+        if (a.isEmpty() || b.isEmpty()) return 0
+        val ja = a.joinToString(""); val jb = b.joinToString("")
+        if (ja == jb) return 3
+        if (ja.length >= 4 && jb.length >= 4 && (ja.contains(jb) || jb.contains(ja))) return 2
+        val telling = a.filter { it.length >= 4 && it !in commonWords }.toSet()
+        return if (b.any { it in telling }) 1 else 0
+    }
+
+    /** A countdown a board can mean, in minutes: from now to a day ahead. "-3'" or a number no clock shows is none. */
+    fun countdownMinutes(n: Int?): Int? = n?.takeIf { it in 0..1440 }
+
+    /** A delay a board can mean, in minutes: within a day either way. */
+    fun delayMinutes(n: Int?): Int? = n?.takeIf { it in -1440..1440 }
 
     fun fix(d: LiveDeparture, source: String) = LiveFix(departure = d.expected, cancelled = d.cancelled, track = d.track, alerts = d.alerts, source = source)
 }
@@ -194,14 +246,14 @@ object LiveOverlay {
     @Volatile var enabled = true
 
     val sources: List<LiveSource> = listOf(WienerLinienSource, HafasSource.oebb, SearchChSource, EFASource.vrr,
-        HafasSource.vbb, HafasSource.rmv, HafasSource.vbn, HafasSource.nahsh, EFASource.vrn, ACTVSource, SLSource, TfLStatusSource)
+        HafasSource.vbb, HafasSource.rmv, HafasSource.vbn, HafasSource.nahsh, EFASource.vrn, ACTVSource, SLSource, CarrisMetropolitanaSource, TfLStatusSource)
     val sourceNames get() = sources.map { it.name }
 
     fun ride(leg: Leg) = LiveRide(leg.from.coordinate, leg.from.stopId, leg.from.name, listOfNotNull(leg.routeShortName, leg.displayName).filter { it.isNotEmpty() },
-        leg.headsign, leg.scheduledStartTime ?: leg.startTime, leg.mode, leg.from.tz, leg.realTime)
+        leg.headsign, leg.scheduledStartTime ?: leg.startTime, leg.mode, leg.from.tz, leg.realTime, leg.tripId)
 
     fun ride(st: StopTime) = LiveRide(st.place.coordinate, st.place.stopId, st.place.name, listOfNotNull(st.routeShortName, st.displayName).filter { it.isNotEmpty() },
-        st.headsign, st.scheduledDepartureTime ?: st.departureTime, st.mode, st.place.tz, st.realTime)
+        st.headsign, st.scheduledDepartureTime ?: st.departureTime, st.mode, st.place.tz, st.realTime, st.tripId)
 
     fun wanted(r: LiveRide, now: Instant) = r.scheduled > now.minusSeconds(30 * 60) && sources.any { it.asks(r, now) }
 
