@@ -261,3 +261,8 @@ Quelle: iOS PRs #92–#94 (`DelayHistory.swift`, `TransferWalk.swift`, `SmartRou
 - [x] Verwendet in `TripStore` (`trips.json`), `PassStore` (`passes.json`), `TripLearning` und `FavoritesStore` (dort bleibt der alte Text in der Einstellung `<Schlüssel>.unreadable`). Eine Liste, die sich lesen lässt, verhält sich wie bisher, ohne Kopie.
 - Anders als iOS: keine Meldung im Diagnose-Protokoll, wie viele Einträge wegfielen; die Kopie zeigt die App nirgends an.
 - Tests: `SavedListsTest`. Kein neuer Text, kein „What's new“-Eintrag, `versionName` unverändert. Nicht am Gerät getestet.
+
+## Eine unlesbare Route oder Abfahrt lässt die Antwort nicht mehr scheitern (2026-11-28, iOS Build 112 `LossyList`, Publit#208)
+- [x] `data/TransitModels.kt` `LossyListSerializer` (Port von `LossyList` in `TransitModels.swift`): Die Antwort auf eine Routensuche oder Abfahrtstafel wurde als Ganzes gelesen; fehlte einer einzigen Route oder Abfahrt ein Feld, das die Schnittstelle zusagt, scheiterte alles („Unexpected response“ statt der übrigen Routen). `PlanResponse.itineraries`, `PlanResponse.direct` (`ItineraryListSerializer`) und `StopTimesResponse.stopTimes` (`StopTimeListSerializer`) werden jetzt Eintrag für Eintrag gelesen, ein unlesbarer Eintrag fällt weg. Was gar keine Liste ist, bleibt ein Fehler.
+- Anders als iOS: die Zahl der übersprungenen Einträge wird nicht festgehalten.
+- Tests: `TolerantAnswersTest`. Kein neuer Text, kein „What's new“-Eintrag, `versionName` unverändert. Nicht am Gerät getestet.
