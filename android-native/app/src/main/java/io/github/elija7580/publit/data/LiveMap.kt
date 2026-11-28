@@ -95,6 +95,11 @@ class VehicleTrack(val id: String, val name: String, val mode: String, val color
 /** Turns /map/trips segments into line shapes and vehicle tracks (LiveMap on iOS). */
 object LiveMap {
     private val excluded = setOf("AIRPLANE")
+    /**
+     * A hop without a shape longer than this would be a straight line across the country, off the tracks. Measured
+     * stop to stop: the segment's `distance` from the server is the whole trip's, and filtering on it hid every
+     * long-distance and high-speed train (Frecciarossa, Italo, ICE; feedback from Milan, Nov 2026).
+     */
     private const val MAX_SEGMENT = 200_000.0
     const val MAX_SHAPES = 1500
     const val MAX_VEHICLES = 300
@@ -111,15 +116,21 @@ object LiveMap {
         ModeGroup.BUS -> 0; ModeGroup.OTHER, ModeGroup.FERRY -> 1; ModeGroup.TRAM -> 2; ModeGroup.SUBWAY -> 3; ModeGroup.SUBURBAN -> 4; ModeGroup.TRAIN -> 5
     }
 
-    fun build(segments: List<TripSegment>, filter: ModeFilter, precision: Int, tolerance: Double): Snapshot {
+    /** Trains of every kind: what the zoomed-out map still shows. */
+    fun isRail(mode: String) = ModeGroup.of(mode) == ModeGroup.TRAIN || ModeGroup.of(mode) == ModeGroup.SUBURBAN
+
+    /** `overview`: zoomed out, only trains (drawn as small dots by the map). */
+    fun build(segments: List<TripSegment>, filter: ModeFilter, precision: Int, tolerance: Double, overview: Boolean = false): Snapshot {
         val shapes = LinkedHashMap<String, LineShape>()
         val pieces = HashMap<String, MutableList<VehicleTrack.Piece>>()
         val info = HashMap<String, VehicleTrack>()
         for (s in segments) {
-            if (s.mode in excluded || s.distance > MAX_SEGMENT || !filter.allows(s.mode) || s.arrival < s.departure) continue
+            if (s.mode in excluded || !filter.allows(s.mode) || s.arrival < s.departure || (overview && !isRail(s.mode))) continue
             val trip = s.trips.firstOrNull() ?: continue
             val color = colorHex(s.routeColor, s.mode)
-            val points = Polyline.simplify(Polyline.decode(s.polyline, precision), tolerance)
+            val raw = Polyline.decode(s.polyline, precision)
+            if (raw.size <= 2 && LatLon(s.from.lat, s.from.lon).distanceTo(LatLon(s.to.lat, s.to.lon)) > MAX_SEGMENT) continue
+            val points = Polyline.simplify(raw, tolerance)
             if (points.size < 2) continue
             val key = "${s.from.stopId ?: s.from.name}>${s.to.stopId ?: s.to.name}|$color"
             shapes.getOrPut(key) { LineShape(key, s.mode, color, points) }
@@ -150,5 +161,10 @@ object LiveMap {
     fun frameMillis(batterySaver: Boolean) = if (batterySaver) 2_000L else 500L
 
     /** Simplification for a map showing `spanMeters` across: about a pixel or two. */
-    fun tolerance(spanMeters: Double) = (spanMeters / 800).coerceIn(2.0, 40.0)
+    fun tolerance(spanMeters: Double) = (spanMeters / 800).coerceIn(2.0, 500.0)
+
+    /** Up to this span (degrees latitude) the map shows lines and every vehicle. */
+    const val MAX_DETAIL_SPAN = 0.06
+    /** Up to this span (about a region, 300 km) trains stay on the map as dots on thin lines. */
+    const val MAX_OVERVIEW_SPAN = 3.0
 }

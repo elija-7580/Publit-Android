@@ -56,6 +56,7 @@ import io.github.elija7580.publit.data.ModeFilter
 import io.github.elija7580.publit.data.ModeGroup
 import io.github.elija7580.publit.data.ModeStyle
 import io.github.elija7580.publit.data.OnBoardPlan
+import io.github.elija7580.publit.data.TransitLabels
 import io.github.elija7580.publit.data.TransitousClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -118,46 +119,57 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
     var tracks by remember { mutableStateOf(emptyList<io.github.elija7580.publit.data.VehicleTrack>()) }
     var shapes by remember { mutableStateOf(emptyList<io.github.elija7580.publit.data.LineShape>()) }
     var liveHidden by remember { mutableStateOf(false) }
+    // Zoomed out past the detail view: only trains, as dots on thin lines (iOS TransitMapModel.liveOverview).
+    var liveOverview by remember { mutableStateOf(false) }
     var rentals by remember { mutableStateOf(io.github.elija7580.publit.data.RentalsResponse()) }
     var tick by remember { mutableStateOf(java.time.Instant.now()) }
     var selected by remember { mutableStateOf<String?>(null) }
     // The ride of the vehicle picked on the map, for "Plan from this vehicle" (VehicleTripView on iOS, Publit#192;
     // idea: BudapestGO, BKK). Loaded once per picked vehicle; without it the card stays as it is.
     var vehicleRide by remember { mutableStateOf<Pair<String, Leg>?>(null) }
+    // The whole trip of the picked vehicle: train number ("RE6 · 2625") and first → last stop on the card.
+    var vehicleLeg by remember { mutableStateOf<Pair<String, Leg>?>(null) }
     LaunchedEffect(selected) {
         val id = selected?.takeIf { it.startsWith("v|") }?.removePrefix("v|")
-        if (id == null || onPlanFromVehicle == null) { vehicleRide = null; return@LaunchedEffect }
-        if (vehicleRide?.first == id) return@LaunchedEffect
-        vehicleRide = null
+        if (id == null) { vehicleRide = null; vehicleLeg = null; return@LaunchedEffect }
+        if (vehicleLeg?.first == id) return@LaunchedEffect
+        vehicleRide = null; vehicleLeg = null
         try {
-            OnBoardPlan.vehicleRide(client.trip(id), java.time.Instant.now())?.let { vehicleRide = id to it }
+            val trip = client.trip(id)
+            trip.legs.firstOrNull { it.isTransit }?.let { vehicleLeg = id to it }
+            if (onPlanFromVehicle != null) OnBoardPlan.vehicleRide(trip, java.time.Instant.now())?.let { vehicleRide = id to it }
         } catch (e: CancellationException) { throw e } catch (e: Exception) { /* the card stays without the entry */ }
     }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     // Vehicles move twice a second (every 2 s in battery saver) and are fetched again every 30 s, only while the map is in front.
+    // Zoomed out up to a region (MAX_OVERVIEW_SPAN) trains stay as dots: server zoom <= 8 (rail only), every 60 s.
     LaunchedEffect(region, showLines, showVehicles, filter) {
         val r = region ?: return@LaunchedEffect
+        val overview = r.latSpan > io.github.elija7580.publit.data.LiveMap.MAX_DETAIL_SPAN
+        if (overview != liveOverview) { liveOverview = overview; tracks = emptyList(); shapes = emptyList() }
         lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
             while (true) {
-                if (r.latSpan > 0.06 || !(showLines || showVehicles)) { liveHidden = r.latSpan > 0.06; tracks = emptyList(); shapes = emptyList(); localLines = 0 }
+                val tooWide = r.latSpan > io.github.elija7580.publit.data.LiveMap.MAX_OVERVIEW_SPAN
+                if (tooWide || !(showLines || showVehicles)) { liveHidden = tooWide; tracks = emptyList(); shapes = emptyList(); localLines = 0 }
                 else {
                     liveHidden = false
                     val dl = r.latSpan * 0.75; val dn = r.lonSpan * 0.75
-                    val zoom = max(14, log2(360 / max(r.lonSpan, 0.0001)).roundToInt())
+                    val mapZoom = log2(360 / max(r.lonSpan, 0.0001)).roundToInt()
+                    val zoom = if (overview) min(8, mapZoom) else max(14, mapZoom)
                     val now = java.time.Instant.now()
                     runCatching { client.mapTrips(LatLon(r.center.lat - dl, r.center.lon - dn), LatLon(r.center.lat + dl, r.center.lon + dn), zoom, now.minusSeconds(io.github.elija7580.publit.data.LiveMap.LOOK_BACK_SECONDS), now.plusSeconds(300)) }
                         .onSuccess { segs ->
                             val snap = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-                                io.github.elija7580.publit.data.LiveMap.build(segs, filter, if (zoom >= 14) 5 else 4, io.github.elija7580.publit.data.LiveMap.tolerance(r.latSpan * 111_000))
+                                io.github.elija7580.publit.data.LiveMap.build(segs, filter, if (zoom >= 14) 5 else 4, io.github.elija7580.publit.data.LiveMap.tolerance(r.latSpan * 111_000), overview)
                             }
                             tracks = snap.tracks; shapes = snap.shapes
-                            localLines = io.github.elija7580.publit.data.CoverageGuide.localLines(segs)
+                            localLines = if (overview) 0 else io.github.elija7580.publit.data.CoverageGuide.localLines(segs)
                             val notice = io.github.elija7580.publit.data.CoverageGuide.notice(r.center)
-                            if (notice != null && io.github.elija7580.publit.data.CoverageGuide.isContradicted(notice, localLines))
+                            if (!overview && notice != null && io.github.elija7580.publit.data.CoverageGuide.isContradicted(notice, localLines))
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { io.github.elija7580.publit.data.CoverageAtlas.recheck(appContext) }
                         }
                 }
-                delay(30_000)
+                delay(if (overview) 60_000 else 30_000)
             }
         }
     }
@@ -210,10 +222,15 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
         if (!showVehicles || r == null) emptyList() else io.github.elija7580.publit.data.LiveMap.vehicles(tracks, tick,
             LatLon(r.center.lat - r.latSpan, r.center.lon - r.lonSpan), LatLon(r.center.lat + r.latSpan, r.center.lon + r.lonSpan))
     }
-    val vehicleDots = remember(vehicles) { vehicles.map { v -> MapContent.Dot(v.coordinate, hexColor(v.colorHex), Color.White, 13f, 2f, id = "v|" + v.id, label = v.name) } }
-    val content = remember(stations, focus, ink.dark, shapes, showLines, rentals, showStations, categoryHits, region?.center, showGaps) {
+    val vehicleDots = remember(vehicles, liveOverview) {
+        vehicles.map { v ->
+            if (liveOverview) MapContent.Dot(v.coordinate, hexColor(v.colorHex), Color.White, 8f, 1.5f, id = "v|" + v.id)
+            else MapContent.Dot(v.coordinate, hexColor(v.colorHex), Color.White, 13f, 2f, id = "v|" + v.id, label = v.name)
+        }
+    }
+    val content = remember(stations, focus, ink.dark, shapes, showLines, rentals, showStations, categoryHits, region?.center, showGaps, liveOverview) {
         val categoryDots = categoryHits.mapIndexed { i, c -> MapContent.Dot(c.at, hexColor(c.category.colorHex), Color.White, 14f, 2f, id = "c|$i", label = c.name) }
-        val lines = if (showLines) shapes.map { MapContent.Line(it.points, hexColor(io.github.elija7580.publit.data.LineColors.strokeHex(it.colorHex, ink.dark)), 3f) } else emptyList()
+        val lines = if (showLines) shapes.map { MapContent.Line(it.points, hexColor(io.github.elija7580.publit.data.LineColors.strokeHex(it.colorHex, ink.dark)), if (liveOverview) 1.5f else 3f) } else emptyList()
         val rentalDots = rentals.stations.map { MapContent.Dot(LatLon(it.lat, it.lon), Color(0xFF1B7A33), Color.White, 9f, 1.5f, id = "rs|" + it.id) } +
             rentals.vehicles.filter { it.isAvailable }.map { MapContent.Dot(LatLon(it.lat, it.lon), Color(0xFF00727A), Color.White, 7f, 1f, id = "rv|" + it.id) }
         val dots = (if (showStations) stations else emptyList()).map { s ->
@@ -333,7 +350,11 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     when {
                         sel.startsWith("v|") -> vehicles.firstOrNull { it.id == sel.removePrefix("v|") }?.let { v ->
-                            Text(v.name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                            val leg = vehicleLeg?.takeIf { it.first == v.id }?.second
+                            Text(leg?.tripNumber?.let { "${v.name} · $it" } ?: v.name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                            // The whole run, first to last stop: on long trains "next" alone says little.
+                            val from = leg?.tripFrom?.name; val to = leg?.tripTo?.name
+                            if (from != null && to != null && TransitLabels.identity(from) != TransitLabels.identity(to)) Text("$from → $to", color = ink.muted, fontSize = 13.sp)
                             Text(L10n.f("Next: %@", v.nextStop), color = ink.muted)
                             Text(if (!v.realTime) L10n.t("Position estimated from the timetable.") else if (v.delayMinutes > 0) L10n.f("+%lld min", v.delayMinutes) else L10n.t("On time"),
                                 color = if (v.delayMinutes > 0) ink.delay else ink.muted, fontSize = 13.sp)
