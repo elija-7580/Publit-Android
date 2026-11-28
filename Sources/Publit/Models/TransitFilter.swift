@@ -271,6 +271,27 @@ struct StreetComparison: Identifiable, Sendable {
         return order.compactMap { m in best[m].map { StreetComparison(mode: m, itinerary: $0) } }
     }
 
+    /// Walking the whole way belongs in the list of routes, ahead of the rides (iOS issue #110): when it is
+    /// about as fast as the best ride, short anyway, the only way, or when no ride gets there
+    /// sooner door to door. A ride "gets there sooner" when it leaves no earlier than the walk and
+    /// arrives before it, or arrives no later and leaves after it; waiting for the vehicle counts.
+    /// So a 12 min walk is listed next to a 6 min bus that only leaves in 15 minutes, and for
+    /// "arrive by" a walk that lets you leave later than every ride. Cancelled rides do not count.
+    static func walkIsAChoice(_ walk: Itinerary, transit: [Itinerary]) -> Bool {
+        let rides = transit.filter { !$0.isCancelled }
+        guard let best = rides.map(\.duration).min() else { return true }
+        if Double(walk.duration) <= Double(best) * 1.25 || walk.duration <= 10 * 60 { return true }
+        return !rides.contains { ride in
+            ride.startTime >= walk.startTime && ride.endTime <= walk.endTime
+                && (ride.startTime > walk.startTime || ride.endTime < walk.endTime)
+        }
+    }
+
+    /// The fastest walk among the direct routes (no cycling, no driving).
+    static func walk(in direct: [Itinerary]) -> Itinerary? {
+        direct.filter { let m = streetMode($0); return m != "BIKE" && m != "CAR" }.min { $0.duration < $1.duration }
+    }
+
     /// The single street mode of a direct route, nil for anything mixed or transit.
     static func streetMode(_ it: Itinerary) -> String? {
         let modes = Set(it.legs.map(\.mode))
