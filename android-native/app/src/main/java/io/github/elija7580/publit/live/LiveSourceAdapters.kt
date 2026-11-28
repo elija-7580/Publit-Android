@@ -272,7 +272,7 @@ object ACTVSource : LiveSource {
     }
 
     /** "6'" → in 6 minutes. */
-    private fun countdown(s: String, now: Instant) = s.trim().takeIf { it.endsWith("'") }?.dropLast(1)?.toIntOrNull()?.let { now.plusSeconds(it * 60L) }
+    private fun countdown(s: String, now: Instant) = LiveMatch.countdownMinutes(s.trim().takeIf { it.endsWith("'") }?.dropLast(1)?.toIntOrNull())?.let { now.plusSeconds(it * 60L) }
 
     /** "23:55" → the nearest such time around now in Venice. */
     private fun clock(s: String, now: Instant): Instant? {
@@ -405,7 +405,8 @@ object SearchChSource : LiveSource {
                 val lines = listOfNotNull(J.str(c, "line"), number, if (category != null && number != null) "$category $number" else null).map { it.trim() }.filter { it.isNotEmpty() }
                 if (lines.isEmpty()) return@mapNotNull null
                 val delay = J.str(c, "dep_delay")?.trim()
-                val minutes = delay?.replace("+", "")?.toIntOrNull()
+                // Within a day either way: a number no clock shows is not a delay.
+                val minutes = LiveMatch.delayMinutes(delay?.replace("+", "")?.toIntOrNull())
                 LiveDeparture(lines, J.str(c.optJSONObject("terminal"), "name"), scheduled, minutes?.let { scheduled.plusSeconds(it * 60L) },
                     delay?.uppercase() == "X", J.str(c, "track")?.replace("!", ""))
             }
