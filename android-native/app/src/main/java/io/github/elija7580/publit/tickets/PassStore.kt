@@ -1,5 +1,6 @@
 package io.github.elija7580.publit.tickets
 
+import io.github.elija7580.publit.data.SavedLists
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.builtins.ListSerializer
@@ -13,7 +14,8 @@ class PassStore(dir: File) {
     private val ser = ListSerializer(TicketPass.serializer())
     private val file = File(dir, "passes.json")
     val documentDirectory = File(dir, "passes").apply { mkdirs() }
-    private val _passes = MutableStateFlow(runCatching { json.decodeFromString(ser, file.readText()) }.getOrDefault(emptyList()))
+    // Entry by entry: one ticket the app cannot read no longer empties the list (Publit#207).
+    private val _passes = MutableStateFlow(SavedLists.load(json, TicketPass.serializer(), file))
     val passes = _passes.asStateFlow()
 
     class TooLarge : Exception(io.github.elija7580.publit.core.L10n.t("This file is too large for a ticket."))

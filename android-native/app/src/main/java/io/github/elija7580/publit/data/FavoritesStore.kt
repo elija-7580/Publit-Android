@@ -5,6 +5,7 @@ import io.github.elija7580.publit.core.L10n
 import io.github.elija7580.publit.core.LatLon
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -210,10 +211,19 @@ class FavoritesStore(private val prefs: SharedPreferences) {
     private val placesSer = ListSerializer(SavedPlace.serializer())
     private val linesSer = ListSerializer(SavedLine.serializer())
     private val connectionsSer = ListSerializer(SavedConnection.serializer())
+    /**
+     * A saved list, entry by entry: one entry the app cannot read no longer empties the list (Publit#207). The
+     * text as it was is kept under "<key>.unreadable", because the next change writes the list anew.
+     */
+    private fun <T : Any> read(key: String, element: KSerializer<T>): List<T> {
+        val text = prefs.getString(key, null) ?: return emptyList()
+        val read = SavedLists.decode(json, element, text)
+        if (!read.complete) prefs.edit().putString("$key.unreadable", text).apply()
+        return read.items
+    }
+
     private val _state = MutableStateFlow(State(
-        prefs.getString(KEY, null)?.let { runCatching { json.decodeFromString(placesSer, it) }.getOrNull() }.orEmpty(),
-        prefs.getString(LINES_KEY, null)?.let { runCatching { json.decodeFromString(linesSer, it) }.getOrNull() }.orEmpty(),
-        prefs.getString(CONNECTIONS_KEY, null)?.let { runCatching { json.decodeFromString(connectionsSer, it) }.getOrNull() }.orEmpty(),
+        read(KEY, SavedPlace.serializer()), read(LINES_KEY, SavedLine.serializer()), read(CONNECTIONS_KEY, SavedConnection.serializer()),
     ))
     val state = _state.asStateFlow()
 
