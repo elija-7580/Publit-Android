@@ -73,6 +73,8 @@ interface RouteStyled {
     val routeShortName: String?
     val displayName: String?
     val routeId: String? get() = null
+    /** GTFS trip_short_name: the train's own number in many rail feeds ("RE_6 - 2625" at Trenord). */
+    val tripShortName: String? get() = null
 
     /** The compact, operator-defined line identifier. Never a destination. */
     val lineName: String
@@ -82,8 +84,31 @@ interface RouteStyled {
     /** Additional service identity (e.g. ICE 615), kept apart from the line badge. */
     val serviceDetail: String?
         get() {
-            val display = TransitLabels.clean(displayName) ?: return null
-            return display.takeIf { TransitLabels.identity(it) != TransitLabels.identity(lineName) }
+            val display = TransitLabels.clean(displayName) ?: return tripNumberDetail
+            return if (TransitLabels.identity(display) != TransitLabels.identity(lineName)) display else tripNumberDetail
+        }
+
+    /**
+     * The train number next to the line ("RE6" · "RE 2625"): in Italy riders find their train on the board by it.
+     * Trenord's badge only says the line, the number is in trip_short_name ("RE_6 - 2625"). Null off the rails
+     * and when the badge already shows it (iOS RouteStyled.tripNumberDetail).
+     */
+    val tripNumberDetail: String?
+        get() {
+            val number = tripNumber ?: return null
+            val code = (TransitLabels.clean(tripShortName) ?: "").takeWhile { it.isLetter() }.uppercase()
+            return if (code in TransitLabels.trainCategories) "$code $number" else number
+        }
+
+    /** Just the number of [tripNumberDetail] ("2625"), for "RE6 · 2625". */
+    val tripNumber: String?
+        get() {
+            if (mode !in TransitLabels.railModes) return null
+            val short = TransitLabels.clean(tripShortName?.replace('_', ' ')) ?: return null
+            val number = TransitLabels.trainNumber(short)?.takeIf { it.length >= 3 } ?: return null
+            if (TransitLabels.trainNumber(lineName) == number) return null
+            if (TransitLabels.clean(displayName)?.let { TransitLabels.trainNumber(it) } == number) return null
+            return number
         }
 
     val lineColors: LineColors.Pair
@@ -108,6 +133,9 @@ data class StopTime(
     val directionId: String? = null,
     val tripTo: SegmentStop? = null,
     val liveSource: String? = null,
+    /** First stop of the trip. */
+    val tripFrom: SegmentStop? = null,
+    override val tripShortName: String? = null,
 ) : RouteStyled {
     val departureTime: Instant get() = place.departure ?: place.arrival ?: Instant.EPOCH
     val scheduledDepartureTime: Instant? get() = place.scheduledDeparture ?: place.scheduledArrival

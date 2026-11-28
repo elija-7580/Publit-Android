@@ -50,6 +50,11 @@ data class Leg(
     val alternatives: List<List<Leg>>? = null,
     /** Walking instructions (MOTIS steps). */
     val steps: List<StepInstruction>? = null,
+    /** The train's own number in many rail feeds ("RE_6 - 2625"), see RouteStyled.tripNumberDetail. */
+    override val tripShortName: String? = null,
+    /** First and last stop of the vehicle's whole trip. */
+    val tripFrom: SegmentStop? = null,
+    val tripTo: SegmentStop? = null,
 ) : RouteStyled {
     val isTransit: Boolean get() = ModeStyle.isTransit(mode)
     val allStops: List<Place> get() = listOf(from) + intermediateStops.orEmpty() + listOf(to)

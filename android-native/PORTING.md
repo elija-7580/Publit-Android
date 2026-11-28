@@ -261,3 +261,9 @@ Quelle: iOS PRs #92–#94 (`DelayHistory.swift`, `TransferWalk.swift`, `SmartRou
 - [x] Verwendet in `TripStore` (`trips.json`), `PassStore` (`passes.json`), `TripLearning` und `FavoritesStore` (dort bleibt der alte Text in der Einstellung `<Schlüssel>.unreadable`). Eine Liste, die sich lesen lässt, verhält sich wie bisher, ohne Kopie.
 - Anders als iOS: keine Meldung im Diagnose-Protokoll, wie viele Einträge wegfielen; die Kopie zeigt die App nirgends an.
 - Tests: `SavedListsTest`. Kein neuer Text, kein „What's new“-Eintrag, `versionName` unverändert. Nicht am Gerät getestet.
+
+## Italienische Züge auf der Karte (2026-11-28, iOS Publit#212, Feedback aus Mailand)
+- [x] `data/LiveMap.kt`: Fernzüge (Frecciarossa, Italo, ICE, IC/EC, TGV) fehlten auf der Karte, weil `distance` aus `/map/trips` die Länge der ganzen Fahrt ist und der Filter „über 200 km“ darauf schaute. Jetzt fällt nur ein Abschnitt ohne Streckenverlauf weg, dessen Halte über 200 km Luftlinie auseinander liegen.
+- [x] Übersicht beim Herauszoomen (`LiveMap.MAX_DETAIL_SPAN` 0,06°, `MAX_OVERVIEW_SPAN` 3°): dazwischen nur Züge, dünne Linien, Fahrzeuge als kleine Punkte ohne Namen; Server-Zoom ≤ 8, Linien bis 500 m vereinfacht, Abfrage alle 60 s statt 30 s.
+- [x] Zugnummer: `RouteStyled.tripShortName`/`tripNumber`/`tripNumberDetail` (Trenord „RE_6 - 2625“ → „RE 2625“ als `serviceDetail` in Abfahrten; nicht bei Bussen, nicht doppelt). `StopTime` und `Leg` lesen `tripShortName`, `tripFrom` (Leg auch `tripTo`). Fahrzeugkarte auf der Stationskarte: „RE6 · 2625“ und „Milano Centrale → Verona Porta Nuova“; die Fahrt wird dafür jetzt bei jedem angetippten Fahrzeug geladen.
+- Tests: `ItalianTrainsTest`. Kein neuer Text, kein „What's new“-Eintrag, `versionName` unverändert. Nicht am Gerät getestet.

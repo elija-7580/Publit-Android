@@ -46,6 +46,18 @@ object ModeStyle {
 /** A headsign is the vehicle's advertised direction, not the passenger's stop. */
 object TransitLabels {
     fun clean(value: String?): String? = value?.trim()?.takeIf { it.isNotEmpty() }
+
+    /** Train category codes at the start of a train number (iOS VehicleKind.categories). */
+    val trainCategories = setOf("RJX", "RJ", "ICE", "ECE", "IC", "EC", "EN", "NJ", "CJX", "REX", "RE", "RB", "WB", "FLX", "TGV",
+        "OUIGO", "IRE", "IR", "FR", "FA", "FB", "RV", "AVE", "ALVIA", "EST", "TER", "INTERCITY", "INOUI", "TL", "SC", "EX", "RR", "OS")
+    val railModes = setOf("HIGHSPEED_RAIL", "LONG_DISTANCE", "REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "NIGHT_RAIL", "RAIL", "SUBURBAN")
+
+    /** The train number at the end of a name ("ICE 1006" → "1006"); null without one (iOS TransitLabels.trainNumber). */
+    fun trainNumber(value: String): String? {
+        val last = value.split(" ").lastOrNull { it.isNotEmpty() } ?: value
+        val digits = last.takeLastWhile { it.isDigit() }
+        return digits.takeIf { it.length >= 2 }
+    }
     fun identity(value: String): String = value.uppercase().filter { it.isLetterOrDigit() }
 
     /*
