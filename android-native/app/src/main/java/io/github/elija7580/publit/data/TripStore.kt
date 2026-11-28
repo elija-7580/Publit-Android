@@ -48,7 +48,8 @@ class TripStore(dir: File) {
     val state get() = _state.asStateFlow()
 
     init {
-        val trips = runCatching { json.decodeFromString(ser, file.readText()) }.getOrDefault(emptyList())
+        // Entry by entry: one trip the app cannot read no longer empties the list (Publit#207).
+        val trips = SavedLists.load(json, SavedTrip.serializer(), file)
         val active = runCatching { activeFile.readText().trim() }.getOrDefault("")
         _state = MutableStateFlow(State(trips, active.takeIf { a -> trips.any { it.id == a } }))
     }
