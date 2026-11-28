@@ -253,7 +253,7 @@ internal fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.da
             // From your location, leaving now (GoNowView on iOS): when to set off is the first thing.
             if (leave) {
                 val mins = kotlin.math.ceil((it.startTime.epochSecond - java.time.Instant.now().epochSecond) / 60.0).toLong()
-                Text(if (it.isDirect) L10n.t("Walk all the way") else if (mins <= 0) L10n.t("Leave now") else L10n.f("Leave in %lld min", mins),
+                Text(leaveText(it, mins),
                     fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (!it.isDirect && mins <= 2) ink.delay else ink.muted)
             }
             // One quiet line above the route in one style (iOS RouteTagLine): the day, then
@@ -288,15 +288,59 @@ internal fun RouteCard(it: Itinerary, badges: List<io.github.elija7580.publit.da
             else FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 it.transitLegs.forEach { leg -> LegBadge(leg) }
             }
-            val first = it.transitLegs.firstOrNull()
-            Text(listOfNotNull(
-                // Walking the whole way: "Walk · 1.2 km", not "Direct" (that is a ride without a change).
-                if (it.isDirect) L10n.t("Walk") else if (it.transfers == 0) L10n.t("Direct") else if (it.transfers == 1) L10n.t("1 change") else L10n.f("%lld changes", it.transfers),
-                if (it.isDirect) it.legs.mapNotNull { l -> l.distance }.sum().takeIf { d -> d > 0 }?.let { d -> Fmt.distance(d) } else null,
-                first?.let { f -> L10n.f("%@ from %@", f.lineName, f.from.name) },
-                if (it.isCancelled) L10n.t("Connection cancelled") else null,
-                io.github.elija7580.publit.data.Fares.estimate(it)?.formattedAmount,
-            ).joinToString(" · "), color = if (it.isCancelled) ink.danger else ink.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // Where to get on (with the walk there) on the left, the changes on the right: two facts
+            // with their own symbol instead of one run of text joined by dots (iOS RouteFacts, build 114).
+            RouteFacts(it)
+            if (it.isCancelled) Text(L10n.t("Connection cancelled"), color = ink.danger, fontSize = 13.sp)
+        }
+    }
+}
+
+/** "Leave in 6 min"; more than an hour ahead the clock time ("Leave at 18:02", not "Leave in 320 min"). */
+internal fun leaveText(it: Itinerary, mins: Long): String {
+    if (it.isDirect) return L10n.t("Walk all the way")
+    val boards = it.legs.firstOrNull()?.isTransit == true
+    return when {
+        mins > 60 -> L10n.f(if (boards) "Departs at %@" else "Leave at %@", Fmt.time(it.startTime, it.legs.firstOrNull()?.from?.tz))
+        mins <= 0 -> L10n.t(if (boards) "Board here" else "Leave now")
+        else -> L10n.f(if (boards) "Departs in %lld min" else "Leave in %lld min", mins)
+    }
+}
+
+/** The facts under a route's bar (iOS RouteFacts): walk + boarding stop on the left, changes and fare on the right. */
+@Composable
+private fun RouteFacts(it: Itinerary) {
+    val ink = LocalInk.current
+    val first = it.transitLegs.firstOrNull()
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            if (first != null) {
+                val walk = it.legs.takeWhile { l -> !l.isTransit }.sumOf { l -> l.duration }
+                val walks = walk >= 120
+                Icon(if (walks) Icons.AutoMirrored.Filled.DirectionsWalk else Icons.Filled.Place, null, Modifier.size(15.dp), tint = ink.muted)
+                Spacer(Modifier.width(4.dp))
+                if (walks) {
+                    Text(Fmt.duration(walk), color = ink.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Spacer(Modifier.width(6.dp))
+                }
+                val stop = listOfNotNull(first.from.name, io.github.elija7580.publit.data.TransitLabels.clean(first.from.track)?.let { t -> L10n.f("Pl. %@", t) }).joinToString(" · ")
+                Text(stop, color = ink.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            } else {
+                Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null, Modifier.size(15.dp), tint = ink.muted)
+                Spacer(Modifier.width(4.dp))
+                val meters = it.legs.mapNotNull { l -> l.distance }.sum()
+                Text(if (meters > 0) Fmt.distance(meters) else Fmt.duration(it.duration), color = ink.muted, fontSize = 13.sp, maxLines = 1)
+            }
+        }
+        if (!it.isDirect) {
+            Spacer(Modifier.width(12.dp))
+            Icon(Icons.Filled.SwapHoriz, null, Modifier.size(15.dp), tint = ink.muted)
+            Spacer(Modifier.width(4.dp))
+            Text(if (it.transfers == 0) L10n.t("Direct") else if (it.transfers == 1) L10n.t("1 change") else L10n.f("%lld changes", it.transfers),
+                color = ink.muted, fontSize = 13.sp, maxLines = 1)
+        }
+        io.github.elija7580.publit.data.Fares.estimate(it)?.formattedAmount?.let { fare ->
+            Text("  ·  $fare", color = ink.muted, fontSize = 13.sp, maxLines = 1)
         }
     }
 }
@@ -950,7 +994,7 @@ fun TimelineBar(it: Itinerary, start: java.time.Instant, end: java.time.Instant)
             last?.let { p -> if (l.startTime > p) drawLine(ink.muted, androidx.compose.ui.geometry.Offset(x(p), mid), androidx.compose.ui.geometry.Offset(x(l.startTime), mid), 2f,
                 pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4f, 6f))) }
             if (l.isTransit) drawRoundRect(lineStroke(l, ink.dark), androidx.compose.ui.geometry.Offset(x(l.startTime), 0f),
-                androidx.compose.ui.geometry.Size((x(l.endTime) - x(l.startTime)).coerceAtLeast(4f), size.height), androidx.compose.ui.geometry.CornerRadius(6f))
+                androidx.compose.ui.geometry.Size((x(l.endTime) - x(l.startTime)).coerceAtLeast(6.dp.toPx()), size.height), androidx.compose.ui.geometry.CornerRadius(6f))
             else drawLine(ink.hairline, androidx.compose.ui.geometry.Offset(x(l.startTime), mid), androidx.compose.ui.geometry.Offset(x(l.endTime), mid), 6f)
             last = l.endTime
         }

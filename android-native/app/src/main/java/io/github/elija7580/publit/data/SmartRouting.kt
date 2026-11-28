@@ -243,14 +243,21 @@ object SmartRouting {
         return ranked(list, arriveBy, w).firstOrNull { !it.isCancelled }
     }
 
-    /** Drops routes that another one beats on everything. Walking the whole way is never dropped. */
+    /**
+     * Drops routes that another one beats on everything. Walking the whole way is never dropped.
+     * More walking doesn't save a route that arrives clearly later: when the other one gets there at
+     * least 10 min earlier and walks no more extra than it saves, it wins (iOS build 114: the same
+     * buses at 19:41 twice, walk 23 min and arrive 22:06, or change again and arrive 22:32).
+     */
     fun pruned(list: List<Itinerary>): List<Itinerary> {
         val walks = list.map { RouteSort.walkSeconds(it).toDouble() }
         return list.filterIndexed { i, a ->
             if (a.isDirect) return@filterIndexed true
             list.withIndex().none { (j, b) ->
                 if (j == i || b.isDirect || b.isCancelled) return@none false
-                val noWorse = b.startTime >= a.startTime && b.endTime <= a.endTime && transitChanges(b) <= transitChanges(a) && walks[j] <= walks[i] + 60
+                val saved = (a.endTime.epochSecond - b.endTime.epochSecond).toDouble()
+                val walkOk = walks[j] <= walks[i] + 60 || (saved >= 600 && walks[j] - walks[i] <= saved)
+                val noWorse = b.startTime >= a.startTime && b.endTime <= a.endTime && transitChanges(b) <= transitChanges(a) && walkOk
                 val better = b.startTime > a.startTime || b.endTime < a.endTime || transitChanges(b) < transitChanges(a)
                 noWorse && better
             }
