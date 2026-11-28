@@ -65,7 +65,8 @@ sealed class MapCamera {
 @Composable
 fun PublitMap(content: MapContent, camera: MapCamera, modifier: Modifier = Modifier, description: String? = null,
               onTap: ((String?) -> Unit)? = null, onRegion: ((MapRegion) -> Unit)? = null, base: String = "muted", onLongPress: ((LatLon) -> Unit)? = null,
-              onTapAt: ((LatLon) -> Unit)? = null, onUserMove: (() -> Unit)? = null) {
+              onTapAt: ((LatLon) -> Unit)? = null, onUserMove: (() -> Unit)? = null,
+              moving: List<MapContent.Dot> = emptyList()) {
     val context = LocalContext.current
     val dark = LocalInk.current.dark
     val holder = remember { MapHolder(context) }
@@ -77,7 +78,7 @@ fun PublitMap(content: MapContent, camera: MapCamera, modifier: Modifier = Modif
     }
     AndroidView({ holder.view }, modifier.then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)) {
         holder.onTap = onTap; holder.onTapAt = onTapAt; holder.onUserMove = onUserMove; holder.onLongPress = onLongPress; holder.onRegion = onRegion; holder.base = base
-        holder.update(content, camera, dark)
+        holder.update(content, camera, dark, moving)
     }
 }
 
@@ -94,6 +95,8 @@ private class MapHolder(ctx: Context) {
     private var style: Style? = null
     private var styleUrl = ""
     private var content = MapContent()
+    /** Vehicles, in a source of their own: they move several times a second without redrawing the rest. */
+    private var moving: List<MapContent.Dot> = emptyList()
     private var camera: MapCamera? = null
     private var shownCamera: MapCamera? = null
     private var dark = false
@@ -132,7 +135,7 @@ private class MapHolder(ctx: Context) {
                     val pt = m.projection.toScreenLocation(p)
                     val r = 14 * density
                     val hit = runCatching {
-                        m.queryRenderedFeatures(android.graphics.RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r), "pub-dots")
+                        m.queryRenderedFeatures(android.graphics.RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r), "pub-moving", "pub-dots")
                             .firstNotNullOfOrNull { f -> f.getStringProperty("id") }
                     }.getOrNull()
                     tap(hit); true
@@ -162,10 +165,12 @@ private class MapHolder(ctx: Context) {
         map = null; style = null
     }
 
-    fun update(content: MapContent, camera: MapCamera, dark: Boolean) {
+    fun update(content: MapContent, camera: MapCamera, dark: Boolean, moving: List<MapContent.Dot> = emptyList()) {
         val changed = content != this.content || dark != this.dark
-        this.content = content; this.camera = camera; this.dark = dark
+        val moved = moving !== this.moving
+        this.content = content; this.camera = camera; this.dark = dark; this.moving = moving
         if (changed || camera != shownCamera) refresh()
+        else if (moved) style?.let { s -> runCatching { drawMoving(s) } }
     }
 
     private fun refresh() {
@@ -220,6 +225,14 @@ private class MapHolder(ctx: Context) {
             P.textField(get("label")), P.textSize(11f), P.textFont(arrayOf("Noto Sans Regular")),
             P.textAnchor(Property.TEXT_ANCHOR_TOP), P.textOffset(arrayOf(0f, 0.9f)), P.textOptional(true),
             P.textColor(toColor(get("textColor"))), P.textHaloColor(toColor(get("halo"))), P.textHaloWidth(1.5f)))
+        s.addSource(GeoJsonSource("pub-moving"))
+        s.addLayer(CircleLayer("pub-moving", "pub-moving").withProperties(
+            P.circleColor(toColor(get("fill"))), P.circleRadius(get("radius")),
+            P.circleStrokeColor(toColor(get("border"))), P.circleStrokeWidth(get("stroke"))))
+        s.addLayer(org.maplibre.android.style.layers.SymbolLayer("pub-moving-labels", "pub-moving").withProperties(
+            P.textField(get("label")), P.textSize(11f), P.textFont(arrayOf("Noto Sans Regular")),
+            P.textAnchor(Property.TEXT_ANCHOR_TOP), P.textOffset(arrayOf(0f, 0.9f)), P.textOptional(true),
+            P.textColor(toColor(get("textColor"))), P.textHaloColor(toColor(get("halo"))), P.textHaloWidth(1.5f)))
     }
 
     private fun rgba(c: Color): String {
@@ -233,16 +246,7 @@ private class MapHolder(ctx: Context) {
                 addStringProperty("color", rgba(l.color)); addNumberProperty("width", l.width)
             }
         }
-        val dots = content.dots.map { d ->
-            Feature.fromGeometry(Point.fromLngLat(d.at.lon, d.at.lat)).apply {
-                addStringProperty("fill", rgba(d.fill)); addStringProperty("border", rgba(d.border))
-                addNumberProperty("radius", d.size / 2); addNumberProperty("stroke", d.borderWidth)
-                d.id?.let { addStringProperty("id", it) }
-                addStringProperty("label", d.label ?: "")
-                addStringProperty("textColor", if (dark) "rgba(244,244,242,1)" else "rgba(17,17,17,1)")
-                addStringProperty("halo", if (dark) "rgba(11,11,12,0.9)" else "rgba(255,255,255,0.9)")
-            }
-        }
+        val dots = content.dots.map(::feature)
         val areas = content.areas.map { a ->
             Feature.fromGeometry(org.maplibre.geojson.Polygon.fromLngLats(a.rings.map { r -> r.map { Point.fromLngLat(it.lon, it.lat) } + listOfNotNull(r.firstOrNull()?.let { Point.fromLngLat(it.lon, it.lat) }) })).apply {
                 addStringProperty("fill", if (a.strong) "rgba(178,80,0,0.26)" else "rgba(178,80,0,0.17)"); addStringProperty("edge", "rgba(178,80,0,0.9)")
@@ -251,7 +255,22 @@ private class MapHolder(ctx: Context) {
         s.getSourceAs<GeoJsonSource>("pub-areas")?.setGeoJson(FeatureCollection.fromFeatures(areas))
         s.getSourceAs<GeoJsonSource>("pub-lines")?.setGeoJson(FeatureCollection.fromFeatures(lines))
         s.getSourceAs<GeoJsonSource>("pub-dots")?.setGeoJson(FeatureCollection.fromFeatures(dots))
+        drawMoving(s)
     }
+
+    private fun drawMoving(s: Style) {
+        s.getSourceAs<GeoJsonSource>("pub-moving")?.setGeoJson(FeatureCollection.fromFeatures(moving.map(::feature)))
+    }
+
+    private fun feature(d: MapContent.Dot): Feature =
+        Feature.fromGeometry(Point.fromLngLat(d.at.lon, d.at.lat)).apply {
+            addStringProperty("fill", rgba(d.fill)); addStringProperty("border", rgba(d.border))
+            addNumberProperty("radius", d.size / 2); addNumberProperty("stroke", d.borderWidth)
+            d.id?.let { addStringProperty("id", it) }
+            addStringProperty("label", d.label ?: "")
+            addStringProperty("textColor", if (dark) "rgba(244,244,242,1)" else "rgba(17,17,17,1)")
+            addStringProperty("halo", if (dark) "rgba(11,11,12,0.9)" else "rgba(255,255,255,0.9)")
+        }
 
     private fun move(m: MapLibreMap, cam: MapCamera, animated: Boolean) {
         if (view.width == 0 || view.height == 0) {

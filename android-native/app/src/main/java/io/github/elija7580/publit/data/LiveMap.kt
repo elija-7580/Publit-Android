@@ -140,6 +140,15 @@ object LiveMap {
         return if (list.size <= MAX_VEHICLES) list else list.sortedByDescending { rank(it.mode) }.take(MAX_VEHICLES)
     }
 
+    /**
+     * Vehicles are asked for from this long ago: a bus that stands at a stop for a minute or two keeps
+     * the hop it came on and stays on the map, instead of vanishing until it leaves again (LiveMap.lookBack on iOS).
+     */
+    const val LOOK_BACK_SECONDS = 180L
+
+    /** How often vehicle positions are worked out on the map: twice a second, every 2 s in battery saver. */
+    fun frameMillis(batterySaver: Boolean) = if (batterySaver) 2_000L else 500L
+
     /** Simplification for a map showing `spanMeters` across: about a pixel or two. */
     fun tolerance(spanMeters: Double) = (spanMeters / 800).coerceIn(2.0, 40.0)
 }

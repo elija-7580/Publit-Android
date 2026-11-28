@@ -134,7 +134,7 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
         } catch (e: CancellationException) { throw e } catch (e: Exception) { /* the card stays without the entry */ }
     }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
-    // Vehicles glide every 2 s and are fetched again every 30 s, only while the map is in front.
+    // Vehicles move twice a second (every 2 s in battery saver) and are fetched again every 30 s, only while the map is in front.
     LaunchedEffect(region, showLines, showVehicles, filter) {
         val r = region ?: return@LaunchedEffect
         lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
@@ -145,7 +145,7 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
                     val dl = r.latSpan * 0.75; val dn = r.lonSpan * 0.75
                     val zoom = max(14, log2(360 / max(r.lonSpan, 0.0001)).roundToInt())
                     val now = java.time.Instant.now()
-                    runCatching { client.mapTrips(LatLon(r.center.lat - dl, r.center.lon - dn), LatLon(r.center.lat + dl, r.center.lon + dn), zoom, now.minusSeconds(60), now.plusSeconds(300)) }
+                    runCatching { client.mapTrips(LatLon(r.center.lat - dl, r.center.lon - dn), LatLon(r.center.lat + dl, r.center.lon + dn), zoom, now.minusSeconds(io.github.elija7580.publit.data.LiveMap.LOOK_BACK_SECONDS), now.plusSeconds(300)) }
                         .onSuccess { segs ->
                             val snap = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
                                 io.github.elija7580.publit.data.LiveMap.build(segs, filter, if (zoom >= 14) 5 else 4, io.github.elija7580.publit.data.LiveMap.tolerance(r.latSpan * 111_000))
@@ -161,7 +161,17 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
             }
         }
     }
-    LaunchedEffect(Unit) { lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) { while (true) { tick = java.time.Instant.now(); delay(2_000) } } }
+    // Before, the dots jumped every 2 s (with the whole map redrawn), "like pigeons" (Munich, Nov. 2026). Now only the
+    // vehicles' own layer is updated, often enough that they glide.
+    LaunchedEffect(Unit) {
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            while (true) {
+                tick = java.time.Instant.now()
+                val saver = appContext.getSystemService(android.os.PowerManager::class.java)?.isPowerSaveMode == true
+                delay(io.github.elija7580.publit.data.LiveMap.frameMillis(saver))
+            }
+        }
+    }
     LaunchedEffect(region, showSharing) {
         val r = region ?: return@LaunchedEffect
         if (!showSharing || r.latSpan > 0.03) { rentals = io.github.elija7580.publit.data.RentalsResponse(); return@LaunchedEffect }
@@ -200,24 +210,24 @@ fun StationMapScreen(client: TransitousClient, start: LatLon?, onBack: () -> Uni
         if (!showVehicles || r == null) emptyList() else io.github.elija7580.publit.data.LiveMap.vehicles(tracks, tick,
             LatLon(r.center.lat - r.latSpan, r.center.lon - r.lonSpan), LatLon(r.center.lat + r.latSpan, r.center.lon + r.lonSpan))
     }
-    val content = remember(stations, focus, ink.dark, shapes, showLines, vehicles, rentals, showStations, categoryHits, region?.center, showGaps) {
+    val vehicleDots = remember(vehicles) { vehicles.map { v -> MapContent.Dot(v.coordinate, hexColor(v.colorHex), Color.White, 13f, 2f, id = "v|" + v.id, label = v.name) } }
+    val content = remember(stations, focus, ink.dark, shapes, showLines, rentals, showStations, categoryHits, region?.center, showGaps) {
         val categoryDots = categoryHits.mapIndexed { i, c -> MapContent.Dot(c.at, hexColor(c.category.colorHex), Color.White, 14f, 2f, id = "c|$i", label = c.name) }
         val lines = if (showLines) shapes.map { MapContent.Line(it.points, hexColor(io.github.elija7580.publit.data.LineColors.strokeHex(it.colorHex, ink.dark)), 3f) } else emptyList()
         val rentalDots = rentals.stations.map { MapContent.Dot(LatLon(it.lat, it.lon), Color(0xFF1B7A33), Color.White, 9f, 1.5f, id = "rs|" + it.id) } +
             rentals.vehicles.filter { it.isAvailable }.map { MapContent.Dot(LatLon(it.lat, it.lon), Color(0xFF00727A), Color.White, 7f, 1f, id = "rv|" + it.id) }
-        val vehicleDots = vehicles.map { v -> MapContent.Dot(v.coordinate, hexColor(v.colorHex), Color.White, 13f, 2f, id = "v|" + v.id, label = v.name) }
         val dots = (if (showStations) stations else emptyList()).map { s ->
             val c = hexColor(ModeStyle.defaultHex(s.mainMode))
             MapContent.Dot(s.coordinate, if (s.isMajor) c else Color.White, if (s.isMajor) Color.White else c,
                 if (s.isMajor) 14f else 10f, 2f, id = "s|" + s.id, label = if (s.isMajor || separate) MapStation.shortName(s.name) else null)
-        } + rentalDots + vehicleDots + categoryDots + listOfNotNull(focus?.let { MapContent.Dot(LatLon(it.lat, it.lon), ink.ink, Color.White, 18f, 3f, label = it.name) })
+        } + rentalDots + categoryDots + listOfNotNull(focus?.let { MapContent.Dot(LatLon(it.lat, it.lon), ink.ink, Color.White, 18f, 3f, label = it.name) })
         val gaps = region?.takeIf { showGaps }?.let { r -> io.github.elija7580.publit.data.CoverageAtlas.areas(r.center.lat - r.latSpan, r.center.lat + r.latSpan, r.center.lon - r.lonSpan, r.center.lon + r.lonSpan) }.orEmpty()
             .map { MapContent.Area(it.outline, it.level == io.github.elija7580.publit.data.CoverageLevel.NONE) }
         MapContent(lines = lines, dots = dots, areas = gaps)
     }
 
     Box(Modifier.fillMaxSize()) {
-        PublitMap(content, camera, Modifier.fillMaxSize(), onRegion = { region = it }, base = base, onLongPress = { p -> focus = GeocodeMatch(name = L10n.t("Dropped pin"), lat = p.lat, lon = p.lon) }, onTap = { id ->
+        PublitMap(content, camera, Modifier.fillMaxSize(), moving = vehicleDots, onRegion = { region = it }, base = base, onLongPress = { p -> focus = GeocodeMatch(name = L10n.t("Dropped pin"), lat = p.lat, lon = p.lon) }, onTap = { id ->
             when {
                 id == null -> selected = null
                 id.startsWith("s|") -> stations.firstOrNull { it.id == id.removePrefix("s|") }?.let { s -> onOpenStation(s.id, s.name, s.isPole) }
