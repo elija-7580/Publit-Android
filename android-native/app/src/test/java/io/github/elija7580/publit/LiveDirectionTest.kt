@@ -76,6 +76,7 @@ class LiveDirectionTest {
         assertEquals(3, LiveMatch.delayMinutes(3))
         assertEquals(-5, LiveMatch.delayMinutes(-5))
         assertNull(LiveMatch.delayMinutes(Int.MAX_VALUE))
+        assertNull(LiveMatch.delayMinutes(Int.MIN_VALUE))
         assertNull(LiveMatch.delayMinutes(-100_000))
         assertNull(LiveMatch.delayMinutes(null))
     }

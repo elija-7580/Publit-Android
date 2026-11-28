@@ -160,7 +160,7 @@ object LiveMatch {
     fun countdownMinutes(n: Int?): Int? = n?.takeIf { it in 0..1440 }
 
     /** A delay a board can mean, in minutes: within a day either way. */
-    fun delayMinutes(n: Int?): Int? = n?.takeIf { abs(it) <= 1440 }
+    fun delayMinutes(n: Int?): Int? = n?.takeIf { it in -1440..1440 }
 
     fun fix(d: LiveDeparture, source: String) = LiveFix(departure = d.expected, cancelled = d.cancelled, track = d.track, alerts = d.alerts, source = source)
 }
