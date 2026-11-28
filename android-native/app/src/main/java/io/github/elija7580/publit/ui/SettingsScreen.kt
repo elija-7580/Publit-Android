@@ -273,6 +273,7 @@ fun SettingsScreen(prefs: SharedPreferences, onWishes: () -> Unit = {}, onSuppor
                                 "VRN" to ("Rhineland-Palatinate" to "Live times of buses, trams and trains where Transitous has none"),
                                 "ACTV" to ("Venice" to "Live times of waterbuses and buses"),
                                 "SL" to ("Stockholm" to "Live departures and disruptions"),
+                                "Carris Metropolitana" to ("Lisbon area" to "Live times of buses around Lisbon"),
                                 "TfL" to ("London" to "Line status and disruptions (Powered by TfL Open Data)"),
                             ).forEach { (n, d) ->
                                 Column { Text(n + " · " + L10n.t(d.first), fontWeight = FontWeight.SemiBold, fontSize = 14.sp); Text(L10n.t(d.second), color = ink.muted, fontSize = 13.sp) }

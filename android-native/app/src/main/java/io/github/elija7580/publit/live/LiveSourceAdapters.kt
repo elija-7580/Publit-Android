@@ -283,6 +283,61 @@ object ACTVSource : LiveSource {
     }
 }
 
+/**
+ * Carris Metropolitana's open API (no key): estimated arrivals of the buses around Lisbon, as
+ * CarrisMetropolitanaSource on iOS (wish #4). Transitous has their timetable and positions but no
+ * times. The ride by its trip (Transitous' trip ID ends with the operator's), else line and time.
+ */
+object CarrisMetropolitanaSource : LiveSource {
+    override val name = "Carris Metropolitana"
+    override val horizon = 90 * 60L
+    override val onlyWithoutLive = true
+    const val PREFIX = "pt-Carris-Metropolitana_"
+    private data class Arrival(val trip: String?, val departure: LiveDeparture)
+    private val boards = TTLCache<List<Arrival>>(80)
+
+    override fun covers(ride: LiveRide) = ride.stopId?.startsWith(PREFIX) == true
+
+    override suspend fun fix(ride: LiveRide, now: Instant): LiveFix? {
+        for (id in stopIds(ride.stopId)) {
+            val deps = runCatching { boards.value(id, 30) { arrivals(id) } }.getOrNull()
+            if (deps.isNullOrEmpty()) continue
+            val trip = tripKey(ride.tripId)
+            if (trip != null) deps.firstOrNull { it.trip == trip }?.let { return LiveMatch.fix(it.departure, name) }
+            return LiveMatch.best(ride, deps.map { it.departure })?.let { LiveMatch.fix(it, name) }
+        }
+        return null
+    }
+
+    /** The operator's stop IDs for a Transitous stop: the same number, and for Lisbon, Barreiro and a
+     *  few more towns the one Transitous writes with a leading 3 instead of 0 ("360322" = "060322"). */
+    fun stopIds(stopId: String?): List<String> {
+        if (stopId == null || !stopId.startsWith(PREFIX)) return emptyList()
+        val id = stopId.removePrefix(PREFIX)
+        if (id.length != 6 || !id.all { it.isDigit() }) return emptyList()
+        return if (id.startsWith("3")) listOf(id, "0" + id.drop(1)) else listOf(id)
+    }
+
+    /** "20261128_11:00_pt-Carris-Metropolitana_[FBZQZ][A2L1N]4701_0_1|2800|1100" → the part after the prefix. */
+    fun tripKey(tripId: String?): String? {
+        if (tripId == null) return null
+        val i = tripId.indexOf(PREFIX)
+        if (i < 0) return null
+        return tripId.substring(i + PREFIX.length).ifEmpty { null }
+    }
+
+    /** "[A2L1N]4701" → "4701". */
+    fun line(id: String) = id.substringAfterLast(']')
+
+    private suspend fun arrivals(id: String): List<Arrival> =
+        J.objs(JSONArray(LiveHTTP.text("https://api.carrismetropolitana.pt/v2/arrivals/by_stop/$id"))).mapNotNull { a ->
+            val lineId = J.str(a, "line_id") ?: return@mapNotNull null
+            val sched = a.dbl("scheduled_arrival_unix") ?: return@mapNotNull null
+            val est = a.dbl("estimated_arrival_unix")?.let { Instant.ofEpochSecond(it.toLong()) }
+            Arrival(J.str(a, "trip_id"), LiveDeparture(listOf(line(lineId)), J.str(a, "headsign"), Instant.ofEpochSecond(sched.toLong()), est))
+        }
+}
+
 /** Storstockholms Lokaltrafik's open departures API (no key), with deviations. */
 object SLSource : LiveSource {
     override val name = "SL"

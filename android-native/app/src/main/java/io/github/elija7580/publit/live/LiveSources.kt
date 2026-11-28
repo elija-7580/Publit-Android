@@ -32,6 +32,8 @@ import kotlin.math.abs
 data class LiveRide(
     val point: LatLon, val stopId: String?, val stopName: String, val lines: List<String>, val headsign: String?,
     val scheduled: Instant, val mode: String, val tz: String? = null, val live: Boolean = false,
+    /** Transitous' trip ID, for sources that look a ride up by its trip. */
+    val tripId: String? = null,
 )
 
 /** A departure as an extra source reports it. */
@@ -194,14 +196,14 @@ object LiveOverlay {
     @Volatile var enabled = true
 
     val sources: List<LiveSource> = listOf(WienerLinienSource, HafasSource.oebb, SearchChSource, EFASource.vrr,
-        HafasSource.vbb, HafasSource.rmv, HafasSource.vbn, HafasSource.nahsh, EFASource.vrn, ACTVSource, SLSource, TfLStatusSource)
+        HafasSource.vbb, HafasSource.rmv, HafasSource.vbn, HafasSource.nahsh, EFASource.vrn, ACTVSource, SLSource, CarrisMetropolitanaSource, TfLStatusSource)
     val sourceNames get() = sources.map { it.name }
 
     fun ride(leg: Leg) = LiveRide(leg.from.coordinate, leg.from.stopId, leg.from.name, listOfNotNull(leg.routeShortName, leg.displayName).filter { it.isNotEmpty() },
-        leg.headsign, leg.scheduledStartTime ?: leg.startTime, leg.mode, leg.from.tz, leg.realTime)
+        leg.headsign, leg.scheduledStartTime ?: leg.startTime, leg.mode, leg.from.tz, leg.realTime, leg.tripId)
 
     fun ride(st: StopTime) = LiveRide(st.place.coordinate, st.place.stopId, st.place.name, listOfNotNull(st.routeShortName, st.displayName).filter { it.isNotEmpty() },
-        st.headsign, st.scheduledDepartureTime ?: st.departureTime, st.mode, st.place.tz, st.realTime)
+        st.headsign, st.scheduledDepartureTime ?: st.departureTime, st.mode, st.place.tz, st.realTime, st.tripId)
 
     fun wanted(r: LiveRide, now: Instant) = r.scheduled > now.minusSeconds(30 * 60) && sources.any { it.asks(r, now) }
 
