@@ -3,10 +3,15 @@ package io.github.elija7580.publit.data
 import io.github.elija7580.publit.core.LatLon
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonDecoder
 import java.time.Instant
 import java.time.OffsetDateTime
 
@@ -19,6 +24,24 @@ object InstantSerializer : KSerializer<Instant> {
 }
 
 typealias ApiInstant = @Serializable(with = InstantSerializer::class) Instant
+
+/**
+ * A list of the router's answer, read entry by entry (`LossyList` on iOS, build 112; Publit#208): a route or
+ * departure missing a field the API promises is skipped instead of failing the whole answer. Something that is
+ * no list at all still fails.
+ */
+open class LossyListSerializer<T : Any>(private val element: KSerializer<T>) : KSerializer<List<T>> {
+    private val list = ListSerializer(element)
+    override val descriptor: SerialDescriptor get() = list.descriptor
+    override fun serialize(encoder: Encoder, value: List<T>) = list.serialize(encoder, value)
+    override fun deserialize(decoder: Decoder): List<T> {
+        val input = decoder as? JsonDecoder ?: return list.deserialize(decoder)
+        val array = input.decodeJsonElement() as? JsonArray ?: throw SerializationException("Expected a list")
+        return array.mapNotNull { entry -> runCatching { input.json.decodeFromJsonElement(element, entry) }.getOrNull() }
+    }
+}
+
+object StopTimeListSerializer : LossyListSerializer<StopTime>(StopTime.serializer())
 
 @Serializable
 data class AlertPeriod(val start: ApiInstant? = null, val end: ApiInstant? = null) {
@@ -145,6 +168,7 @@ data class StopTime(
 
 @Serializable
 data class StopTimesResponse(
+    @Serializable(with = StopTimeListSerializer::class)
     val stopTimes: List<StopTime> = emptyList(),
     val place: Place? = null,
     val nextPageCursor: String? = null,

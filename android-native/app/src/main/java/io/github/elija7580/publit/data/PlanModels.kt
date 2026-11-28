@@ -118,9 +118,13 @@ data class Itinerary(
     }
 }
 
+object ItineraryListSerializer : LossyListSerializer<Itinerary>(Itinerary.serializer())
+
 @Serializable
 data class PlanResponse(
+    @Serializable(with = ItineraryListSerializer::class)
     val direct: List<Itinerary> = emptyList(),
+    @Serializable(with = ItineraryListSerializer::class)
     val itineraries: List<Itinerary> = emptyList(),
     val previousPageCursor: String? = null,
     val nextPageCursor: String? = null,
